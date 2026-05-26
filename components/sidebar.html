@@ -1,0 +1,54 @@
+<aside class="sidebar">
+
+  <!-- 👇 USUÁRIO -->
+  <div class="usuario">
+    <div class="avatar" id="avatar"></div>
+
+    <div class="info">
+      <span id="nome">Nome Usuário</span>
+      <small id="email">email@empresa.com</small>
+    </div>
+  </div>
+
+  <!-- 👇 LOGO -->
+  <div class="logo">
+
+  <img src="assets/logo.png" alt="Logo" class="logo-img">
+
+  <span class="logo-text">OnePage Expert</span>
+
+</div>
+
+  
+
+  <!-- 👇 MENU -->
+  <div class="menu">
+
+    <button onclick="mostrar('dashboard')">🏆 Dashboard</button>
+
+    <button onclick="mostrar('ranking')">📊 Ranking</button>
+
+    <button onclick="togglePreenchimento()">📥 Preenchimento</button>
+
+    <!-- SUBMENU -->
+    <div id="submenu-preenchimento" class="submenu">
+      <button onclick="selecionarIndicador('Ruptura Final')">Ruptura Final</button>
+      <button onclick="selecionarIndicador('Etiqueta')">Etiqueta</button>
+      <button onclick="selecionarIndicador('Self-Checkout')">Self-Checkout</button>
+      <button onclick="selecionarIndicador('Desconto')">Desconto</button>
+      <button onclick="selecionarIndicador('Cancelamento')">Cancelamento</button>
+      <button onclick="selecionarIndicador('Devolução')">Devolução</button>
+      <button onclick="selecionarIndicador('PSV')">PSV</button>
+      <button onclick="selecionarIndicador('Quebra Identificada')">Quebra</button>
+      <button onclick="selecionarIndicador('Quebra Identificada FLV')">Quebra FLV</button>
+    </div>
+
+    <button onclick="mostrar('indicadores')">📊 Indicadores</button>
+
+    <button onclick="mostrar('comparativos')">📈 Comparativos</button>
+
+    <button onclick="mostrar('configuracoes')">⚙️ Configurações</button>
+
+  </div>
+
+</aside>
