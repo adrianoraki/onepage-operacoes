@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Login - Sistema</title>
+
+    <link rel="stylesheet" href="/css/login.css" />
+  </head>
+  <body>
+    <div class="login-container">
+      <div class="login-box">
+        <h2>🔐 Acesso ao Sistema</h2>
+
+        <input type="email" id="email" placeholder="Digite seu e-mail" />
+        <input type="password" id="senha" placeholder="Digite sua senha" />
+
+        <button id="btnLogin" onclick="fazerLogin()">Entrar</button>
+
+        <p id="erro"></p>
+      </div>
+    </div>
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="app/login.js"></script>
+  </body>
+</html>

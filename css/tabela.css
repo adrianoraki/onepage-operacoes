@@ -1,87 +1,200 @@
-/* CONTAINER DA TABELA */
-.tabela-container {
-  overflow-x: auto;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-}
+/* ==========================
+   📦 CARD PRINCIPAL
+========================== */
+.card-conteudo {
+  position: relative;
+  z-index: 5;
 
-/* TABELA */
-.tabela {
-  border-collapse: collapse;
   width: 100%;
-  min-width: 1000px;
+  max-width: 100%;
+
+  background: rgba(255,255,255,0.96);
+  backdrop-filter: blur(8px);
+
+  border-radius: 12px;
+  padding: 15px;
+
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
 }
 
-/* CABEÇALHO */
+/* ==========================
+   📦 CONTAINER DA TABELA
+========================== */
+.tabela-container {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 10px;
+}
+
+/* ==========================
+   📊 TABELA
+========================== */
+.tabela {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+}
+
+/* ==========================
+   🧠 CABEÇALHO
+========================== */
 .tabela th {
-  background: #0a3d62;
+  background: linear-gradient(90deg, #0a3d62, #1e6091);
   color: white;
+
   padding: 12px;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
+
+  position: sticky;
+  top: 0;
+  z-index: 2;
+
+  text-transform: uppercase;
 }
 
-/* LINHAS */
+/* ==========================
+   📋 CÉLULAS
+========================== */
 .tabela td {
-  border: 1px solid #ddd;
-  padding: 8px;
+  padding: 10px;
   text-align: center;
+  font-size: 14px;
+
+  border-bottom: 1px solid #e5e5e5;
+
+  background: rgba(255,255,255,0.95);
 }
 
-/* COLUNA LOJA */
-.col-loja {
+/* ==========================
+   🏪 COLUNA LOJA
+========================== */
+.tabela td:nth-child(2) {
   text-align: left;
-  font-weight: bold;
-  background: #f5f5f5;
-  min-width: 200px;
+  font-weight: 600;
+
+  background: rgba(240,240,240,0.95);
 }
 
-/* INPUT */
+/* ==========================
+   🔢 INPUT
+========================== */
 .tabela input {
-  width: 70px;
+  width: 80px;
   padding: 6px;
+
   border-radius: 6px;
   border: 1px solid #ccc;
+
   text-align: center;
+  font-size: 13px;
+
+  transition: 0.2s;
 }
 
-/* FOCUS */
 .tabela input:focus {
-  border: 2px solid #0a3d62;
+  border: 2px solid #1e6091;
+  background: #eef6ff;
   outline: none;
 }
 
-/* ZEBRA */
-.tabela tr:nth-child(even) {
-  background: #fafafa;
+/* ==========================
+   🎨 ZEBRA
+========================== */
+.tabela tr:nth-child(even) td {
+  background: rgba(248,248,248,0.95);
 }
 
-/* HOVER */
-.tabela tr:hover {
-  background: #eef6ff;
+/* ==========================
+   ✨ HOVER
+========================== */
+.tabela tr:hover td {
+  background: rgba(30,96,145,0.1);
 }
 
+/* ==========================
+   💾 HEADER SUPERIOR
+========================== */
+.header-tabela {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 
-.topo select {
-  padding: 10px 12px;
-  border-radius: 8px;  /* 🔥 cantos arredondados */
-  border: 1px solid #ccc;
+  margin-bottom: 10px;
+}
+
+.header-tabela h2 {
+  color: #0a3d62;
+  font-size: 18px;
+}
+
+/* BOTÃO */
+.btn-salvar {
+  padding: 8px 14px;
+  border-radius: 6px;
+
+  border: none;
+  background: #1e6091;
+  color: white;
 
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
 
-  background: #ffffff;
   cursor: pointer;
-
-  outline: none;
 }
 
-/* hover */
-.topo select:hover {
-  border-color: #0a3d62;
+.btn-salvar:hover {
+  background: #144a75;
 }
 
-/* focus */
-.topo select:focus {
-  border: 2px solid #0a3d62;
+/* ==========================
+   📱 RESPONSIVIDADE
+========================== */
+
+/* TABLET */
+@media (max-width: 1024px) {
+  .tabela {
+    min-width: 800px;
+  }
+}
+
+/* MOBILE */
+@media (max-width: 768px) {
+
+  .card-conteudo {
+    padding: 10px;
+  }
+
+  .tabela {
+    min-width: 650px;
+  }
+
+  .tabela th,
+  .tabela td {
+    font-size: 12px;
+    padding: 6px;
+  }
+
+  .tabela input {
+    width: 60px;
+  }
+}
+
+/* TELAS GRANDES (TV / PROJETOR) */
+@media (min-width: 1600px) {
+
+  .tabela th,
+  .tabela td {
+    font-size: 16px;
+    padding: 14px;
+  }
+
+  .tabela input {
+    width: 100px;
+    font-size: 15px;
+  }
+
+  .header-tabela h2 {
+    font-size: 22px;
+  }
 }

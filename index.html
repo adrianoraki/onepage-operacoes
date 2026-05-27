@@ -1,40 +1,46 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>OnePage Operações</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-  <!-- CSS externo -->
-  <link rel="stylesheet" href="/css/style.css">
-  <link rel="stylesheet" href="/css/tabela.css">
-  <link rel="stylesheet" href="/css/sidebar.css">
 
+  <!-- CSS -->
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/tabela.css" />
+
+  <!-- Ícones -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css"/>
 </head>
 
 <body>
 
-<div class="layout">
+<div class="main_box">
 
-  <!-- SIDEBAR DINÂMICO -->
+  <!-- ✅ BOTÃO MENU (FUNCIONA COM CHECKBOX DO SIDEBAR) -->
+  <div class="btn_one">
+    <label for="check">
+      <i class="fas fa-bars"></i>
+    </label>
+  </div>
+
+  <!-- ✅ SIDEBAR DINÂMICO -->
   <div id="sidebar"></div>
 
-  <!-- CONTEÚDO -->
+  <!-- ✅ CONTEÚDO -->
   <main id="conteudo" class="conteudo">
     <h2>Carregando...</h2>
   </main>
 
 </div>
 
+<!-- ✅ SUPABASE -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
-  <!-- Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-
-
-
-<!-- JS principal -->
+<!-- ✅ JS -->
 <script src="app/app.js"></script>
 <script src="app/tabela.js"></script>
-<script src="app/dashboard.js"></script>
+
 
 </body>
 </html>

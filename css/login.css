@@ -1,0 +1,238 @@
+/* ==========================
+   🔤 BASE
+========================== */
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap");
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ==========================
+   🌌 FUNDO
+========================== */
+body {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: url("/assets/side.jpeg") no-repeat center;
+  background-size: cover;
+}
+
+/* overlay escuro */
+body::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  background: rgba(0,0,0,0.65);
+  z-index: 0;
+}
+
+/* ==========================
+   📦 CONTAINER
+========================== */
+.login-container {
+  position: relative;
+  z-index: 2;
+
+  width: 100%;
+  padding: 20px;
+
+  display: flex;
+  justify-content: center;
+}
+
+/* ==========================
+   🧱 LOGIN BOX (GLASS)
+========================== */
+.login-box {
+  width: 100%;
+  max-width: 420px;
+
+  padding: 35px 30px;
+
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.2);
+
+  box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+
+  animation: fadeIn 0.4s ease;
+}
+
+/* ==========================
+   🧠 TÍTULO
+========================== */
+.login-box h2 {
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 600;
+
+  margin-bottom: 25px;
+  text-align: center;
+}
+
+/* ==========================
+   🔳 INPUTS
+========================== */
+.login-box input {
+  width: 100%;
+  padding: 12px;
+
+  margin-bottom: 14px;
+
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.3);
+
+  background: rgba(255,255,255,0.1);
+  color: white;
+
+  font-size: 14px;
+  outline: none;
+}
+
+/* placeholder */
+.login-box input::placeholder {
+  color: rgba(255,255,255,0.7);
+}
+
+/* foco */
+.login-box input:focus {
+  border-color: #3f7bcc;
+  background: rgba(255,255,255,0.15);
+}
+
+/* ==========================
+   🔘 BOTÃO
+========================== */
+.login-box button {
+  width: 100%;
+  padding: 12px;
+
+  border: none;
+  border-radius: 8px;
+
+  background: linear-gradient(90deg, #3f7bcc, #1e6091);
+  color: white;
+
+  font-weight: 600;
+  font-size: 14px;
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* hover */
+.login-box button:hover {
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+/* clique */
+.login-box button:active {
+  transform: scale(0.98);
+}
+
+/* ==========================
+   ❌ ERRO
+========================== */
+#erro {
+  margin-top: 10px;
+  font-size: 13px;
+  text-align: center;
+
+  color: #ff6b6b;
+}
+
+.login-box button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ==========================
+   ✨ ANIMAÇÃO
+========================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================
+   📱 RESPONSIVIDADE
+========================== */
+
+/* CELULAR */
+@media (max-width: 480px) {
+
+  .login-box {
+    padding: 25px 20px;
+    max-width: 100%;
+  }
+
+  .login-box h2 {
+    font-size: 18px;
+  }
+
+}
+
+/* TABLET */
+@media (max-width: 768px) {
+
+  .login-box {
+    max-width: 350px;
+  }
+
+}
+
+/* NOTEBOOK */
+@media (min-width: 1200px) {
+
+  .login-box {
+    max-width: 450px;
+  }
+
+}
+
+/* TELAS GRANDES / TV */
+@media (min-width: 1600px) {
+
+  .login-box {
+    max-width: 520px;
+    padding: 40px;
+  }
+
+  .login-box input {
+    font-size: 16px;
+    padding: 14px;
+  }
+
+  .login-box button {
+    font-size: 16px;
+    padding: 14px;
+  }
+
+  .login-box h2 {
+    font-size: 22px;
+  }
+
+}

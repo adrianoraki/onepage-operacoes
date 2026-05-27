@@ -1,3 +1,30 @@
+const usuario = localStorage.getItem("usuario")
+
+if (!usuario) {
+  window.location.replace("login.html") // 🔥 melhor que href
+}
+
+// ==========================
+// 🔐 LOGOUT PROFISSIONAL
+// ==========================
+function logout() {
+
+  try {
+
+    console.log("🔒 Logout iniciado")
+
+    // ✅ limpa sessão
+    localStorage.removeItem("usuario")
+
+    // ✅ evita voltar com botão do navegador
+    window.location.replace("login.html")
+
+  } catch (erro) {
+    console.error("❌ Erro no logout:", erro)
+  }
+}
+
+
 // ==========================
 // 🔐 CONFIG SUPABASE (ROBUSTO)
 // ==========================
@@ -53,6 +80,45 @@ async function carregarSidebar() {
 
     console.log("✅ Sidebar carregado com sucesso")
 
+    // ==========================
+// 👤 USUÁRIO LOGADO
+// ==========================
+
+const usuario = JSON.parse(localStorage.getItem("usuario"))
+
+if (usuario) {
+
+  const nomeCompleto = `${usuario.nome} ${usuario.sobrenome}`
+
+  const nomeEl = document.getElementById("nomeUsuario")
+  const emailEl = document.getElementById("emailUsuario")
+  const matriculaEl = document.getElementById("matriculaUsuario")
+  const avatarEl = document.getElementById("avatar")
+
+  if (nomeEl) nomeEl.textContent = nomeCompleto
+  if (emailEl) emailEl.textContent = usuario.email
+  if (matriculaEl) matriculaEl.textContent = usuario.matricula
+
+  if (avatarEl) {
+    const iniciais = (
+      (usuario.nome?.charAt(0) || "") +
+      (usuario.sobrenome?.charAt(0) || "")
+    ).toUpperCase()
+
+    avatarEl.textContent = iniciais
+  }
+}
+
+// ==========================
+// 🔥 BOTÃO LOGOUT (SEMPRE)
+// ==========================
+const btnLogout = document.querySelector(".btn-logout")
+
+if (btnLogout) {
+  btnLogout.addEventListener("click", logout)
+}
+
+
   } catch (erro) {
     console.error("❌ Erro ao carregar sidebar:", erro)
     mostrarErro("Erro ao carregar menu")
@@ -80,21 +146,8 @@ function mostrar(tela) {
         break
 
       case "preencher":
-
-        const indicador = localStorage.getItem("indicador")
-
-        console.log("📥 Indicador selecionado:", indicador)
-
-        if (indicador && typeof carregarTabela === "function") {
-          carregarTabela()
-        } else {
-          document.getElementById("conteudo").innerHTML = `
-            <h2>📥 Preenchimento</h2>
-            <p>Selecione um indicador no menu lateral.</p>
-          `
-        }
-
-        break
+        console.log("📥 Tela preenchimento acionada (sem render direto)")
+        return;
 
       case "indicadores":
         telaEmConstrucao("Indicadores")
@@ -128,22 +181,13 @@ function togglePreenchimento() {
 
   const submenu = document.getElementById("submenu-preenchimento")
 
-  if (!submenu) {
-    console.warn("⚠️ Submenu não encontrado no DOM")
-    return
-  }
+  if (!submenu) return
 
-  menuPreenchimentoAberto = !menuPreenchimentoAberto
+  const aberto = submenu.style.display === "block"
 
-  submenu.style.display = menuPreenchimentoAberto ? "block" : "none"
+  submenu.style.display = aberto ? "none" : "block"
 
-  console.log(
-    `📂 Submenu ${menuPreenchimentoAberto ? "ABERTO ✅" : "FECHADO ❌"}`
-  )
-
-  if (menuPreenchimentoAberto) {
-    mostrar("preencher")
-  }
+  console.log(`📂 ${aberto ? "Fechado ❌" : "Aberto ✅"}`)
 }
 
 
@@ -156,10 +200,13 @@ function selecionarIndicador(indicador) {
 
   localStorage.setItem("indicador", indicador)
 
-  mostrar("preencher")
+  if (typeof carregarTabela === "function") {
+    carregarTabela()
+  } else {
+    console.error("❌ função carregarTabela não encontrada")
+  }
 
   const submenu = document.getElementById("submenu-preenchimento")
-
   if (submenu) submenu.style.display = "none"
 
   menuPreenchimentoAberto = false
@@ -201,13 +248,16 @@ function mostrarErro(msg) {
 // ==========================
 function setActiveMenu(tela) {
 
-  const botoes = document.querySelectorAll(".sidebar button")
+  const itens = document.querySelectorAll(".sidebar_menu .menu ul li")
 
-  botoes.forEach(btn => {
-    btn.classList.remove("ativo")
+  itens.forEach(li => {
 
-    if (btn.getAttribute("onclick")?.includes(tela)) {
-      btn.classList.add("ativo")
+    li.classList.remove("ativo")
+
+    const onclick = li.getAttribute("onclick")
+
+    if (onclick && onclick.includes(tela)) {
+      li.classList.add("ativo")
     }
   })
 }
@@ -225,7 +275,7 @@ async function testarConexao() {
       return false
     }
 
-    const { data, error } = await supabaseClient
+    const { error } = await supabaseClient
       .from("lojas")
       .select("*")
       .limit(1)
@@ -252,26 +302,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   console.log("🚀 Sistema iniciado")
 
-  // ✅ 1. CARREGA SIDEBAR ANTES DE TUDO
   await carregarSidebar()
 
-  // ✅ 2. INICIA SUPABASE
+  localStorage.removeItem("indicador")
+
+  const submenu = document.getElementById("submenu-preenchimento")
+  if (submenu) submenu.style.display = "none"
+
   const okSupabase = initSupabase()
 
   if (!okSupabase) {
-    console.warn("⚠️ Sistema sem banco (modo parcial)")
+    console.warn("⚠️ Sistema sem banco")
     mostrar("dashboard")
     return
   }
 
-  // ✅ 3. TESTA CONEXÃO
   const conectado = await testarConexao()
 
   if (conectado) {
     console.log("✅ Sistema pronto")
     mostrar("dashboard")
   } else {
-    console.warn("⚠️ Banco não respondeu, mas sistema carregado")
+    console.warn("⚠️ Banco não respondeu")
     mostrar("dashboard")
   }
 
