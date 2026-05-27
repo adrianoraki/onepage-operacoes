@@ -15,58 +15,72 @@ const INDICADORES = [
 
 let indicadorSelecionado = null
 
+console.log("✅ tabela.js carregado")
+
 // ==========================
-// 📅 OBTER SEMANA ATUAL
+// 📅 SEMANA ATUAL (ROBUSTO)
 // ==========================
 function getSemanaAtual() {
+
   const hoje = new Date()
   const inicioAno = new Date(hoje.getFullYear(), 0, 1)
+
   const dias = Math.floor((hoje - inicioAno) / 86400000)
 
-  return Math.ceil((dias + inicioAno.getDay() + 1) / 7)
+  let semana = Math.ceil((dias + inicioAno.getDay() + 1) / 7)
+
+  if (semana > 52) semana = 1
+
+  console.log("📅 Semana atual:", semana)
+
+  return semana
 }
 
+
 // ==========================
-// 🔄 GERAR SEMANAS
+// 🗓️ GERAR SEMANAS (RESOLVE NEGATIVO)
 // ==========================
 function gerarSemanas() {
 
-  const semanaAtual = getSemanaAtual()
+  const atual = getSemanaAtual()
 
-  return [
-    (semanaAtual - 3).toString(),
-    (semanaAtual - 2).toString(),
-    (semanaAtual - 1).toString(),
-    semanaAtual.toString()
-  ]
+  const lista = [
+    atual - 3,
+    atual - 2,
+    atual - 1,
+    atual
+  ].map(s => (s <= 0 ? 52 + s : s))
+
+  const semanas = lista.map(s => s.toString().padStart(2, "0"))
+
+  console.log("🗓️ Semanas:", semanas)
+
+  return semanas
 }
 
-// ==========================
-// 🔄 SELECIONAR INDICADOR
-// ==========================
-function carregarIndicador(indicador) {
-
-  localStorage.setItem("indicador", indicador)
-
-  mostrar("preencher")
-}
 
 // ==========================
 // 📊 CARREGAR TABELA
 // ==========================
 async function carregarTabela() {
 
+  console.log("🚀 carregarTabela iniciado")
+
   try {
 
     indicadorSelecionado = localStorage.getItem("indicador")
 
     if (!indicadorSelecionado) {
+      console.warn("⚠️ Nenhum indicador selecionado")
+
       document.getElementById("conteudo").innerHTML = `
         <h2>📥 Preenchimento</h2>
         <p>Escolha um indicador no menu lateral.</p>
       `
       return
     }
+
+    console.log("📊 Indicador:", indicadorSelecionado)
 
     const semanas = gerarSemanas()
 
@@ -84,7 +98,10 @@ async function carregarTabela() {
     const lojas = lojasResp.data || []
     const resultados = resultadosResp.data || []
 
-    // 🔥 mapa de performance
+    console.log("🏬 Lojas carregadas:", lojas.length)
+    console.log("📊 Resultados carregados:", resultados.length)
+
+    // mapa rápido
     const mapa = {}
 
     resultados.forEach(r => {
@@ -95,10 +112,11 @@ async function carregarTabela() {
       montarHTMLTabela(lojas, mapa, semanas)
 
   } catch (erro) {
-    console.error("Erro:", erro)
+    console.error("❌ Erro ao carregar tabela:", erro)
     mostrarErro("Erro ao carregar tabela")
   }
 }
+
 
 // ==========================
 // 🧱 TABELA HTML
@@ -112,7 +130,9 @@ function montarHTMLTabela(lojas, mapa, semanas) {
       <table class="tabela">
         <thead>
           <tr>
+            <th>Código</th>
             <th>Loja</th>
+            <th>Regional</th>
   `
 
   semanas.forEach(sem => {
@@ -138,18 +158,28 @@ function montarHTMLTabela(lojas, mapa, semanas) {
   return html
 }
 
+
 // ==========================
-// 🧱 LINHA
+// 🧱 LINHA DA TABELA
 // ==========================
 function montarLinha(loja, mapa, semanas) {
 
-  const nomeLoja = `${loja.codigo} - ${loja.nome}`
+  const codigo = loja.codigo
+  const nome = loja.nome
+  const regional = loja.regional || "-"
 
-  let html = `<tr><td class="col-loja">${nomeLoja}</td>`
+  const chaveLoja = `${codigo} - ${nome}`
+
+  let html = `
+    <tr>
+      <td>${codigo}</td>
+      <td>${nome}</td>
+      <td>${regional}</td>
+  `
 
   semanas.forEach(semana => {
 
-    const reg = mapa[`${nomeLoja}-${semana}`]
+    const reg = mapa[`${chaveLoja}-${semana}`]
     const valor = reg?.valor ?? ""
 
     html += `
@@ -158,7 +188,7 @@ function montarLinha(loja, mapa, semanas) {
           type="number"
           step="0.01"
           value="${valor}"
-          onblur="salvarValor('${nomeLoja}', '${semana}', this.value)"
+          onblur="salvarValor('${chaveLoja}','${semana}',this.value)"
         >
       </td>
     `
@@ -169,37 +199,54 @@ function montarLinha(loja, mapa, semanas) {
   return html
 }
 
+
 // ==========================
-// 💾 SALVAR
+// 💾 SALVAR NO SUPABASE
 // ==========================
 async function salvarValor(loja, semana, valor) {
 
-  if (!valor) return
+  if (valor === "" || valor === null) return
 
   const numero = Number(valor)
+
   if (isNaN(numero)) return
 
-  const { data: existente } = await supabase
-    .from("resultados")
-    .select("id")
-    .eq("loja", loja)
-    .eq("semana", semana)
-    .eq("indicador", indicadorSelecionado)
-    .maybeSingle()
+  console.log("💾 Salvando:", { loja, semana, numero })
 
-  if (existente) {
-    await supabase
+  try {
+
+    const { data: existente } = await supabase
       .from("resultados")
-      .update({ valor: numero })
-      .eq("id", existente.id)
-  } else {
-    await supabase
-      .from("resultados")
-      .insert([{
-        loja,
-        semana,
-        indicador: indicadorSelecionado,
-        valor: numero
-      }])
+      .select("id")
+      .eq("loja", loja)
+      .eq("semana", semana)
+      .eq("indicador", indicadorSelecionado)
+      .maybeSingle()
+
+    if (existente) {
+
+      await supabase
+        .from("resultados")
+        .update({ valor: numero })
+        .eq("id", existente.id)
+
+      console.log("✅ Atualizado")
+
+    } else {
+
+      await supabase
+        .from("resultados")
+        .insert([{
+          loja,
+          semana,
+          indicador: indicadorSelecionado,
+          valor: numero
+        }])
+
+      console.log("✅ Inserido")
+    }
+
+  } catch (erro) {
+    console.error("❌ Erro ao salvar:", erro)
   }
 }
