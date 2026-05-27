@@ -7,7 +7,8 @@
   font-family: "Poppins", sans-serif;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   overflow: hidden;
 }
@@ -27,10 +28,12 @@ html, body {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.55);
+  background: rgba(0, 0, 0, 0.55);
   z-index: 0;
 }
+
 .sidebar_menu {
+  flex: 1;
   width: 280px;
   height: 100vh;
 
@@ -39,10 +42,10 @@ html, body {
   display: flex;
   flex-direction: column;
 
-  background: rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(12px);
 
-  box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
 
   z-index: 1000;
 }
@@ -51,7 +54,7 @@ html, body {
 .logo {
   padding: 15px 20px 15px 60px;
 
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .logo a {
@@ -60,6 +63,7 @@ html, body {
   font-size: 18px;
   font-weight: 600;
 }
+
 .menu {
   flex: 1;
   overflow-y: auto;
@@ -82,7 +86,7 @@ html, body {
 }
 
 .menu ul li:hover {
-  background: rgba(255,255,255,0.15);
+  background: rgba(255, 255, 255, 0.15);
   border-left: 3px solid #fff;
 }
 
@@ -100,6 +104,7 @@ html, body {
   font-size: 14px;
   color: #ccc;
 }
+
 .bottom-area {
   margin-top: auto;
 }
@@ -116,16 +121,19 @@ html, body {
 }
 
 .config-btn:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* BLOCO USUARIO */
-.user-footer {
-  padding: 15px;
 
-  background: rgba(0,0,0,0.3);
-  backdrop-filter: blur(6px);
+.user-footer {
+  padding: 20px 18px;
+  /* 🔥 MAIS ESPAÇO */
+
+  background: rgba(0, 0, 0, 0.35);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
 }
+
 
 .user-info {
   display: flex;
@@ -134,8 +142,9 @@ html, body {
 }
 
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
+  font-size: 34px;
 
   border-radius: 50%;
   background: #3f7bcc;
@@ -150,6 +159,8 @@ html, body {
 .dados {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  /* 🔥 aumenta respiro */
 }
 
 .dados .nome {
@@ -172,7 +183,12 @@ html, body {
   width: 100%;
   margin-top: 8px;
 
-  padding: 8px;
+
+  padding: 11px;
+
+  font-size: 14px;
+  border-radius: 8px;
+
   border-radius: 6px;
 
   border: none;
@@ -180,6 +196,7 @@ html, body {
   color: white;
   cursor: pointer;
 }
+
 .conteudo {
   flex: 1;
 
@@ -196,6 +213,7 @@ html, body {
   width: 100%;
   max-width: 100%;
 }
+
 /* TABLET */
 @media (max-width: 1024px) {
   .sidebar_menu {
@@ -206,7 +224,8 @@ html, body {
 /* MOBILE */
 @media (max-width: 768px) {
 
-  html, body {
+  html,
+  body {
     overflow: auto;
   }
 
@@ -215,7 +234,7 @@ html, body {
     left: -100%;
   }
 
-  #check:checked ~ .sidebar_menu {
+  #check:checked~.sidebar_menu {
     left: 0;
   }
 
@@ -225,12 +244,27 @@ html, body {
   }
 }
 
-/* TELAS GRANDES */
-@media (min-width: 1600px) {
 
+/* Desktop grande */
+@media (min-width: 1400px) {
   .sidebar_menu {
-    width: 320px;
+    width: 300px;
   }
+}
+
+/* Monitor maior */
+@media (min-width: 1600px) {
+  .sidebar_menu {
+    width: 340px;
+  }
+}
+
+/* Ultra Wide / TV */
+@media (min-width: 2000px) {
+  .sidebar_menu {
+    width: 380px;
+  }
+
 
 }
 
@@ -239,6 +273,65 @@ html, body {
 
   .sidebar_menu {
     width: 360px;
+  }
+
+}
+@media (min-width: 1600px) {
+
+  .user-footer {
+    padding: 25px;
+  }
+
+}
+@media (min-width: 1600px) {
+
+  .avatar {
+    width: 60px;
+    height: 60px;
+    font-size: 20px;
+  }
+
+}
+@media (min-width: 1600px) {
+
+  .dados .nome {
+    font-size: 17px;
+  }
+
+  .dados .matricula {
+    font-size: 14px;
+  }
+
+  .dados .email {
+    font-size: 13px;
+  }
+
+}
+
+@media (min-width: 1600px) {
+
+  .btn-logout {
+    padding: 14px;
+    font-size: 15px;
+  }
+
+}
+@media (min-width: 1600px) {
+
+  .menu ul li {
+    font-size: 16px;
+    padding: 16px 24px;
+  }
+
+}
+@media (min-width: 1600px) {
+
+  .user-info {
+    gap: 15px;
+  }
+
+  .dados {
+    gap: 6px;
   }
 
 }
