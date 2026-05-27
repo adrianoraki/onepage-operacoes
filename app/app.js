@@ -1,12 +1,18 @@
 // ==========================
 // 🔐 CONFIG SUPABASE
 // ==========================
-const SUPABASE_URL = "https://dnlrnveqhdudkzlcazbw.supabase.co"
+const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co"
 
-const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY"
+  
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+const { createClient } = supabase
+
+const supabaseClient = createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+)
+
 window.supabase = supabaseClient
 
 
