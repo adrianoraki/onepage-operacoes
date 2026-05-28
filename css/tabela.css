@@ -4,16 +4,12 @@
 .card-conteudo {
   position: relative;
   z-index: 5;
-
   width: 100%;
   max-width: 100%;
-
   background: rgba(255,255,255,0.96);
   backdrop-filter: blur(8px);
-
   border-radius: 12px;
   padding: 15px;
-
   box-shadow: 0 10px 30px rgba(0,0,0,0.25);
 }
 
@@ -41,15 +37,12 @@
 .tabela th {
   background: linear-gradient(90deg, #0a3d62, #1e6091);
   color: white;
-
   padding: 12px;
   font-size: 14px;
   font-weight: 600;
-
   position: sticky;
   top: 0;
   z-index: 2;
-
   text-transform: uppercase;
 }
 
@@ -60,9 +53,7 @@
   padding: 10px;
   text-align: center;
   font-size: 14px;
-
   border-bottom: 1px solid #e5e5e5;
-
   background: rgba(255,255,255,0.95);
 }
 
@@ -72,29 +63,27 @@
 .tabela td:nth-child(2) {
   text-align: left;
   font-weight: 600;
-
   background: rgba(240,240,240,0.95);
 }
 
 /* ==========================
-   🔢 INPUT
+   🔢 INPUT MELHORADO
 ========================== */
 .tabela input {
   width: 80px;
-  padding: 6px;
-
-  border-radius: 6px;
+  height: 32px;
+  border-radius: 8px;
   border: 1px solid #ccc;
-
   text-align: center;
   font-size: 13px;
-
+  font-weight: 500;
   transition: 0.2s;
+  background: #fff;
 }
 
 .tabela input:focus {
-  border: 2px solid #1e6091;
-  background: #eef6ff;
+  border: 2px solid #4CAF50;
+  background: #eefaf0;
   outline: none;
 }
 
@@ -113,14 +102,14 @@
 }
 
 /* ==========================
-   💾 HEADER SUPERIOR
+   💾 HEADER
 ========================== */
 .header-tabela {
   display: flex;
   justify-content: space-between;
   align-items: center;
-
-  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .header-tabela h2 {
@@ -128,45 +117,102 @@
   font-size: 18px;
 }
 
-/* BOTÃO */
-.btn-salvar {
-  padding: 8px 14px;
-  border-radius: 6px;
-
-  border: none;
-  background: #1e6091;
-  color: white;
-
-  font-size: 14px;
-  font-weight: 600;
-
-  cursor: pointer;
+/* ==========================
+   🎯 FILTROS
+========================== */
+.filtros-tabela {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
-.btn-salvar:hover {
-  background: #144a75;
+.filtros-tabela input {
+  height: 38px;
+  min-width: 120px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-size: 13px;
+  transition: 0.2s;
+}
+
+.filtros-tabela input:focus {
+  border-color: #4CAF50;
+  box-shadow: 0 0 5px rgba(76,175,80,0.3);
+}
+
+/* ==========================
+   📅 SELECT SEMANA
+========================== */
+.filtro-semana {
+  height: 40px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  border: 1px solid #ccc;
+  font-size: 13px;
+  font-weight: 600;
+  background: linear-gradient(to right, #ffffff, #f5fff5);
+  transition: 0.2s;
+}
+
+.filtro-semana:focus {
+  border-color: #4CAF50;
+  box-shadow: 0 0 5px rgba(76,175,80,0.3);
+}
+
+.semana-ativa {
+  background-color: #4CAF50;
+  color: #fff;
+  font-weight: bold;
+}
+
+/* ✅ coluna da semana atual */
+.coluna-atual {
+  background-color: #e8f5e9 !important;
+  border-left: 2px solid #4CAF50;
+  border-right: 2px solid #4CAF50;
+}
+
+/* ✅ cabeçalho destacado */
+th.coluna-atual {
+  background: linear-gradient(90deg, #2e7d32, #4CAF50) !important;
+  color: #fff;
 }
 
 /* ==========================
    📱 RESPONSIVIDADE
 ========================== */
-
-/* TABLET */
 @media (max-width: 1024px) {
   .tabela {
-    min-width: 800px;
+    min-width: 750px;
   }
 }
 
-/* MOBILE */
 @media (max-width: 768px) {
-
   .card-conteudo {
     padding: 10px;
   }
 
+  .header-tabela {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filtro-semana {
+    width: 100%;
+  }
+
+  .filtros-tabela {
+    width: 100%;
+  }
+
+  .filtros-tabela input {
+    width: 100%;
+  }
+
   .tabela {
-    min-width: 650px;
+    min-width: 600px;
   }
 
   .tabela th,
@@ -176,13 +222,12 @@
   }
 
   .tabela input {
-    width: 60px;
+    width: 55px;
+    font-size: 12px;
   }
 }
 
-/* TELAS GRANDES (TV / PROJETOR) */
 @media (min-width: 1600px) {
-
   .tabela th,
   .tabela td {
     font-size: 16px;
@@ -192,6 +237,7 @@
   .tabela input {
     width: 100px;
     font-size: 15px;
+    height: 36px;
   }
 
   .header-tabela h2 {

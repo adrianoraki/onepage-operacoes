@@ -1,95 +1,112 @@
 <div class="main_box">
-
   <input type="checkbox" id="check" />
 
-  <div class="btn_one">
-    <label for="check">
-      <i class="fas fa-bars"></i>
-    </label>
-  </div>
-
+  
   <div class="sidebar_menu">
-
-    <!-- LOGO -->
+    <!-- ==========================
+         🔷 LOGO
+    =========================== -->
     <div class="logo">
-      <a href="#">OnePage Expert</a>
+      <a href="#">
+        <i class="fas fa-layer-group" style="color: #3f7bcc"></i>
+        OnePage Expert
+      </a>
     </div>
 
-
-    <!-- MENU PRINCIPAL -->
+    <!-- ==========================
+         📋 MENU
+    =========================== -->
     <div class="menu">
-      <ul>
-
-        <li onclick="mostrar('dashboard')">
-          <i class="fas fa-qrcode"></i>
+      <ul id="menu-list">
+        <li
+          onclick="
+            logMenu('dashboard');
+            mostrar('dashboard');
+          "
+        >
+          <i class="fas fa-gauge-high" style="color: #4caf50"></i>
           <span>Dashboard</span>
         </li>
 
-        <li onclick="mostrar('ranking')">
-          <i class="fas fa-chart-bar"></i>
+        <li
+          onclick="
+            logMenu('ranking');
+            mostrar('ranking');
+          "
+        >
+          <i class="fas fa-trophy" style="color: #ffc107"></i>
           <span>Ranking</span>
         </li>
 
-        <li onclick="togglePreenchimento()">
-          <i class="fas fa-edit"></i>
-          <span>Preenchimento</span>
-        </li>
-
-        <!-- SUBMENU -->
-        <li id="submenu-preenchimento" class="submenu">
-          <ul>
-            <li onclick="selecionarIndicador('Ruptura Final')">Ruptura Final</li>
-            <li onclick="selecionarIndicador('Etiqueta')">Etiqueta</li>
-            <li onclick="selecionarIndicador('Self-Checkout')">Self-Checkout</li>
-            <li onclick="selecionarIndicador('Desconto')">Desconto</li>
-            <li onclick="selecionarIndicador('Cancelamento')">Cancelamento</li>
-            <li onclick="selecionarIndicador('Devolução')">Devolução</li>
-            <li onclick="selecionarIndicador('PSV')">PSV</li>
-            <li onclick="selecionarIndicador('Quebra Identificada')">Quebra</li>
-            <li onclick="selecionarIndicador('Quebra Identificada FLV')">Quebra FLV</li>
-          </ul>
-        </li>
-
-        <li onclick="mostrar('indicadores')">
-          <i class="fas fa-chart-line"></i>
+        <li
+          onclick="
+            logMenu('indicadores');
+            mostrar('indicadores');
+          "
+        >
+          <i class="fas fa-chart-line" style="color: #03a9f4"></i>
           <span>Indicadores</span>
         </li>
 
-        <li onclick="mostrar('comparativos')">
-          <i class="fas fa-chart-pie"></i>
+        <li
+          onclick="
+            logMenu('comparativos');
+            mostrar('comparativos');
+          "
+        >
+          <i class="fas fa-chart-pie" style="color: #9c27b0"></i>
           <span>Comparativos</span>
         </li>
 
+        <!-- 🔥 CLASSES DINÂMICAS ENTRAM AQUI -->
+       
       </ul>
     </div>
 
-    <!-- ✅ USUÁRIO + CONFIGURAÇÕES (FINAL FIXO) -->
+    <!-- ==========================
+         🔻 RODAPÉ
+    =========================== -->
     <div class="bottom-area">
+      <!-- CONFIG -->
 
-      <!-- CONFIGURAÇÕES -->
-      <div class="config-btn" onclick="mostrar('configuracoes')">
-        <i class="fas fa-cog"></i>
+      <div
+        class="config-btn"
+        onclick="
+          logMenu('configuracoes');
+          mostrar('configuracoes');
+        "
+      >
+        <i class="fas fa-gear" style="color: #9e9e9e"></i>
         <span>Configurações</span>
       </div>
 
-      <!-- USUÁRIO -->
+      <!-- ==========================
+           👤 USUÁRIO
+      =========================== -->
       <div class="user-footer">
-
         <div class="user-info">
-          <div class="avatar">U</div>
+          <div class="avatar" id="avatar"></div>
 
           <div class="dados">
-            <span class="nome">Nome Usuário</span>
-            <small class="matricula">Mat: </small>
-            <small class="email">email@empresa.com</small>
+            <span class="nome" id="nomeUsuario"></span>
+            <span class="matricula" id="matriculaUsuario"></span>
+            <span class="email" id="emailUsuario"></span>
           </div>
         </div>
 
-        <button class="btn-logout">Sair</button>
+        <!-- LOGOUT -->
 
+        <button
+          class="btn-logout"
+          onclick="
+            logMenu('logout');
+            logout();
+          "
+        >
+          <i class="fas fa-right-from-bracket"></i>
+          Sair
+        </button>
       </div>
-
     </div>
-
   </div>
 </div>

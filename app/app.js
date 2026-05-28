@@ -1,61 +1,67 @@
-const usuario = localStorage.getItem("usuario")
+// ==========================
+// 🔐 PROTEÇÃO LOGIN
+// ==========================
+const usuario = localStorage.getItem("usuario");
 
 if (!usuario) {
-  window.location.replace("login.html") // 🔥 melhor que href
+  window.location.replace("login.html");
 }
 
 // ==========================
-// 🔐 LOGOUT PROFISSIONAL
+// 🔐 LOGOUT
 // ==========================
 function logout() {
-
   try {
-
-    console.log("🔒 Logout iniciado")
-
-    // ✅ limpa sessão
-    localStorage.removeItem("usuario")
-
-    // ✅ evita voltar com botão do navegador
-    window.location.replace("login.html")
-
+    console.log("🔒 Logout iniciado");
+    localStorage.removeItem("usuario");
+    window.location.replace("login.html");
   } catch (erro) {
-    console.error("❌ Erro no logout:", erro)
+    console.error("❌ Erro no logout:", erro);
   }
 }
 
-
 // ==========================
-// 🔐 CONFIG SUPABASE (ROBUSTO)
+// 🔐 CONFIG SUPABASE
 // ==========================
-const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co"
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY"
+const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co";
+const SUPABASE_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY";
 
-let supabaseClient = null
+let supabaseClient = null;
 
 function initSupabase() {
   try {
-
     if (!window.supabase) {
-      console.error("❌ Biblioteca do Supabase não carregada")
-      return false
+      console.error("❌ Biblioteca do Supabase não carregada");
+      return false;
     }
 
-    const { createClient } = window.supabase
-
-    supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY)
+    const { createClient } = window.supabase;
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
     window.supabase = supabaseClient
 
-    console.log("✅ Supabase inicializado com sucesso")
-
-    return true
-
+    console.log("✅ Supabase inicializado");
+    return true;
   } catch (erro) {
-    console.error("❌ Erro ao iniciar Supabase:", erro)
-    return false
+    console.error("❌ Erro ao iniciar Supabase:", erro);
+    return false;
   }
 }
 
+// ==========================
+// 📊 CLASSES DE INDICADORES (NOVO 🔥)
+// ==========================
+const classesIndicadores = {
+  Auditoria: ["Ruptura Final", "Etiqueta"],
+
+  "Frente de Caixa": ["Self-chekout", "Desconto", "Cancelamento", "Devolução"],
+
+  Comercial: ["PSV", "NPS", "Part.Televendas"],
+
+  Quebras: ["QUEBRA", "Quebra FLV", "Quebra Açougue"],
+
+  "RH / Operacional": ["Banco de Horas", "TURNOVER"],
+};
 
 // ==========================
 // 📦 CARREGAR SIDEBAR
@@ -63,268 +69,436 @@ function initSupabase() {
 async function carregarSidebar() {
   try {
 
-    const el = document.getElementById("sidebar")
+    const el = document.getElementById("sidebar");
 
     if (!el) {
-      console.error("❌ Elemento #sidebar não existe no HTML")
-      return
+      console.warn("⚠️ Sidebar não encontrado");
+      return;
     }
 
-    const res = await fetch("components/sidebar.html")
+    // ✅ BLOQUEIO DE DUPLICAÇÃO (ESSA LINHA RESOLVE SEU BUG)
+    if (el.dataset.loaded === "true") {
+      console.warn("⚠️ Sidebar já carregado - NÃO recarregar");
+      return;
+    }
 
-    if (!res.ok) throw new Error(`Erro HTTP: ${res.status}`)
+    console.log("📦 Carregando sidebar...");
 
-    const html = await res.text()
+    const res = await fetch("components/sidebar.html");
+    const html = await res.text();
 
-    el.innerHTML = html
+    el.innerHTML = html;
 
-    console.log("✅ Sidebar carregado com sucesso")
+    // ✅ marca como carregado
+    el.dataset.loaded = "true";
 
-    // ==========================
-// 👤 USUÁRIO LOGADO
+    console.log("✅ Sidebar carregado");
+
+    preencherUsuario();
+    montarMenuIndicadores();
+
+    const btnLogout = document.querySelector(".btn-logout");
+    if (btnLogout) btnLogout.addEventListener("click", logout);
+
+  } catch (erro) {
+    console.error("❌ Erro sidebar:", erro);
+    mostrarErro("Erro ao carregar menu");
+  }
+}
+
 // ==========================
+// 👤 USUÁRIO
+// ==========================
+function preencherUsuario() {
+  const usuario = JSON.parse(localStorage.getItem("usuario"));
+  if (!usuario) return;
 
-const usuario = JSON.parse(localStorage.getItem("usuario"))
+  const nomeEl = document.getElementById("nomeUsuario");
+  const emailEl = document.getElementById("emailUsuario");
+  const matriculaEl = document.getElementById("matriculaUsuario");
+  const avatarEl = document.getElementById("avatar");
 
-if (usuario) {
-
-  const nomeCompleto = `${usuario.nome} ${usuario.sobrenome}`
-
-  const nomeEl = document.getElementById("nomeUsuario")
-  const emailEl = document.getElementById("emailUsuario")
-  const matriculaEl = document.getElementById("matriculaUsuario")
-  const avatarEl = document.getElementById("avatar")
-
-  if (nomeEl) nomeEl.textContent = nomeCompleto
-  if (emailEl) emailEl.textContent = usuario.email
-  if (matriculaEl) matriculaEl.textContent = usuario.matricula
+  if (nomeEl) nomeEl.textContent = `${usuario.nome} ${usuario.sobrenome}`;
+  if (emailEl) emailEl.textContent = usuario.email;
+  if (matriculaEl) matriculaEl.textContent = usuario.matricula;
 
   if (avatarEl) {
     const iniciais = (
-      (usuario.nome?.charAt(0) || "") +
-      (usuario.sobrenome?.charAt(0) || "")
-    ).toUpperCase()
+      (usuario.nome?.[0] || "") + (usuario.sobrenome?.[0] || "")
+    ).toUpperCase();
 
-    avatarEl.textContent = iniciais
+    avatarEl.textContent = iniciais;
   }
 }
 
 // ==========================
-// 🔥 BOTÃO LOGOUT (SEMPRE)
+// 🧭 MENU POR CLASSE (NOVO 🔥)
 // ==========================
-const btnLogout = document.querySelector(".btn-logout")
+function montarMenuIndicadores() {
+  const menu = document.querySelector("#menu-list");
+  if (!menu) return;
 
-if (btnLogout) {
-  btnLogout.addEventListener("click", logout)
-}
+  let index = 0;
 
+  for (const classe in classesIndicadores) {
+    const id = "classe_" + index;
 
-  } catch (erro) {
-    console.error("❌ Erro ao carregar sidebar:", erro)
-    mostrarErro("Erro ao carregar menu")
+    const icon = iconesClasse[classe] || "fa-folder";
+    const cor = coresClasse[classe] || "#ccc";
+
+    // 🔷 CLASSE
+    const liClasse = document.createElement("li");
+
+    liClasse.innerHTML = `
+      <i class="fas ${icon}" style="color:${cor}"></i>
+      <span>${classe}</span>
+    `;
+
+    liClasse.onclick = () => {
+      console.log("📂 Classe:", classe);
+      toggleClasse(id);
+    };
+
+    menu.appendChild(liClasse);
+
+    // 🔽 SUBMENU
+    const submenu = document.createElement("ul");
+    submenu.classList.add("submenu");
+    submenu.id = id;
+
+    classesIndicadores[classe].forEach((indicador) => {
+      const li = document.createElement("li");
+      li.textContent = indicador;
+
+      li.style.color = "#e2e609";
+      li.style.fontSize = "13px";
+      li.style.paddingLeft = "50px"; // ✅ aos invés de margin
+      li.style.cursor = "pointer";
+
+      li.onclick = () => {
+        console.log("📊 Indicador:", indicador);
+        selecionarIndicador(indicador);
+      };
+
+      submenu.appendChild(li);
+    });
+
+    menu.appendChild(submenu);
+
+    index++;
   }
 }
 
-
 // ==========================
-// 🧭 NAVEGAÇÃO PRINCIPAL
+// 🔽 ABRIR/FECHAR CLASSES
 // ==========================
-function mostrar(tela) {
+function toggleClasse(id) {
+  const submenu = document.getElementById(id);
 
-  console.log("➡️ Navegando para:", tela)
+  if (!submenu) return;
 
-  limparConteudo()
-  setActiveMenu(tela)
+  const aberto = submenu.style.display === "block";
 
-  try {
+  document.querySelectorAll(".submenu").forEach((el) => {
+    el.style.display = "none";
+  });
 
-    switch (tela) {
-
-      case "dashboard":
-        console.log("📊 Dashboard")
-        telaEmConstrucao("Dashboard")
-        break
-
-      case "preencher":
-        console.log("📥 Tela preenchimento acionada (sem render direto)")
-        return;
-
-      case "indicadores":
-        telaEmConstrucao("Indicadores")
-        break
-
-      case "comparativos":
-        telaEmConstrucao("Comparativos")
-        break
-
-      case "configuracoes":
-        telaEmConstrucao("Configurações")
-        break
-
-      default:
-        telaInicial()
-    }
-
-  } catch (erro) {
-    console.error("❌ Erro na navegação:", erro)
-    mostrarErro("Erro ao abrir tela")
-  }
+  submenu.style.display = aberto ? "none" : "block";
 }
-
-
-// ==========================
-// 📂 MENU PREENCIMENTO
-// ==========================
-let menuPreenchimentoAberto = false
-
-function togglePreenchimento() {
-
-  const submenu = document.getElementById("submenu-preenchimento")
-
-  if (!submenu) return
-
-  const aberto = submenu.style.display === "block"
-
-  submenu.style.display = aberto ? "none" : "block"
-
-  console.log(`📂 ${aberto ? "Fechado ❌" : "Aberto ✅"}`)
-}
-
 
 // ==========================
 // ✅ SELECIONAR INDICADOR
 // ==========================
 function selecionarIndicador(indicador) {
+  console.log("✅ Indicador:", indicador);
 
-  console.log("✅ Indicador selecionado:", indicador)
-
-  localStorage.setItem("indicador", indicador)
+  localStorage.setItem("indicador", indicador);
 
   if (typeof carregarTabela === "function") {
-    carregarTabela()
-  } else {
-    console.error("❌ função carregarTabela não encontrada")
+    carregarTabela();
   }
 
-  const submenu = document.getElementById("submenu-preenchimento")
-  if (submenu) submenu.style.display = "none"
-
-  menuPreenchimentoAberto = false
+  document.querySelectorAll(".submenu").forEach((el) => {
+    el.style.display = "none";
+  });
 }
 
-
 // ==========================
-// 🧱 UTILITÁRIOS UI
+// 🧱 UI
 // ==========================
 function limparConteudo() {
-  const el = document.getElementById("conteudo")
-  if (el) el.innerHTML = ""
+  const el = document.getElementById("conteudo");
+  if (el) el.innerHTML = "";
 }
 
 function telaInicial() {
   document.getElementById("conteudo").innerHTML = `
     <h2>👋 Bem-vindo</h2>
     <p>Selecione uma opção no menu.</p>
-  `
+  `;
 }
 
 function telaEmConstrucao(nome) {
   document.getElementById("conteudo").innerHTML = `
     <h2>🚧 ${nome}</h2>
     <p>Em desenvolvimento</p>
-  `
+  `;
 }
 
 function mostrarErro(msg) {
   document.getElementById("conteudo").innerHTML = `
     <h2 style="color:red;">❌ Erro</h2>
     <p>${msg}</p>
-  `
+  `;
 }
 
-
 // ==========================
-// 🎯 MENU ATIVO
-// ==========================
-function setActiveMenu(tela) {
-
-  const itens = document.querySelectorAll(".sidebar_menu .menu ul li")
-
-  itens.forEach(li => {
-
-    li.classList.remove("ativo")
-
-    const onclick = li.getAttribute("onclick")
-
-    if (onclick && onclick.includes(tela)) {
-      li.classList.add("ativo")
-    }
-  })
-}
-
-
-// ==========================
-// 🔄 TESTAR CONEXÃO
+// 🔄 CONEXÃO
 // ==========================
 async function testarConexao() {
+  try {
+    const { error } = await supabaseClient.from("lojas").select("*").limit(1);
+
+    if (error) return false;
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ==========================
+// 🚀 INIT
+// ==========================
+document.addEventListener("DOMContentLoaded", async () => {
+  console.log("🚀 Sistema iniciado");
+
+  await carregarSidebar();
+
+  localStorage.removeItem("indicador");
+
+  if (!initSupabase()) {
+    mostrar("dashboard");
+    return;
+  }
+
+  await testarConexao();
+
+  mostrar("dashboard");
+});
+
+const iconesMenu = {
+  dashboard: "fa-gauge-high",
+  ranking: "fa-trophy",
+  indicadores: "fa-chart-line",
+  comparativos: "fa-chart-pie",
+  configuracoes: "fa-gear",
+};
+
+const coresMenu = {
+  dashboard: "#4CAF50",
+  ranking: "#FFC107",
+  indicadores: "#03A9F4",
+  comparativos: "#9C27B0",
+  configuracoes: "#9E9E9E",
+};
+
+const iconesClasse = {
+  Auditoria: "fa-clipboard-check",
+  "Frente de Caixa": "fa-cash-register",
+  Comercial: "fa-store",
+  Quebras: "fa-box-open",
+  "RH / Operacional": "fa-users",
+};
+
+const coresClasse = {
+  Auditoria: "#00BCD4",
+  "Frente de Caixa": "#FF9800",
+  Comercial: "#4CAF50",
+  Quebras: "#F44336",
+  "RH / Operacional": "#3F51B5",
+};
+
+
+// ==========================
+// 📌 MENU LOG
+// ==========================
+function logMenu(acao) {
+  console.log("📌 Menu clicado:", acao);
+}
+
+// ==========================
+// 🧭 CONTROLE DE TELAS
+// ==========================
+function mostrar(tela) {
 
   try {
 
-    if (!supabaseClient) {
-      console.warn("⚠️ Supabase não inicializado")
-      return false
+    console.log("🧭 Abrindo tela:", tela);
+
+    if (!tela) {
+      console.warn("⚠️ Tela não informada");
+      return;
     }
 
-    const { error } = await supabaseClient
-      .from("lojas")
-      .select("*")
-      .limit(1)
+    // ✅ normaliza entrada
+    const nomeTela = tela.toString().trim().toLowerCase();
 
-    if (error) {
-      console.error("❌ Erro Supabase:", error)
-      return false
-    }
+    console.log("🎯 Tela normalizada:", nomeTela);
 
-    console.log("✅ Conexão com banco OK")
-    return true
+
+// ======================
+// ⚙️ CONFIGURAÇÕES
+// ======================
+if (nomeTela === "configuracoes") {
+
+  console.log("⚙️ Iniciando abertura da tela de Configurações");
+
+  const container = document.getElementById("conteudo");
+
+  // ✅ LOADING (APARECE IMEDIATAMENTE)
+  container.innerHTML = `
+    <div class="card-conteudo" style="text-align:center; padding:40px;">
+      <h2>⚙️ Configurações</h2>
+      <p>Carregando...</p>
+    </div>
+  `;
+
+  try {
+
+    // ✅ pequeno delay pra UX (simula carregamento e evita travar tela)
+    setTimeout(() => {
+
+      console.log("⏳ Executando render da configuração...");
+
+      if (typeof abrirConfiguracoes === "function") {
+
+        console.log("✅ abrirConfiguracoes encontrada");
+
+        abrirConfiguracoes(); // 🔥 chama regras-perfil.js
+
+      } else {
+
+        console.error("❌ abrirConfiguracoes NÃO encontrada");
+
+        container.innerHTML = `
+          <div class="card-conteudo">
+            <h2>⚙️ Configurações</h2>
+            <p style="color:red;">
+              Função abrirConfiguracoes não encontrada
+            </p>
+          </div>
+        `;
+      }
+
+    }, 150); // ✅ delay leve pra UX
 
   } catch (erro) {
-    console.error("❌ Falha crítica:", erro)
-    return false
+
+    console.error("❌ Erro ao abrir configurações:", erro);
+
+    container.innerHTML = `
+      <div class="card-conteudo">
+        <h2 style="color:red;">❌ Erro</h2>
+        <p>Falha ao carregar configurações</p>
+      </div>
+    `;
   }
+
+  return;
 }
 
 
-// ==========================
-// 🚀 INICIALIZAÇÃO
-// ==========================
-document.addEventListener("DOMContentLoaded", async () => {
+    // ======================
+    // 📊 DASHBOARD (EXEMPLO)
+    // ======================
+    if (nomeTela === "dashboard") {
 
-  console.log("🚀 Sistema iniciado")
+      console.log("📊 Abrindo Dashboard");
 
-  await carregarSidebar()
+      if (typeof telaInicial === "function") {
+        telaInicial();
+      } else {
+        console.warn("⚠️ telaInicial não encontrada");
+      }
 
-  localStorage.removeItem("indicador")
+      return;
+    }
 
-  const submenu = document.getElementById("submenu-preenchimento")
-  if (submenu) submenu.style.display = "none"
+    // ======================
+    // 🏆 RANKING (EXEMPLO)
+    // ======================
+    if (nomeTela === "ranking") {
 
-  const okSupabase = initSupabase()
+      console.log("🏆 Abrindo Ranking");
 
-  if (!okSupabase) {
-    console.warn("⚠️ Sistema sem banco")
-    mostrar("dashboard")
-    return
+      if (typeof telaRanking === "function") {
+        telaRanking();
+      } else {
+        document.getElementById("conteudo").innerHTML = `
+          <h2>🏆 Ranking</h2>
+          <p>Em desenvolvimento</p>
+        `;
+      }
+
+      return;
+    }
+
+    // ======================
+    // 📊 INDICADORES (EXEMPLO)
+    // ======================
+    if (nomeTela === "indicadores") {
+
+      console.log("📊 Indicadores");
+
+      if (typeof carregarTabela === "function") {
+        carregarTabela();
+      } else {
+        console.error("❌ carregarTabela não encontrada");
+      }
+
+      return;
+    }
+
+    // ======================
+    // 📊 COMPARATIVOS (EXEMPLO)
+    // ======================
+    if (nomeTela === "comparativos") {
+
+      console.log("📊 Comparativos");
+
+      document.getElementById("conteudo").innerHTML = `
+        <div class="card-conteudo">
+          <h2>📊 Comparativos</h2>
+          <p>Em desenvolvimento</p>
+        </div>
+      `;
+
+      return;
+    }
+
+    // ======================
+    // 🧱 FALLBACK (SEGURANÇA)
+    // ======================
+    console.warn("⚠️ Tela não mapeada:", nomeTela);
+
+    document.getElementById("conteudo").innerHTML = `
+      <div class="card-conteudo">
+        <h2>🚧 ${nomeTela}</h2>
+        <p>Em desenvolvimento</p>
+      </div>
+    `;
+
+  } catch (erro) {
+
+    console.error("❌ Erro ao abrir tela:", erro);
+
+    document.getElementById("conteudo").innerHTML = `
+      <div class="card-conteudo">
+        <h2 style="color:red;">❌ Erro</h2>
+        <p>Falha ao abrir a tela.</p>
+      </div>
+    `;
+
   }
-
-  const conectado = await testarConexao()
-
-  if (conectado) {
-    console.log("✅ Sistema pronto")
-    mostrar("dashboard")
-  } else {
-    console.warn("⚠️ Banco não respondeu")
-    mostrar("dashboard")
-  }
-
-})
+}
