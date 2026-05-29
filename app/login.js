@@ -4,7 +4,6 @@
 const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co"
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY"
 
-// 🔥 NÃO conflita com app.js
 const { createClient } = window.supabase
 const supabaseLogin = createClient(SUPABASE_URL, SUPABASE_KEY)
 
@@ -26,7 +25,6 @@ async function fazerLogin() {
 
   erroEl.textContent = ""
 
-  // ✅ VALIDAÇÃO
   if (!login || !senha) {
     erroEl.textContent = "⚠️ Preencha todos os campos"
     return
@@ -34,11 +32,9 @@ async function fazerLogin() {
 
   try {
 
-    // 🔒 BLOQUEIA BOTÃO
     btn.disabled = true
     btn.textContent = "🔄 Acessando..."
 
-    // ✅ CONSULTA LOGIN (EMAIL OU MATRÍCULA)
     const { data, error } = await supabaseLogin
       .from("usuarios")
       .select("*")
@@ -48,31 +44,30 @@ async function fazerLogin() {
 
     console.log("🔍 Resultado:", data, error)
 
-    // ❌ LOGIN INVÁLIDO
     if (error || !data) {
       erroEl.textContent = "❌ Usuário ou senha inválidos"
       resetBotao(btn)
       return
     }
 
-    // ✅ LOGIN OK
     btn.textContent = "✅ Entrando..."
 
-    // ✅ SALVA SESSÃO (limpo e seguro)
+    // ✅ SALVA SESSÃO COMPLETA
     const usuario = {
       id: data.id,
       nome: data.nome,
-      sobrenome: data.sobrenome,
-      tipo: data.tipo,
-      email: data.email,
-      matricula: data.matricula
+      sobrenome: data.sobrenome || "",
+      email: data.email || "",
+      matricula: data.matricula || "",
+      perfil: (data.perfil || data.tipo || "").toString().trim().toLowerCase(),
+      funcao: data.funcao || "",
+      permissoes: data.permissoes || {}
     }
 
     localStorage.setItem("usuario", JSON.stringify(usuario))
 
     console.log("✅ Login realizado:", usuario)
 
-    // ✅ REDIRECIONA
     setTimeout(() => {
       window.location.href = "index.html"
     }, 800)
@@ -80,7 +75,6 @@ async function fazerLogin() {
   } catch (err) {
 
     console.error("❌ Erro inesperado:", err)
-
     erroEl.textContent = "Erro ao conectar com o servidor"
     resetBotao(btn)
   }
@@ -112,10 +106,5 @@ document.addEventListener("keyup", function (e) {
 // 🚀 INIT
 // ==========================
 window.addEventListener("DOMContentLoaded", () => {
-
   console.log("🚀 Tela de login pronta")
-
-  // ✅ limpa sessão antiga (opcional)
-  localStorage.removeItem("usuario")
-
 })

@@ -350,13 +350,6 @@ function abrirConfiguracoes() {
               : ""
           }
 
-          ${
-            user.perfil === "master"
-              ? `
-            <button onclick="listarUsuariosUI()">👥 Gerenciar usuários</button>
-          `
-              : ""
-          }
 
           <button onclick="abrirTelaPermissoes()">🎯 Permissões</button>
 
@@ -573,22 +566,6 @@ async function salvarNovoUsuario() {
     console.error("❌ erro:", erro);
     alert("Erro ao criar usuário");
   }
-}
-
-function listarUsuariosUI() {
-  document.getElementById("config-conteudo").innerHTML = `
-    <div class="card-conteudo">
-
-      <h3>👥 Gerenciar Usuários</h3>
-
-      <div id="lista-usuarios">
-        Carregando...
-      </div>
-
-    </div>
-  `;
-
-  listarUsuarios(); // já existente
 }
 
 // ========================== PERMISSÕES ================//
