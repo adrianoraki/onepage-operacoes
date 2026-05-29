@@ -104,7 +104,6 @@ function aplicarPermissaoInput(input, indicador, classe, semana) {
   };
 }
 function abrirConfiguracoes() {
-
   console.log("⚙️ Abrindo Configurações");
 
   const user = getUsuarioLogado();
@@ -133,11 +132,15 @@ function abrirConfiguracoes() {
           <button onclick="abrirAlterarSenha()">🔑 Alterar senha</button>
 
           <!-- ✅ SÓ ADMIN / MASTER -->
-          ${isAdmin ? `
+          ${
+            isAdmin
+              ? `
             <button onclick="novoUsuario()">➕ Novo usuário</button>
             <button onclick="abrirTelaPermissoes()">🎯 Permissões</button>
             <button onclick="abrirAuditoria()">📊 Logs do Sistema</button>
-          ` : ""}
+          `
+              : ""
+          }
 
         </div>
 
@@ -208,16 +211,14 @@ async function editarPermissoes(id) {
 
     const atuais = data.permissoes?.indicadores || [];
 
-    
-let html = `
+    let html = `
   <div class="card-conteudo">
 
     <h3>⚙️ Permissões - ${data.nome}</h3>
 `;
 
-Object.keys(agrupado).forEach(classe => {
-
-  html += `
+    Object.keys(agrupado).forEach((classe) => {
+      html += `
     <div class="grupo-permissao">
 
       <h4>${classe}</h4>
@@ -225,9 +226,8 @@ Object.keys(agrupado).forEach(classe => {
       <div class="permissoes-grid">
   `;
 
-  agrupado[classe].forEach(indicador => {
-
-    html += `
+      agrupado[classe].forEach((indicador) => {
+        html += `
       <label class="check-item">
         <input type="checkbox"
           value="${indicador}"
@@ -236,15 +236,15 @@ Object.keys(agrupado).forEach(classe => {
         ${indicador}
       </label>
     `;
-  });
+      });
 
-  html += `
+      html += `
       </div>
     </div>
   `;
-});
+    });
 
-html += `
+    html += `
     <br>
 
     <button class="btn-salvar" onclick="salvarPermissoes('${data.id}')">
@@ -253,7 +253,6 @@ html += `
 
   </div>
 `;
-
 
     // ✅ AQUI É A CORREÇÃO
     container.innerHTML = html;
@@ -498,7 +497,6 @@ async function salvarSenha() {
 // ========================== Novo Usuário ================//
 
 function novoUsuario() {
-
   console.log("➕ Novo Usuário");
 
   const user = getUsuarioLogado();
@@ -598,34 +596,111 @@ function listarUsuariosUI() {
 // ==========================
 // 🎯 PERMISSÕES - UI PROFISSIONAL
 // ==========================
+
 function abrirTelaPermissoes() {
   console.log("🎯 Abrindo Permissões");
 
   const container = document.getElementById("config-conteudo");
 
   if (!container) {
-    console.error("❌ container config não encontrado");
+    console.error("❌ config-conteudo não encontrado");
     return;
   }
 
-  // ✅ LOADING
   container.innerHTML = `
     <div class="card-conteudo">
-      <h3>🎯 Permissões de Usuários</h3>
-      <p>Carregando usuários...</p>
+      <div class="header-tabela">
+        <h3>🎯 Permissões de Usuários</h3>
+      </div>
+
+      <div id="lista-permissoes">
+        <p>Carregando usuários...</p>
+      </div>
     </div>
   `;
 
-  // ✅ pequeno delay pra UX
-  setTimeout(() => {
-    carregarUsuariosPermissoes();
-  }, 150);
+  carregarUsuariosPermissoes();
 }
 
-async function carregarUsuariosPermissoes() {
-  console.log("🔄 Buscando usuários...");
+// ==========================
+// 🧾 RESUMO DE PERMISSÕES
+// ==========================
+function resumoPermissoesUsuario(usuario) {
+  if (!usuario) return `<span class="perm-vazia">Sem dados</span>`;
 
-  const container = document.getElementById("config-conteudo");
+  // 👑 Master
+  if (usuario.perfil === "master") {
+    return `<span class="perm-tag perm-master">Permissões master</span>`;
+  }
+
+  const permissoes = usuario.permissoes || {};
+  const indicadores = permissoes.indicadores || [];
+  const classes = permissoes.classes || [];
+
+  // ✅ se tiver "todas" ou acesso_total
+  if (permissoes.acesso_total === true || indicadores.includes("todas")) {
+    return `<span class="perm-tag perm-total">Todas as tabelas</span>`;
+  }
+
+  const lista = [...indicadores, ...classes].filter(Boolean);
+
+  if (!lista.length) {
+    return `<span class="perm-vazia">Sem permissões definidas</span>`;
+  }
+
+  return lista
+    .map(
+      (item) => `
+    <span class="perm-tag">${item}</span>
+  `,
+    )
+    .join("");
+}
+
+// ==========================
+// 🔐 REGRA DE EDIÇÃO DE USUÁRIOS
+// ==========================
+function podeGerenciarUsuarioAlvo(alvo) {
+  const user = getUsuarioLogado();
+  if (!user || !alvo) return false;
+
+  // 👑 Master pode editar qualquer um
+  if (user.perfil === "master") {
+    return true;
+  }
+
+  // 🧑‍💼 Admin:
+  // - pode editar o próprio admin
+  // - pode editar usuários
+  // - NÃO pode editar master
+  // - NÃO pode editar outros admins
+  if (user.perfil === "admin") {
+    if (alvo.perfil === "master") return false;
+
+    if (alvo.perfil === "usuario") return true;
+
+    if (alvo.perfil === "admin" && alvo.id === user.id) return true;
+
+    return false;
+  }
+
+  // 👤 Usuário não gerencia ninguém
+  return false;
+}
+
+// ==========================
+// 🎯 CARREGAR USUÁRIOS - TELA DE PERMISSÕES
+// ==========================
+async function carregarUsuariosPermissoes() {
+  console.log("🔄 Buscando usuários para permissões...");
+
+  const container = document.getElementById("lista-permissoes");
+  const userLogado = getUsuarioLogado();
+
+  if (!container) {
+    console.error("❌ lista-permissoes não encontrado");
+    return;
+  }
 
   try {
     const { data, error } = await supabase
@@ -636,35 +711,53 @@ async function carregarUsuariosPermissoes() {
     if (error) throw error;
 
     let html = `
-      <div class="card-conteudo">
-
-        <h3>🎯 Permissões de Usuários</h3>
-
-        <div class="tabela-container">
-          <table class="tabela">
-
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Perfil</th>
-                <th>Ação</th>
-              </tr>
-            </thead>
-
-            <tbody>
+      <div class="tabela-container">
+        <table class="tabela tabela-permissoes">
+          <thead>
+            <tr>
+              <th class="col-nome">Nome</th>
+              <th class="col-perfil">Perfil</th>
+              <th class="col-permissoes">Permissões atuais</th>
+              <th class="col-acao">Ação</th>
+            </tr>
+          </thead>
+          <tbody>
     `;
 
     data.forEach((u) => {
+      const podeEditar = podeGerenciarUsuarioAlvo(u);
+
+      let badgePerfil = `<span class="badge-perfil badge-user">${u.perfil}</span>`;
+
+      if (u.perfil === "master") {
+        badgePerfil = `<span class="badge-perfil badge-master">master</span>`;
+      }
+
+      if (u.perfil === "admin") {
+        badgePerfil = `<span class="badge-perfil badge-admin">admin</span>`;
+      }
+
+      if (u.perfil === "usuario") {
+        badgePerfil = `<span class="badge-perfil badge-user">usuario</span>`;
+      }
+
       html += `
         <tr>
-          <td>${u.nome}</td>
-          <td>${u.perfil}</td>
+          <td class="nome-usuario">${u.nome || "-"}</td>
 
-          <td>
+          <td class="perfil-cell">
+            ${badgePerfil}
+          </td>
+
+          <td class="permissoes-cell">
+            ${resumoPermissoesUsuario(u)}
+          </td>
+
+          <td class="acao-cell">
             ${
-              u.perfil !== "master"
-                ? `<button onclick="editarPermissoes('${u.id}')">⚙️</button>`
-                : "👑"
+              podeEditar
+                ? `<button class="btn-acao" onclick="editarPermissoes('${u.id}')">⚙️</button>`
+                : `<span class="acao-bloqueada">🔒</span>`
             }
           </td>
         </tr>
@@ -672,18 +765,16 @@ async function carregarUsuariosPermissoes() {
     });
 
     html += `
-            </tbody>
-          </table>
-        </div>
-
+          </tbody>
+        </table>
       </div>
     `;
 
     container.innerHTML = html;
 
-    console.log("✅ Usuários carregados");
+    console.log("✅ Lista de permissões carregada");
   } catch (erro) {
-    console.error("❌ erro ao carregar usuários:", erro);
+    console.error("❌ erro ao carregar permissões:", erro);
 
     container.innerHTML = `
       <div class="card-conteudo">

@@ -129,9 +129,6 @@ async function carregarTabela() {
     console.log("🧩 É especial?", isEspecial);
     console.log("🧩 É RH especial?", isEspecialRH);
 
-    // ✅ especial RH
-    const especiaisRH = ["BANCOS DE HORAS"];
-    const isEspecialRH = especiaisRH.includes(indicadorNormalizado);
 
     console.log("📂 Classe:", classeAtual);
     console.log("🧩 É especial?", isEspecial);

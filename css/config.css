@@ -205,6 +205,141 @@
 }
 
 /* ==========================
+   TABELA PERMISSÕES
+========================== */
+.tabela-permissoes {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabela-permissoes th,
+.tabela-permissoes td {
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+
+.tabela-permissoes .col-nome {
+  width: 24%;
+}
+
+.tabela-permissoes .col-perfil {
+  width: 14%;
+}
+
+.tabela-permissoes .col-permissoes {
+  width: 42%;
+}
+
+.tabela-permissoes .col-acao {
+  width: 12%;
+  text-align: center;
+}
+
+.nome-usuario {
+  text-align: left !important;
+  font-weight: 600;
+  padding-left: 16px !important;
+}
+
+.perfil-cell {
+  text-align: left;
+}
+
+/* ==========================
+   BADGES DE PERFIL
+========================== */
+.badge-perfil {
+  display: inline-block;
+  min-width: 70px;
+  text-align: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: lowercase;
+}
+
+.badge-master {
+  background: #ffe9a8;
+  color: #7a5800;
+}
+
+.badge-admin {
+  background: #d9edff;
+  color: #16507a;
+}
+
+.badge-user {
+  background: #ececec;
+  color: #444;
+}
+
+/* ==========================
+   TAGS DE PERMISSÃO
+========================== */
+.permissoes-cell {
+  text-align: left;
+}
+
+.perm-tag {
+  display: inline-block;
+  background: #f0f7ff;
+  color: #1e6091;
+  border: 1px solid #d3e6f7;
+  padding: 4px 8px;
+  margin: 2px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.perm-master {
+  background: #fff8dc;
+  color: #7a5800;
+  border: 1px solid #f0d46f;
+}
+
+.perm-total {
+  background: #e7f8ec;
+  color: #2e7d32;
+  border: 1px solid #b8e1c2;
+}
+
+.perm-vazia {
+  color: #888;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* ==========================
+   AÇÃO
+========================== */
+.acao-cell {
+  text-align: center;
+}
+
+.btn-acao {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(90deg, #1e6091, #0a3d62);
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.2s;
+}
+
+.btn-acao:hover {
+  transform: scale(1.05);
+}
+
+.acao-bloqueada {
+  font-size: 16px;
+  opacity: 0.75;
+}
+
+/* ==========================
    📱 RESPONSIVO
 ========================== */
 @media (max-width: 768px) {
