@@ -248,6 +248,34 @@ body::before {
   }
 }
 
+.msg-sucesso {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 10px;
+  background: #eefaf0;
+  border: 1px solid #bfe3c5;
+  color: #205b2d;
+  line-height: 1.5;
+}
+
+.msg-erro {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #fff2f2;
+  border: 1px solid #f0c2c2;
+  color: #9c2b2b;
+}
+
+.senha-gerada-box {
+  margin: 10px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* TABLET */
 @media (min-width: 481px) and (max-width: 768px) {
   .login-box {

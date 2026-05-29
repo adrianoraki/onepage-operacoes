@@ -1,19 +1,55 @@
 // ==========================
 // 🔐 PROTEÇÃO LOGIN
 // ==========================
-const usuario = localStorage.getItem("usuario");
+async function verificarSessao() {
+  try {
+    if (!supabaseClient) {
+      const ok = initSupabase();
+      if (!ok) {
+        window.location.replace("login.html");
+        return false;
+      }
+    }
 
-if (!usuario) {
-  window.location.replace("login.html");
+    const {
+      data: { session },
+      error
+    } = await supabaseClient.auth.getSession();
+
+    if (error) {
+      console.error("❌ Erro ao verificar sessão:", error);
+      window.location.replace("login.html");
+      return false;
+    }
+
+    if (!session?.user) {
+      console.warn("⚠️ Sessão não encontrada");
+      window.location.replace("login.html");
+      return false;
+    }
+
+    console.log("✅ Sessão válida:", session.user.id);
+    return true;
+
+  } catch (erro) {
+    console.error("❌ Erro ao verificar sessão:", erro);
+    window.location.replace("login.html");
+    return false;
+  }
 }
-
 // ==========================
 // 🔐 LOGOUT
 // ==========================
-function logout() {
+async function logout() {
   try {
     console.log("🔒 Logout iniciado");
+
     localStorage.removeItem("usuario");
+
+    if (supabaseClient?.auth) {
+      await supabaseClient.auth.signOut();
+    }
+
     window.location.replace("login.html");
   } catch (erro) {
     console.error("❌ Erro no logout:", erro);
@@ -31,17 +67,25 @@ let supabaseClient = null;
 
 function initSupabase() {
   try {
-    if (!window.supabase) {
+    if (!window.supabase || !window.supabase.createClient) {
       console.error("❌ Biblioteca do Supabase não carregada");
       return false;
     }
 
+    if (supabaseClient) {
+      console.log("✅ Supabase já inicializado");
+      return true;
+    }
+
     const { createClient } = window.supabase;
     supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
-    window.supabase = supabaseClient;
+
+    // ✅ client global do app
+    window.db = supabaseClient;
 
     console.log("✅ Supabase inicializado");
     return true;
+
   } catch (erro) {
     console.error("❌ Erro ao iniciar Supabase:", erro);
     return false;
@@ -285,6 +329,9 @@ async function testarConexao() {
 // ==========================
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("🚀 Sistema iniciado");
+
+  const ok = await verificarSessao();
+  if (!ok) return;
 
   await carregarSidebar();
 

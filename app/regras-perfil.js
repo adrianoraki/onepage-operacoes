@@ -103,6 +103,41 @@ function aplicarPermissaoInput(input, indicador, classe, semana) {
     });
   };
 }
+
+// ==========================
+// 🔐 GERAR SENHA ALEATÓRIA
+// ==========================
+function gerarSenhaAleatoria(tamanho = 10) {
+  const letrasMaiusculas = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const letrasMinusculas = "abcdefghijkmnopqrstuvwxyz";
+  const numeros = "23456789";
+  const simbolos = "@#!$%&*";
+
+  const todos = letrasMaiusculas + letrasMinusculas + numeros + simbolos;
+
+  let senha = "";
+
+  // garante variedade mínima
+  senha +=
+    letrasMaiusculas[Math.floor(Math.random() * letrasMaiusculas.length)];
+  senha +=
+    letrasMinusculas[Math.floor(Math.random() * letrasMinusculas.length)];
+  senha += numeros[Math.floor(Math.random() * numeros.length)];
+  senha += simbolos[Math.floor(Math.random() * simbolos.length)];
+
+  for (let i = 4; i < tamanho; i++) {
+    senha += todos[Math.floor(Math.random() * todos.length)];
+  }
+
+  // embaralha
+  senha = senha
+    .split("")
+    .sort(() => Math.random() - 0.5)
+    .join("");
+
+  return senha;
+}
+
 function abrirConfiguracoes() {
   console.log("⚙️ Abrindo Configurações");
 
@@ -154,7 +189,7 @@ function abrirConfiguracoes() {
 }
 
 async function listarUsuarios() {
-  const { data } = await supabase.from("usuarios").select("*");
+  const { data } = await window.db.from("usuarios").select("*");
 
   let html = `<h2>Usuários</h2><table>`;
 
@@ -304,7 +339,7 @@ async function registrarLog(dados) {
   try {
     const user = getUsuarioLogado();
 
-    await supabase.from("auditoria").insert([
+    await window.db.from("auditoria").insert([
       {
         usuario: user.nome,
         perfil: user.perfil,
@@ -531,41 +566,115 @@ function novoUsuario() {
         </button>
       </div>
 
+      <div id="resultado-novo-usuario" style="margin-top:15px;"></div>
+
     </div>
   `;
 }
-async function salvarNovoUsuario() {
-  const nome = document.getElementById("novo_nome").value;
-  const matricula = document.getElementById("novo_matricula").value;
-  const email = document.getElementById("novo_email").value;
-  const funcao = document.getElementById("novo_funcao").value;
-  const perfil = document.getElementById("novo_perfil").value;
 
-  console.log("💾 Criando usuário:", {
+async function salvarNovoUsuario() {
+  const nome = document.getElementById("novo_nome")?.value.trim();
+  const matricula = document.getElementById("novo_matricula")?.value.trim();
+  const email = document.getElementById("novo_email")?.value.trim();
+  const funcao = document.getElementById("novo_funcao")?.value.trim();
+
+  const resultadoEl = document.getElementById("resultado-novo-usuario");
+
+  console.log("💾 Iniciando criação de usuário...", {
     nome,
     matricula,
     email,
     funcao,
-    perfil,
   });
 
-  try {
-    await supabase.from("usuarios").insert([
-      {
-        nome,
-        matricula,
-        email,
-        funcao,
-        perfil,
-        permissoes: {},
-      },
-    ]);
-
-    alert("✅ Usuário criado!");
-  } catch (erro) {
-    console.error("❌ erro:", erro);
-    alert("Erro ao criar usuário");
+  if (!nome || !matricula || !email || !funcao) {
+    if (resultadoEl) {
+      resultadoEl.innerHTML = `
+        <div class="msg-erro">
+          ⚠️ Preencha todos os campos.
+        </div>
+      `;
+    }
+    return;
   }
+
+  try {
+    // ✅ gera senha automática
+    const senhaGerada = gerarSenhaAleatoria(10);
+
+    console.log("🔐 Senha gerada para novo usuário:", senhaGerada);
+
+    const payload = {
+      nome,
+      sobrenome: "", // ✅ se não tiver campo na tela, salva vazio
+      matricula,
+      email,
+      funcao,
+      perfil: "usuario", // ✅ perfil padrão
+      senha: senhaGerada, // ✅ salva no banco
+      permissoes: {}, // ✅ permissões vazias no início
+    };
+
+    const { error } = await window.db.from("usuarios").insert([payload]);
+
+    if (error) throw error;
+
+    console.log("✅ Usuário criado com sucesso");
+
+    if (resultadoEl) {
+      resultadoEl.innerHTML = `
+        <div class="msg-sucesso">
+          <strong>✅ Usuário criado com sucesso!</strong><br><br>
+          <div><b>Login:</b> ${email}</div>
+          <div><b>Matrícula:</b> ${matricula}</div>
+
+          <div class="senha-gerada-box">
+            <span>
+              <b>Senha gerada:</b>
+              <span id="senhaGeradaTexto">${senhaGerada}</span>
+            </span>
+
+            <button type="button" class="btn-secundario" onclick="copiarSenhaGerada()">
+              📋 Copiar
+            </button>
+          </div>
+
+          <small>⚠️ Guarde essa senha e compartilhe com o usuário.</small>
+        </div>
+      `;
+    }
+
+    // ✅ limpa os campos depois de criar
+    document.getElementById("novo_nome").value = "";
+    document.getElementById("novo_matricula").value = "";
+    document.getElementById("novo_email").value = "";
+    document.getElementById("novo_funcao").value = "";
+  } catch (erro) {
+    console.error("❌ Erro ao criar usuário:", erro);
+
+    if (resultadoEl) {
+      resultadoEl.innerHTML = `
+        <div class="msg-erro">
+          ❌ Erro ao criar usuário.
+        </div>
+      `;
+    }
+  }
+}
+
+function copiarSenhaGerada() {
+  const texto = document.getElementById("senhaGeradaTexto")?.textContent;
+
+  if (!texto) return;
+
+  navigator.clipboard
+    .writeText(texto)
+    .then(() => {
+      alert("✅ Senha copiada!");
+    })
+    .catch((erro) => {
+      console.error("❌ Erro ao copiar senha:", erro);
+    });
 }
 
 // ========================== PERMISSÕES ================//
@@ -680,7 +789,7 @@ async function carregarUsuariosPermissoes() {
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await window.db
       .from("usuarios")
       .select("*")
       .order("nome");

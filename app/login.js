@@ -1,110 +1,126 @@
 // ==========================
-// 🔐 CONFIG SUPABASE (ISOLADO LOGIN)
+// 🔐 CONFIG SUPABASE LOGIN
 // ==========================
-const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co"
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY"
+const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY";
 
-const { createClient } = window.supabase
-const supabaseLogin = createClient(SUPABASE_URL, SUPABASE_KEY)
-
+const { createClient } = window.supabase;
+const supabaseLogin = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ==========================
-// 🔐 LOGIN
+// 🚀 INIT LOGIN
+// ==========================
+window.addEventListener("DOMContentLoaded", async () => {
+  console.log("🚀 Tela de login pronta");
+
+  // Se já estiver autenticado, vai pro sistema
+  const { data: { session } } = await supabaseLogin.auth.getSession();
+
+  if (session?.user) {
+    console.log("✅ Sessão já existe, redirecionando...");
+    window.location.href = "index.html";
+  }
+});
+
+// ==========================
+// 🔐 LOGIN AUTH
 // ==========================
 async function fazerLogin() {
+  console.log("🔥 Clique no botão detectado");
 
-  console.log("🔥 Clique no botão detectado")
+  const emailInput = document.getElementById("email");
+  const senhaInput = document.getElementById("senha");
+  const erroEl = document.getElementById("erro");
+  const btn = document.getElementById("btnLogin");
 
-  const loginInput = document.getElementById("email")
-  const senhaInput = document.getElementById("senha")
-  const erroEl = document.getElementById("erro")
-  const btn = document.getElementById("btnLogin")
+  const email = emailInput.value.trim();
+  const senha = senhaInput.value.trim();
 
-  const login = loginInput.value.trim()
-  const senha = senhaInput.value.trim()
+  erroEl.textContent = "";
 
-  erroEl.textContent = ""
-
-  if (!login || !senha) {
-    erroEl.textContent = "⚠️ Preencha todos os campos"
-    return
+  if (!email || !senha) {
+    erroEl.textContent = "⚠️ Preencha e-mail e senha";
+    return;
   }
 
   try {
+    btn.disabled = true;
+    btn.textContent = "🔄 Acessando...";
 
-    btn.disabled = true
-    btn.textContent = "🔄 Acessando..."
+    // 1) Login real no Auth
+    const { data, error } = await supabaseLogin.auth.signInWithPassword({
+      email,
+      password: senha
+    });
 
-    const { data, error } = await supabaseLogin
+    if (error || !data?.user) {
+      console.error("❌ Erro login auth:", error);
+      erroEl.textContent = "❌ Usuário ou senha inválidos";
+      resetBotao(btn);
+      return;
+    }
+
+    console.log("✅ Auth login realizado:", data.user.id);
+
+    // 2) Buscar perfil do app na tabela usuarios
+    const { data: perfil, error: errorPerfil } = await supabaseLogin
       .from("usuarios")
       .select("*")
-      .or(`email.ilike.${login},matricula.eq.${login}`)
-      .eq("senha", senha)
-      .maybeSingle()
+      .eq("auth_user_id", data.user.id)
+      .single();
 
-    console.log("🔍 Resultado:", data, error)
-
-    if (error || !data) {
-      erroEl.textContent = "❌ Usuário ou senha inválidos"
-      resetBotao(btn)
-      return
+    if (errorPerfil || !perfil) {
+      console.error("❌ Perfil app não encontrado:", errorPerfil);
+      erroEl.textContent = "❌ Perfil do usuário não encontrado";
+      await supabaseLogin.auth.signOut();
+      resetBotao(btn);
+      return;
     }
 
-    btn.textContent = "✅ Entrando..."
-
-    // ✅ SALVA SESSÃO COMPLETA
+    // 3) Salva só os dados do app no localStorage
     const usuario = {
-      id: data.id,
-      nome: data.nome,
-      sobrenome: data.sobrenome || "",
-      email: data.email || "",
-      matricula: data.matricula || "",
-      perfil: (data.perfil || data.tipo || "").toString().trim().toLowerCase(),
-      funcao: data.funcao || "",
-      permissoes: data.permissoes || {}
-    }
+      id: perfil.id,
+      auth_user_id: perfil.auth_user_id,
+      nome: perfil.nome,
+      sobrenome: perfil.sobrenome || "",
+      email: perfil.email || "",
+      matricula: perfil.matricula || "",
+      perfil: (perfil.perfil || "").toString().trim().toLowerCase(),
+      funcao: perfil.funcao || "",
+      permissoes: perfil.permissoes || {}
+    };
 
-    localStorage.setItem("usuario", JSON.stringify(usuario))
+    localStorage.setItem("usuario", JSON.stringify(usuario));
 
-    console.log("✅ Login realizado:", usuario)
+    console.log("✅ Perfil carregado:", usuario);
+
+    btn.textContent = "✅ Entrando...";
 
     setTimeout(() => {
-      window.location.href = "index.html"
-    }, 800)
+      window.location.href = "index.html";
+    }, 500);
 
   } catch (err) {
-
-    console.error("❌ Erro inesperado:", err)
-    erroEl.textContent = "Erro ao conectar com o servidor"
-    resetBotao(btn)
+    console.error("❌ Erro inesperado no login:", err);
+    erroEl.textContent = "Erro ao conectar com o servidor";
+    resetBotao(btn);
   }
 }
-
 
 // ==========================
 // 🔁 RESET BOTÃO
 // ==========================
 function resetBotao(btn) {
-  if (!btn) return
-
-  btn.disabled = false
-  btn.textContent = "Entrar"
+  if (!btn) return;
+  btn.disabled = false;
+  btn.textContent = "Entrar";
 }
-
 
 // ==========================
 // ⌨️ ENTER PARA LOGIN
 // ==========================
 document.addEventListener("keyup", function (e) {
   if (e.key === "Enter") {
-    fazerLogin()
+    fazerLogin();
   }
-})
-
-
-// ==========================
-// 🚀 INIT
-// ==========================
-window.addEventListener("DOMContentLoaded", () => {
-  console.log("🚀 Tela de login pronta")
-})
+});
