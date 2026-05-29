@@ -122,15 +122,20 @@ async function carregarTabela() {
 
     const classeAtual = obterClasse(indicadorNormalizado);
 
-    // ✅ 🔥 AQUI ENTRA O SEU CÓDIGO
-    const especiais = ["SELF-CHECKOUT", "PART.TELEVENDAS"];
+    // ✅ especiais tabela2.js
+    const isEspecial = isIndicadorEspecial(indicadorNormalizado);
+    const isEspecialRH = isIndicadorEspecialRH(indicadorNormalizado);
 
-    const isEspecial = especiais.includes(indicadorNormalizado);
+    console.log("🧩 É especial?", isEspecial);
+    console.log("🧩 É RH especial?", isEspecialRH);
+
+    // ✅ especial RH
+    const especiaisRH = ["BANCOS DE HORAS"];
+    const isEspecialRH = especiaisRH.includes(indicadorNormalizado);
 
     console.log("📂 Classe:", classeAtual);
     console.log("🧩 É especial?", isEspecial);
-
-    console.log("📂 Classe:", classeAtual);
+    console.log("🧩 É RH especial?", isEspecialRH);
     console.log("📊 Indicador normalizado:", indicadorNormalizado);
 
     const semanas = gerarSemanas();
@@ -167,10 +172,26 @@ async function carregarTabela() {
 
     const container = document.getElementById("conteudo");
 
-    if (isEspecial) {
+    if (isEspecialRH) {
+      console.log("🧩 Usando tabela RH");
+
+      if (typeof montarTabelaRH === "function") {
+        container.innerHTML = montarTabelaRH(lojas, mapa, semanas);
+      } else {
+        console.error("❌ montarTabelaRH não encontrada");
+        mostrarErro("Tabela RH não carregada");
+        return;
+      }
+    } else if (isEspecial) {
       console.log("🧩 Usando tabela especial");
 
-      container.innerHTML = montarTabelaEspecial(lojas, mapa, semanas);
+      if (typeof montarTabelaEspecial === "function") {
+        container.innerHTML = montarTabelaEspecial(lojas, mapa, semanas);
+      } else {
+        console.error("❌ montarTabelaEspecial não encontrada");
+        mostrarErro("Tabela especial não carregada");
+        return;
+      }
     } else {
       container.innerHTML = montarHTMLTabela(lojas, mapa, semanas);
     }

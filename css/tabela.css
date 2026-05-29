@@ -191,6 +191,103 @@ th.coluna-atual {
 }
 
 /* ==========================
+   🧭 SUBCLASSES DO SIDEBAR
+========================== */
+.sidebar_menu .submenu {
+  display: none;
+  margin: 4px 0 8px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sidebar_menu .submenu li {
+  position: relative;
+
+  margin: 2px 0;
+  padding: 6px 12px 6px 42px; /* desloca para direita */
+  border-radius: 8px;
+
+  color: #4CAF50; /* verde profissional */
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sidebar_menu .submenu {
+  border-left: 1px solid rgba(255,255,255,0.08);
+  margin-left: 12px;
+  padding-left: 4px;
+}
+
+
+/* marcador visual de subnível */
+.sidebar_menu .submenu li::before {
+  content: "";
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+
+  background: #4CAF50;
+  opacity: 0.9;
+}
+
+/* hover */
+.sidebar_menu .submenu li:hover {
+  background: rgba(76, 175, 80, 0.12);
+  color: #81C784;
+}
+
+/* marcador no hover */
+.sidebar_menu .submenu li:hover::before {
+  background: #81C784;
+}
+
+/* quando submenu estiver aberto */
+.sidebar_menu .submenu.ativo {
+  display: block;
+}
+
+/* melhora contraste dentro da área do menu */
+.sidebar_menu .menu ul li span {
+  display: inline-block;
+}
+
+/* opcional: deixa a classe principal mais destacada */
+.sidebar_menu .menu > ul > li {
+  font-weight: 600;
+}
+
+#tbody-especial td:nth-child(2) {
+  text-align: left;
+  font-weight: 600;
+}
+
+#tbody-especial td:nth-child(3) {
+  text-align: center;
+}
+
+/* responsividade */
+@media (max-width: 768px) {
+  .sidebar_menu .submenu li {
+    font-size: 12px;
+    padding: 6px 10px 6px 36px;
+  }
+
+  .sidebar_menu .submenu li::before {
+    left: 20px;
+    width: 7px;
+    height: 7px;
+  }
+}
+/* ==========================
    📱 RESPONSIVIDADE
 ========================== */
 @media (max-width: 1024px) {

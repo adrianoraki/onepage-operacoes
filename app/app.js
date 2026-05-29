@@ -57,7 +57,11 @@ const classesIndicadores = {
   "Frente de Caixa": ["SELF-CHECKOUT", "DESCONTO", "CANCELAMENTO", "DEVOLUÇÃO"],
 
   // ✅ NOVO NOME
-  Operações: ["PSV", "NPS", "PART.TELEVENDAS"],
+  Operações: [
+    { nome: "Visita Prospecção", valor: "PSV" },
+    { nome: "NPS", valor: "NPS" },
+    { nome: "PART.TELEVENDAS", valor: "PART.TELEVENDAS" },
+  ],
 
   // ✅ NOVO NOME
   Prevenção: [
@@ -67,9 +71,10 @@ const classesIndicadores = {
 
     // ✅ PSV TAMBÉM AQUI
     "PSV",
+    "TROCA",
   ],
 
-  "RH / Operacional": ["BANCO DE HORAS", "TURNOVER"],
+  "RH / Operacional": ["BANCOS DE HORAS", "TURNOVER"],
 };
 
 // ==========================
@@ -173,18 +178,19 @@ function montarMenuIndicadores() {
     submenu.classList.add("submenu");
     submenu.id = id;
 
-    classesIndicadores[classe].forEach((indicador) => {
+    classesIndicadores[classe].forEach((item) => {
       const li = document.createElement("li");
-      li.textContent = indicador;
 
-      li.style.color = "#e2e609";
-      li.style.fontSize = "13px";
-      li.style.paddingLeft = "50px"; // ✅ aos invés de margin
-      li.style.cursor = "pointer";
+      // ✅ trata nome/valor
+      const nome = item.nome || item;
+      const valor = item.valor || item;
+
+      li.textContent = nome;
 
       li.onclick = () => {
-        console.log("📊 Indicador:", indicador);
-        selecionarIndicador(indicador);
+        console.log("📊 Indicador:", valor);
+        localStorage.setItem("classeSelecionada", classe); // ✅ importante
+        selecionarIndicador(valor);
       };
 
       submenu.appendChild(li);
@@ -319,11 +325,11 @@ const iconesClasse = {
 };
 
 const coresClasse = {
-  Auditoria: "#00BCD4",        // azul claro
+  Auditoria: "#00BCD4", // azul claro
   "Frente de Caixa": "#FF9800", // laranja
 
-  Operações: "#4CAF50",        // ✅ VERDE
-  Prevenção: "#F44336",        // ✅ VERMELHO
+  Operações: "#4CAF50", // ✅ VERDE
+  Prevenção: "#F44336", // ✅ VERMELHO
 
   "RH / Operacional": "#3F51B5",
 };
