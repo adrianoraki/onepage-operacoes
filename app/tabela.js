@@ -129,7 +129,6 @@ async function carregarTabela() {
     console.log("🧩 É especial?", isEspecial);
     console.log("🧩 É RH especial?", isEspecialRH);
 
-
     console.log("📂 Classe:", classeAtual);
     console.log("🧩 É especial?", isEspecial);
     console.log("🧩 É RH especial?", isEspecialRH);
@@ -138,8 +137,8 @@ async function carregarTabela() {
     const semanas = gerarSemanas();
 
     const [lojasResp, resultadosResp] = await Promise.all([
-      supabase.from("lojas").select("*").order("codigo"),
-      supabase
+      window.db.from("lojas").select("*").order("codigo"),
+      window.db
         .from("resultados")
         .select("*")
         .eq("indicador", indicadorNormalizado)
@@ -366,7 +365,7 @@ async function salvarValor(loja, semana, valor) {
   });
 
   try {
-    const { data: existente } = await supabase
+    const { data: existente } = await window.db
       .from("resultados")
       .select("id")
       .eq("loja", loja)
@@ -376,14 +375,14 @@ async function salvarValor(loja, semana, valor) {
       .maybeSingle();
 
     if (existente) {
-      await supabase
+      await window.db
         .from("resultados")
         .update({ valor: numero })
         .eq("id", existente.id);
 
       console.log("✅ Atualizado");
     } else {
-      await supabase.from("resultados").insert([
+      await window.db.from("resultados").insert([
         {
           loja,
           semana,
