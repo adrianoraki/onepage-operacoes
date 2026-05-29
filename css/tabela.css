@@ -180,6 +180,16 @@ th.coluna-atual {
   color: #fff;
 }
 
+.input-tabela {
+  width: 80px;
+  height: 30px;
+
+  text-align: center;
+
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
 /* ==========================
    📱 RESPONSIVIDADE
 ========================== */

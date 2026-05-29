@@ -38,7 +38,7 @@ function initSupabase() {
 
     const { createClient } = window.supabase;
     supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
-    window.supabase = supabaseClient
+    window.supabase = supabaseClient;
 
     console.log("✅ Supabase inicializado");
     return true;
@@ -52,15 +52,24 @@ function initSupabase() {
 // 📊 CLASSES DE INDICADORES (NOVO 🔥)
 // ==========================
 const classesIndicadores = {
-  Auditoria: ["Ruptura Final", "Etiqueta"],
+  Auditoria: ["RUPTURA FINAL", "ETIQUETA"],
 
-  "Frente de Caixa": ["Self-chekout", "Desconto", "Cancelamento", "Devolução"],
+  "Frente de Caixa": ["SELF-CHECKOUT", "DESCONTO", "CANCELAMENTO", "DEVOLUÇÃO"],
 
-  Comercial: ["PSV", "NPS", "Part.Televendas"],
+  // ✅ NOVO NOME
+  Operações: ["PSV", "NPS", "PART.TELEVENDAS"],
 
-  Quebras: ["QUEBRA", "Quebra FLV", "Quebra Açougue"],
+  // ✅ NOVO NOME
+  Prevenção: [
+    "QUEBRA",
+    "QUEBRA FLV",
+    "QUEBRA AÇOUGUE",
 
-  "RH / Operacional": ["Banco de Horas", "TURNOVER"],
+    // ✅ PSV TAMBÉM AQUI
+    "PSV",
+  ],
+
+  "RH / Operacional": ["BANCO DE HORAS", "TURNOVER"],
 };
 
 // ==========================
@@ -68,7 +77,6 @@ const classesIndicadores = {
 // ==========================
 async function carregarSidebar() {
   try {
-
     const el = document.getElementById("sidebar");
 
     if (!el) {
@@ -99,7 +107,6 @@ async function carregarSidebar() {
 
     const btnLogout = document.querySelector(".btn-logout");
     if (btnLogout) btnLogout.addEventListener("click", logout);
-
   } catch (erro) {
     console.error("❌ Erro sidebar:", erro);
     mostrarErro("Erro ao carregar menu");
@@ -306,19 +313,20 @@ const coresMenu = {
 const iconesClasse = {
   Auditoria: "fa-clipboard-check",
   "Frente de Caixa": "fa-cash-register",
-  Comercial: "fa-store",
-  Quebras: "fa-box-open",
+  Operações: "fa-cogs", // novo
+  Prevenção: "fa-shield-alt", // novo
   "RH / Operacional": "fa-users",
 };
 
 const coresClasse = {
-  Auditoria: "#00BCD4",
-  "Frente de Caixa": "#FF9800",
-  Comercial: "#4CAF50",
-  Quebras: "#F44336",
+  Auditoria: "#00BCD4",        // azul claro
+  "Frente de Caixa": "#FF9800", // laranja
+
+  Operações: "#4CAF50",        // ✅ VERDE
+  Prevenção: "#F44336",        // ✅ VERMELHO
+
   "RH / Operacional": "#3F51B5",
 };
-
 
 // ==========================
 // 📌 MENU LOG
@@ -331,9 +339,7 @@ function logMenu(acao) {
 // 🧭 CONTROLE DE TELAS
 // ==========================
 function mostrar(tela) {
-
   try {
-
     console.log("🧭 Abrindo tela:", tela);
 
     if (!tela) {
@@ -346,42 +352,35 @@ function mostrar(tela) {
 
     console.log("🎯 Tela normalizada:", nomeTela);
 
+    // ======================
+    // ⚙️ CONFIGURAÇÕES
+    // ======================
+    if (nomeTela === "configuracoes") {
+      console.log("⚙️ Iniciando abertura da tela de Configurações");
 
-// ======================
-// ⚙️ CONFIGURAÇÕES
-// ======================
-if (nomeTela === "configuracoes") {
+      const container = document.getElementById("conteudo");
 
-  console.log("⚙️ Iniciando abertura da tela de Configurações");
-
-  const container = document.getElementById("conteudo");
-
-  // ✅ LOADING (APARECE IMEDIATAMENTE)
-  container.innerHTML = `
+      // ✅ LOADING (APARECE IMEDIATAMENTE)
+      container.innerHTML = `
     <div class="card-conteudo" style="text-align:center; padding:40px;">
       <h2>⚙️ Configurações</h2>
       <p>Carregando...</p>
     </div>
   `;
 
-  try {
+      try {
+        // ✅ pequeno delay pra UX (simula carregamento e evita travar tela)
+        setTimeout(() => {
+          console.log("⏳ Executando render da configuração...");
 
-    // ✅ pequeno delay pra UX (simula carregamento e evita travar tela)
-    setTimeout(() => {
+          if (typeof abrirConfiguracoes === "function") {
+            console.log("✅ abrirConfiguracoes encontrada");
 
-      console.log("⏳ Executando render da configuração...");
+            abrirConfiguracoes(); // 🔥 chama regras-perfil.js
+          } else {
+            console.error("❌ abrirConfiguracoes NÃO encontrada");
 
-      if (typeof abrirConfiguracoes === "function") {
-
-        console.log("✅ abrirConfiguracoes encontrada");
-
-        abrirConfiguracoes(); // 🔥 chama regras-perfil.js
-
-      } else {
-
-        console.error("❌ abrirConfiguracoes NÃO encontrada");
-
-        container.innerHTML = `
+            container.innerHTML = `
           <div class="card-conteudo">
             <h2>⚙️ Configurações</h2>
             <p style="color:red;">
@@ -389,31 +388,26 @@ if (nomeTela === "configuracoes") {
             </p>
           </div>
         `;
-      }
+          }
+        }, 150); // ✅ delay leve pra UX
+      } catch (erro) {
+        console.error("❌ Erro ao abrir configurações:", erro);
 
-    }, 150); // ✅ delay leve pra UX
-
-  } catch (erro) {
-
-    console.error("❌ Erro ao abrir configurações:", erro);
-
-    container.innerHTML = `
+        container.innerHTML = `
       <div class="card-conteudo">
         <h2 style="color:red;">❌ Erro</h2>
         <p>Falha ao carregar configurações</p>
       </div>
     `;
-  }
+      }
 
-  return;
-}
-
+      return;
+    }
 
     // ======================
     // 📊 DASHBOARD (EXEMPLO)
     // ======================
     if (nomeTela === "dashboard") {
-
       console.log("📊 Abrindo Dashboard");
 
       if (typeof telaInicial === "function") {
@@ -429,7 +423,6 @@ if (nomeTela === "configuracoes") {
     // 🏆 RANKING (EXEMPLO)
     // ======================
     if (nomeTela === "ranking") {
-
       console.log("🏆 Abrindo Ranking");
 
       if (typeof telaRanking === "function") {
@@ -448,7 +441,6 @@ if (nomeTela === "configuracoes") {
     // 📊 INDICADORES (EXEMPLO)
     // ======================
     if (nomeTela === "indicadores") {
-
       console.log("📊 Indicadores");
 
       if (typeof carregarTabela === "function") {
@@ -464,7 +456,6 @@ if (nomeTela === "configuracoes") {
     // 📊 COMPARATIVOS (EXEMPLO)
     // ======================
     if (nomeTela === "comparativos") {
-
       console.log("📊 Comparativos");
 
       document.getElementById("conteudo").innerHTML = `
@@ -488,9 +479,7 @@ if (nomeTela === "configuracoes") {
         <p>Em desenvolvimento</p>
       </div>
     `;
-
   } catch (erro) {
-
     console.error("❌ Erro ao abrir tela:", erro);
 
     document.getElementById("conteudo").innerHTML = `
@@ -499,6 +488,19 @@ if (nomeTela === "configuracoes") {
         <p>Falha ao abrir a tela.</p>
       </div>
     `;
-
   }
+}
+
+function abrirConfiguracoesMenu() {
+  const user = JSON.parse(localStorage.getItem("usuario"));
+
+  if (!user) {
+    console.warn("⚠️ usuário não encontrado");
+    return;
+  }
+
+  console.log("⚙️ Acesso ao menu de configurações");
+
+  // ✅ todos podem entrar
+  mostrar("configuracoes");
 }

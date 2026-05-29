@@ -15,22 +15,30 @@ console.log("📅 Semana inicial:", semanaSelecionada);
 // 📂 MAPA DE CLASSES
 // ==========================
 const mapaClasse = {
+  // ✅ Auditoria
   "RUPTURA FINAL": "Auditoria",
   ETIQUETA: "Auditoria",
 
+  // ✅ Frente de Caixa
   "SELF-CHECKOUT": "Frente de Caixa",
   DESCONTO: "Frente de Caixa",
   CANCELAMENTO: "Frente de Caixa",
   DEVOLUÇÃO: "Frente de Caixa",
 
-  PSV: "Comercial",
-  NPS: "Comercial",
-  "PART.TELEVENDAS": "Comercial",
+  // ✅ NOVO NOME (antes Comercial)
+  PSV: "Operações",
+  NPS: "Operações",
+  "PART.TELEVENDAS": "Operações",
 
-  QUEBRA: "Quebras",
-  "QUEBRA FLV": "Quebras",
-  "QUEBRA AÇOUGUE": "Quebras",
+  // ✅ NOVO NOME (antes Quebras)
+  QUEBRA: "Prevenção",
+  "QUEBRA FLV": "Prevenção",
+  "QUEBRA AÇOUGUE": "Prevenção",
 
+  // ✅ PSV também na Prevenção ✅
+  PSV_PREVENCAO: "Prevenção",
+
+  // ✅ RH
   "BANCOS DE HORAS": "RH / Operacional",
   TURNOVER: "RH / Operacional",
 };
@@ -72,7 +80,21 @@ function gerarSemanas() {
 // 📊 CARREGAR TABELA
 // ==========================
 
-// ✅ sincroniza com localStorage sempre
+function obterClasse(indicador) {
+  // ✅ novo padrão
+  if (mapaClasse[indicador]) {
+    return mapaClasse[indicador];
+  }
+
+  // ✅ compatibilidade com palavras antigas
+  if (indicador === "PSV") return "Operações";
+  if (indicador === "NPS") return "Operações";
+
+  // ✅ fallback antigo
+  if (indicador === "QUEBRA") return "Prevenção";
+
+  return "Outros";
+}
 
 async function carregarTabela() {
   console.log("🚀 carregarTabela");
@@ -96,9 +118,20 @@ async function carregarTabela() {
       return;
     }
 
-    const classeAtual = mapaClasse[indicadorSelecionado] || "Outros";
+    const indicadorNormalizado = indicadorSelecionado.toUpperCase().trim();
+
+    const classeAtual = obterClasse(indicadorNormalizado);
+
+    // ✅ 🔥 AQUI ENTRA O SEU CÓDIGO
+    const especiais = ["SELF-CHECKOUT", "PART.TELEVENDAS"];
+
+    const isEspecial = especiais.includes(indicadorNormalizado);
 
     console.log("📂 Classe:", classeAtual);
+    console.log("🧩 É especial?", isEspecial);
+
+    console.log("📂 Classe:", classeAtual);
+    console.log("📊 Indicador normalizado:", indicadorNormalizado);
 
     const semanas = gerarSemanas();
 
@@ -107,8 +140,15 @@ async function carregarTabela() {
       supabase
         .from("resultados")
         .select("*")
-        .eq("indicador", indicadorSelecionado)
-        .eq("classe", classeAtual),
+        .eq("indicador", indicadorNormalizado)
+        .in(
+          "classe",
+          [
+            classeAtual,
+            classeAtual === "Operações" ? "Comercial" : null,
+            classeAtual === "Prevenção" ? "Quebras" : null,
+          ].filter(Boolean),
+        ),
     ]);
 
     if (lojasResp.error) throw lojasResp.error;
@@ -125,11 +165,15 @@ async function carregarTabela() {
       mapa[`${r.loja}-${r.semana}`] = r;
     });
 
-    document.getElementById("conteudo").innerHTML = montarHTMLTabela(
-      lojas,
-      mapa,
-      semanas,
-    );
+    const container = document.getElementById("conteudo");
+
+    if (isEspecial) {
+      console.log("🧩 Usando tabela especial");
+
+      container.innerHTML = montarTabelaEspecial(lojas, mapa, semanas);
+    } else {
+      container.innerHTML = montarHTMLTabela(lojas, mapa, semanas);
+    }
 
     ativarFiltros();
   } catch (erro) {
@@ -211,6 +255,12 @@ function ativarFiltros() {
   const loja = document.getElementById("filtroLoja");
   const reg = document.getElementById("filtroRegional");
 
+  // ✅ SE NÃO EXISTIR → NÃO FAZ NADA
+  if (!cod || !loja || !reg) {
+    console.warn("⚠️ Filtros não disponíveis nessa tabela");
+    return;
+  }
+
   const aplicar = () => {
     document.querySelectorAll("#tbody-tabela tr").forEach((row) => {
       const tds = row.querySelectorAll("td");
@@ -286,7 +336,8 @@ async function salvarValor(loja, semana, valor) {
   const numero = Number(valor);
   if (isNaN(numero)) return;
 
-  const classe = mapaClasse[indicadorSelecionado] || "Outros";
+  const indicadorNormalizado = indicadorSelecionado.toUpperCase().trim();
+  const classe = mapaClasse[indicadorNormalizado] || "Outros";
 
   console.log("💾 SALVAR:", {
     indicadorSelecionado,
