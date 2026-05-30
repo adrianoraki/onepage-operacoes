@@ -374,6 +374,28 @@ body {
   transform: translateY(-1px);
 }
 
+.menu-icon {
+  width: 18px;
+  text-align: center;
+  margin-right: 10px;
+  font-size: 14px;
+}
+
+
+.menu-icon {
+  width: 18px;
+  min-width: 18px;
+  text-align: center;
+  margin-right: 10px;
+  font-size: 14px;
+  display: inline-block;
+}
+
+.icon-dashboard {
+  color: #3f7bcc;
+}
+
+
 /* ==========================
    📱 MOBILE / TELAS PEQUENAS
    sem esconder o menu por padrão

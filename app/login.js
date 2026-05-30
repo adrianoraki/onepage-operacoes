@@ -52,9 +52,7 @@ function normalizarListaRegionais(valor) {
 
   // já veio como array/jsonb
   if (Array.isArray(valor)) {
-    return valor
-      .map((v) => (v || "").toString().trim())
-      .filter(Boolean);
+    return valor.map((v) => (v || "").toString().trim()).filter(Boolean);
   }
 
   // veio como string "NE1,NE2"
@@ -80,14 +78,15 @@ function salvarUsuarioLocal(perfil) {
     funcao: perfil.funcao || "",
     permissoes: perfil.permissoes || {},
 
-    tipo_visao: (perfil.tipo_visao || "").toString().trim().toLowerCase() || null,
+    tipo_visao:
+      (perfil.tipo_visao || "").toString().trim().toLowerCase() || null,
     loja_codigo: perfil.loja_codigo || null,
     loja_vinculada: perfil.loja_vinculada || null,
     regional_vinculada: perfil.regional_vinculada || null,
     subregional_vinculada: perfil.subregional_vinculada || null,
 
     // ✅ preparado para múltiplas regionais
-    regionais_vinculadas: normalizarListaRegionais(perfil.regionais_vinculadas)
+    regionais_vinculadas: normalizarListaRegionais(perfil.regionais_vinculadas),
   };
 
   localStorage.setItem("usuario", JSON.stringify(usuario));
@@ -153,16 +152,19 @@ async function vincularAuthUserIdAoPerfil(perfil, authUser) {
       return perfil;
     }
 
-    console.log("🔗 Vinculando auth_user_id ao perfil encontrado por e-mail...", {
-      usuario: perfil.nome,
-      email: perfil.email,
-      novoAuthId: authUser.id
-    });
+    console.log(
+      "🔗 Vinculando auth_user_id ao perfil encontrado por e-mail...",
+      {
+        usuario: perfil.nome,
+        email: perfil.email,
+        novoAuthId: authUser.id,
+      },
+    );
 
     const { data, error } = await supabaseLogin
       .from("usuarios")
       .update({
-        auth_user_id: authUser.id
+        auth_user_id: authUser.id,
       })
       .eq("id", perfil.id)
       .select("*")
@@ -175,7 +177,7 @@ async function vincularAuthUserIdAoPerfil(perfil, authUser) {
 
     console.log("✅ auth_user_id vinculado com sucesso:", {
       usuario: data.nome,
-      auth_user_id: data.auth_user_id
+      auth_user_id: data.auth_user_id,
     });
 
     return data;
@@ -210,7 +212,10 @@ async function resolverPerfilUsuarioAutenticado(authUser) {
 
   // se encontrou por e-mail e ainda não tem vínculo, amarra agora
   if (!perfilPorEmail.auth_user_id) {
-    const perfilVinculado = await vincularAuthUserIdAoPerfil(perfilPorEmail, authUser);
+    const perfilVinculado = await vincularAuthUserIdAoPerfil(
+      perfilPorEmail,
+      authUser,
+    );
     if (perfilVinculado) return perfilVinculado;
   }
 
@@ -219,11 +224,14 @@ async function resolverPerfilUsuarioAutenticado(authUser) {
     perfilPorEmail.auth_user_id &&
     String(perfilPorEmail.auth_user_id) !== String(authUser.id)
   ) {
-    console.error("❌ Perfil encontrado por e-mail já está vinculado a outro auth_user_id", {
-      email: perfilPorEmail.email,
-      auth_user_id_tabela: perfilPorEmail.auth_user_id,
-      auth_user_id_auth: authUser.id
-    });
+    console.error(
+      "❌ Perfil encontrado por e-mail já está vinculado a outro auth_user_id",
+      {
+        email: perfilPorEmail.email,
+        auth_user_id_tabela: perfilPorEmail.auth_user_id,
+        auth_user_id_auth: authUser.id,
+      },
+    );
     return null;
   }
 
@@ -246,7 +254,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   try {
     const {
       data: { session },
-      error
+      error,
     } = await supabaseLogin.auth.getSession();
 
     if (error) {
@@ -266,7 +274,9 @@ window.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
-      console.warn("⚠️ Sessão existe, mas não foi possível resolver o perfil do app");
+      console.warn(
+        "⚠️ Sessão existe, mas não foi possível resolver o perfil do app",
+      );
       await supabaseLogin.auth.signOut();
       limparStorageLogin();
     }
@@ -317,7 +327,7 @@ async function fazerLogin() {
     // 1) Login no Auth
     const { data, error } = await supabaseLogin.auth.signInWithPassword({
       email,
-      password: senha
+      password: senha,
     });
 
     if (error || !data?.user) {
@@ -339,17 +349,21 @@ async function fazerLogin() {
 
     console.log("✅ Auth login realizado:", {
       auth_user_id: data.user.id,
-      email: data.user.email
+      email: data.user.email,
     });
 
     // 2) Resolver perfil do app
-    const perfil = await resolverPerfilUsuarioAutenticado(data.user);
+
+    let perfil = await resolverPerfilUsuarioAutenticado(data.user);
 
     if (!perfil) {
-      console.error("❌ Nenhum perfil compatível foi encontrado após autenticação");
+      console.warn(
+        "⚠️ Usuário autenticado, mas sem cadastro em usuarios. Entrando com fallback local.",
+      );
+      perfil = montarPerfilFallbackAuth(data.user);
 
       setErro(
-        "❌ Perfil do usuário não encontrado no sistema. Verifique se o cadastro foi criado corretamente."
+        "❌ Perfil do usuário não encontrado no sistema. Verifique se o cadastro foi criado corretamente.",
       );
 
       await supabaseLogin.auth.signOut();
@@ -374,8 +388,8 @@ async function fazerLogin() {
           status: "sucesso",
           contexto: {
             email: perfil.email || email,
-            matricula: perfil.matricula || null
-          }
+            matricula: perfil.matricula || null,
+          },
         });
       } catch (erroLog) {
         console.warn("⚠️ Não foi possível registrar log de login:", erroLog);
@@ -411,3 +425,43 @@ document.addEventListener("keyup", function (e) {
     }
   }
 });
+// ==========================
+// 🆘 PERFIL FALLBACK PELO AUTH
+// usado quando o usuário existe no Auth
+// mas não existe na tabela usuarios
+// ==========================
+function montarPerfilFallbackAuth(authUser) {
+  const email = (authUser?.email || "").toString().trim().toLowerCase();
+
+  const nomeBase = email.split("@")[0] || "usuario";
+
+  const perfilFallback = {
+    id: null,
+    auth_user_id: authUser?.id || null,
+    nome: nomeBase,
+    sobrenome: "",
+    email,
+    matricula: "",
+    perfil: "usuario",
+    funcao: "Usuário",
+    permissoes: {
+      indicadores: [],
+      classes: [],
+      acesso_total: false,
+    },
+
+    tipo_visao: "regional",
+    loja_codigo: null,
+    loja_vinculada: null,
+    regional_vinculada: null,
+    subregional_vinculada: null,
+    regionais_vinculadas: [],
+  };
+
+  console.warn(
+    "⚠️ Perfil não encontrado em usuarios. Usando fallback local:",
+    perfilFallback,
+  );
+
+  return perfilFallback;
+}

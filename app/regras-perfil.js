@@ -24,6 +24,30 @@ function normalizarTextoSemAcento(valor) {
     .trim();
 }
 
+function normalizarListaRegionais(valor) {
+  if (!valor) return [];
+
+  if (Array.isArray(valor)) {
+    return valor
+      .map((v) => normalizarTexto(v))
+      .filter(Boolean);
+  }
+
+  if (typeof valor === "string") {
+    return valor
+      .split(",")
+      .map((v) => normalizarTexto(v))
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function listaRegionaisParaTexto(lista) {
+  if (!Array.isArray(lista) || !lista.length) return "";
+  return lista.map((v) => normalizarTexto(v)).filter(Boolean).join(", ");
+}
+
 // ==========================
 // 🔄 USUÁRIO LOGADO
 // ==========================
@@ -41,19 +65,40 @@ function getUsuarioLogado() {
 
     usuarioLogado = {
       ...user,
-      perfil: (user.perfil || "").toString().trim().toLowerCase(),
-      tipo_visao: (user.tipo_visao || "").toString().trim().toLowerCase(),
+      perfil: normalizarTextoLower(user.perfil),
+      tipo_visao: normalizarTextoLower(user.tipo_visao),
+      loja_codigo: user.loja_codigo || null,
       loja_vinculada: user.loja_vinculada || null,
       regional_vinculada: user.regional_vinculada || null,
       subregional_vinculada: user.subregional_vinculada || null,
+      regionais_vinculadas: normalizarListaRegionais(user.regionais_vinculadas),
     };
+
+    // fallback: se só tem regional principal, garante na lista
+    if (
+      usuarioLogado.regional_vinculada &&
+      !usuarioLogado.regionais_vinculadas.includes(
+        normalizarTexto(usuarioLogado.regional_vinculada),
+      )
+    ) {
+      usuarioLogado.regionais_vinculadas.unshift(
+        normalizarTexto(usuarioLogado.regional_vinculada),
+      );
+    }
+
+    // remove duplicados
+    usuarioLogado.regionais_vinculadas = [
+      ...new Set(usuarioLogado.regionais_vinculadas),
+    ];
 
     console.log("👤 Usuário:", {
       nome: usuarioLogado.nome,
       perfil: usuarioLogado.perfil,
       tipo_visao: usuarioLogado.tipo_visao,
+      loja_codigo: usuarioLogado.loja_codigo,
       loja_vinculada: usuarioLogado.loja_vinculada,
       regional_vinculada: usuarioLogado.regional_vinculada,
+      regionais_vinculadas: usuarioLogado.regionais_vinculadas,
     });
 
     return usuarioLogado;
@@ -74,6 +119,7 @@ function getEscopoUsuarioSistema(user = null) {
       loja_vinculada: null,
       regional_vinculada: null,
       subregional_vinculada: null,
+      regionais_vinculadas: [],
     };
   }
 
@@ -84,6 +130,7 @@ function getEscopoUsuarioSistema(user = null) {
       loja_vinculada: null,
       regional_vinculada: null,
       subregional_vinculada: null,
+      regionais_vinculadas: [],
     };
   }
 
@@ -94,6 +141,9 @@ function getEscopoUsuarioSistema(user = null) {
       loja_vinculada: null,
       regional_vinculada: usuario.regional_vinculada || null,
       subregional_vinculada: usuario.subregional_vinculada || null,
+      regionais_vinculadas: normalizarListaRegionais(
+        usuario.regionais_vinculadas,
+      ),
     };
   }
 
@@ -103,6 +153,7 @@ function getEscopoUsuarioSistema(user = null) {
     loja_vinculada: usuario.loja_vinculada || null,
     regional_vinculada: usuario.regional_vinculada || null,
     subregional_vinculada: usuario.subregional_vinculada || null,
+    regionais_vinculadas: normalizarListaRegionais(usuario.regionais_vinculadas),
   };
 }
 
@@ -135,10 +186,22 @@ function lojaDentroDoEscopoUsuario(codigo, nomeLoja, lojaVinculada) {
 // ==========================
 // 🌍 MATCH DE REGIONAL NO ESCOPO
 // ==========================
-function regionalDentroDoEscopoUsuario(regionalLinha, regionalVinculada) {
+function regionalDentroDoEscopoUsuario(
+  regionalLinha,
+  regionalVinculada,
+  regionaisVinculadas = [],
+) {
+  const regionalNorm = normalizarTexto(regionalLinha);
+
+  const lista = normalizarListaRegionais(regionaisVinculadas);
+
+  if (lista.length) {
+    return lista.includes(regionalNorm);
+  }
+
   if (!regionalVinculada) return true;
 
-  return normalizarTexto(regionalLinha) === normalizarTexto(regionalVinculada);
+  return regionalNorm === normalizarTexto(regionalVinculada);
 }
 
 // ==========================
@@ -174,7 +237,7 @@ function getMotivoBloqueio(indicador, classe, semana) {
   const user = getUsuarioLogado();
   if (!user) return "Usuário não autenticado";
 
-  const perfil = (user.perfil || "").toString().trim().toLowerCase();
+  const perfil = normalizarTextoLower(user.perfil);
 
   const semanaAtual = getSemanaAtual().toString().padStart(2, "0");
   const semanaInformada = String(semana).padStart(2, "0");
@@ -271,7 +334,7 @@ function aplicarPermissaoInput(input, indicador, classe, semana) {
 // ==========================
 // 👁️ APLICAR ESCOPO VISUAL DA TABELA
 // gerente da loja vê só sua loja
-// regional vê só sua regional
+// regional vê só sua(s) regional(is)
 // ==========================
 function aplicarEscopoVisualTabela() {
   const user = getUsuarioLogado();
@@ -316,6 +379,7 @@ function aplicarEscopoVisualTabela() {
         visivel = regionalDentroDoEscopoUsuario(
           regional,
           escopo.regional_vinculada,
+          escopo.regionais_vinculadas,
         );
       }
 
@@ -354,12 +418,13 @@ function aplicarPermissoesTabela(indicador, classe) {
     console.log("✅ Permissões aplicadas:", inputs.length);
   }
 
-  // ✅ agora aplica também o escopo de visualização
+  // ✅ aplica escopo visual
   aplicarEscopoVisualTabela();
 }
 
 // ==========================
 // 🔐 GERAR SENHA ALEATÓRIA
+// (mantido por compatibilidade)
 // ==========================
 function gerarSenhaAleatoria(tamanho = 10) {
   const letrasMaiusculas = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -435,10 +500,49 @@ async function buscarRegionaisDisponiveis() {
 
   const set = new Set();
   lojas.forEach((l) => {
-    if (l.regional) set.add(l.regional);
+    if (l.regional) set.add(normalizarTexto(l.regional));
   });
 
   return [...set].sort();
+}
+
+// ==========================
+// 🌍 NORMALIZAR REGIONAIS NO CADASTRO
+// aceita "NE1, NE2"
+// ==========================
+function normalizarRegionaisCadastro(valor) {
+  if (!valor) return [];
+
+  return valor
+    .split(",")
+    .map((v) => normalizarTexto(v))
+    .filter(Boolean);
+}
+
+// ==========================
+// 🏬 BUSCAR LOJA POR CÓDIGO
+// ==========================
+async function buscarLojaPorCodigoCadastro(lojaCodigo) {
+  try {
+    const codigo = (lojaCodigo || "").toString().trim();
+    if (!codigo) return null;
+
+    const { data, error } = await window.db
+      .from("lojas")
+      .select("*")
+      .eq("codigo", codigo)
+      .single();
+
+    if (error || !data) {
+      console.warn("⚠️ Loja não encontrada no cadastro:", error);
+      return null;
+    }
+
+    return data;
+  } catch (erro) {
+    console.error("❌ Erro ao buscar loja no cadastro:", erro);
+    return null;
+  }
 }
 
 // ==========================
@@ -528,7 +632,7 @@ async function salvarDadosUsuario() {
   }
 
   try {
-    await window.db
+    const { error } = await window.db
       .from("usuarios")
       .update({
         nome,
@@ -537,6 +641,8 @@ async function salvarDadosUsuario() {
         funcao,
       })
       .eq("id", user.id);
+
+    if (error) throw error;
 
     alert("✅ Dados atualizados!");
 
@@ -630,41 +736,12 @@ async function salvarSenha() {
 }
 
 // ==========================
-// 🔄 ALTERNAR CAMPOS DE VÍNCULO
+// ➕ NOVO USUÁRIO (MANUAL)
+// - login criado manualmente no Auth
+// - perfil salvo no sistema
 // ==========================
-function alternarCamposVinculoNovoUsuario(prefixo = "novo") {
-  const tipo =
-    document.getElementById(`${prefixo}_tipo_visao`)?.value || "gerencial";
-
-  const campoLoja = document.getElementById(`campo_${prefixo}_loja_vinculada`);
-  const campoRegional = document.getElementById(
-    `campo_${prefixo}_regional_vinculada`,
-  );
-  const campoSubregional = document.getElementById(
-    `campo_${prefixo}_subregional_vinculada`,
-  );
-
-  if (tipo === "regional") {
-    if (campoLoja) campoLoja.style.display = "none";
-    if (campoRegional) campoRegional.style.display = "flex";
-    if (campoSubregional) campoSubregional.style.display = "flex";
-  } else {
-    if (campoLoja) campoLoja.style.display = "flex";
-    if (campoRegional) campoRegional.style.display = "none";
-    if (campoSubregional) campoSubregional.style.display = "none";
-  }
-}
-
-// ==========================
-// ➕ NOVO USUÁRIO
-// ==========================
-// ==========================
-// ➕ NOVO USUÁRIO
-// Cadastro definitivo:
-// cria Auth + tabela usuarios via Edge Function
-// ==========================
-async function novoUsuario() {
-  console.log("➕ Novo Usuário");
+function novoUsuario() {
+  console.log("➕ Novo Usuário (modo manual)");
 
   const user = getUsuarioLogado();
   if (!user) return;
@@ -688,7 +765,7 @@ async function novoUsuario() {
 
         <div class="campo">
           <label>E-mail *</label>
-          <input id="novo_email" placeholder="Digite o e-mail">
+          <input id="novo_email" placeholder="Digite o e-mail usado no Auth">
         </div>
 
         <div class="campo">
@@ -703,9 +780,15 @@ async function novoUsuario() {
         </div>
 
         <div class="campo">
-          <label>Regional vinculada</label>
+          <label>Regional principal</label>
           <input id="novo_regional_vinculada" placeholder="Ex.: NE1">
           <small>Use quando o usuário for regional e não estiver vinculado a uma loja específica.</small>
+        </div>
+
+        <div class="campo">
+          <label>Regionais adicionais</label>
+          <input id="novo_regionais_vinculadas" placeholder="Ex.: NE1, NE2">
+          <small>Opcional. Separe por vírgula.</small>
         </div>
 
         <div class="campo">
@@ -728,12 +811,10 @@ async function novoUsuario() {
 }
 
 // ==========================
-// 💾 SALVAR NOVO USUÁRIO
-// ==========================
-// ==========================
-// 💾 SALVAR NOVO USUÁRIO
-// Fluxo definitivo:
-// chama Edge Function create-user
+// 💾 SALVAR NOVO USUÁRIO (MANUAL)
+// - NÃO usa Edge Function
+// - salva direto em usuarios
+// - login deve existir manualmente no Auth
 // ==========================
 async function salvarNovoUsuario() {
   const nome = document.getElementById("novo_nome")?.value.trim();
@@ -750,18 +831,22 @@ async function salvarNovoUsuario() {
   const regional_vinculada =
     document.getElementById("novo_regional_vinculada")?.value.trim() || null;
 
+  const regionais_vinculadas_raw =
+    document.getElementById("novo_regionais_vinculadas")?.value.trim() || "";
+
   const subregional_vinculada =
     document.getElementById("novo_subregional_vinculada")?.value.trim() || null;
 
   const resultadoEl = document.getElementById("resultado-novo-usuario");
 
-  console.log("💾 Iniciando criação definitiva de usuário...", {
+  console.log("💾 Criando usuário no modo manual...", {
     nome,
     matricula,
     email,
     funcao,
     loja_codigo,
     regional_vinculada,
+    regionais_vinculadas_raw,
     subregional_vinculada,
   });
 
@@ -776,23 +861,22 @@ async function salvarNovoUsuario() {
     return;
   }
 
-  if (!loja_codigo && !regional_vinculada) {
+  if (!email.includes("@") || !email.includes(".")) {
     if (resultadoEl) {
       resultadoEl.innerHTML = `
         <div class="msg-erro">
-          ⚠️ Informe o número da loja ou a regional vinculada.
+          ⚠️ Informe um e-mail válido. Ex.: usuario@empresa.com
         </div>
       `;
     }
     return;
   }
 
-  if (!window.db?.functions?.invoke) {
-    console.error("❌ Supabase Edge Functions não disponível neste client");
+  if (!loja_codigo && !regional_vinculada) {
     if (resultadoEl) {
       resultadoEl.innerHTML = `
         <div class="msg-erro">
-          ❌ Edge Functions não disponíveis no sistema.
+          ⚠️ Informe o número da loja ou a regional principal.
         </div>
       `;
     }
@@ -803,61 +887,150 @@ async function salvarNovoUsuario() {
     if (resultadoEl) {
       resultadoEl.innerHTML = `
         <div class="msg-sucesso">
-          🔄 Criando usuário e acesso de login...
+          🔄 Salvando usuário no sistema...
         </div>
       `;
     }
 
+    // duplicidade por e-mail
+    const { data: existenteEmail, error: erroEmail } = await window.db
+      .from("usuarios")
+      .select("id, email")
+      .ilike("email", email)
+      .maybeSingle();
+
+    if (erroEmail) throw erroEmail;
+
+    if (existenteEmail) {
+      if (resultadoEl) {
+        resultadoEl.innerHTML = `
+          <div class="msg-erro">
+            ❌ Já existe um usuário cadastrado com este e-mail.
+          </div>
+        `;
+      }
+      return;
+    }
+
+    // duplicidade por matrícula
+    const { data: existenteMatricula, error: erroMatricula } = await window.db
+      .from("usuarios")
+      .select("id, matricula")
+      .eq("matricula", matricula)
+      .maybeSingle();
+
+    if (erroMatricula) throw erroMatricula;
+
+    if (existenteMatricula) {
+      if (resultadoEl) {
+        resultadoEl.innerHTML = `
+          <div class="msg-erro">
+            ❌ Já existe um usuário cadastrado com esta matrícula.
+          </div>
+        `;
+      }
+      return;
+    }
+
+    let tipo_visao = "regional";
+    let loja_vinculada = null;
+    let loja_codigo_final = null;
+    let regional_principal_final = normalizarTexto(regional_vinculada) || null;
+    let regionais_vinculadas = normalizarRegionaisCadastro(
+      regionais_vinculadas_raw,
+    );
+
+    if (loja_codigo) {
+      const loja = await buscarLojaPorCodigoCadastro(loja_codigo);
+
+      if (!loja) {
+        if (resultadoEl) {
+          resultadoEl.innerHTML = `
+            <div class="msg-erro">
+              ❌ Número da loja não encontrado na base.
+            </div>
+          `;
+        }
+        return;
+      }
+
+      tipo_visao = "gerencial";
+      loja_codigo_final = String(loja.codigo);
+      loja_vinculada = `${loja.codigo} - ${loja.nome}`;
+      regional_principal_final =
+        normalizarTexto(loja.regional) || regional_principal_final || null;
+
+      if (
+        regional_principal_final &&
+        !regionais_vinculadas.includes(regional_principal_final)
+      ) {
+        regionais_vinculadas.push(regional_principal_final);
+      }
+    } else {
+      tipo_visao = "regional";
+
+      if (
+        regional_principal_final &&
+        !regionais_vinculadas.includes(regional_principal_final)
+      ) {
+        regionais_vinculadas.unshift(regional_principal_final);
+      }
+    }
+
+    regionais_vinculadas = [...new Set(regionais_vinculadas)];
+
     const payload = {
+      auth_user_id: null,
       nome,
+      sobrenome: "",
       matricula,
       email,
       funcao,
-      loja_codigo,
-      regional_vinculada,
+      perfil: "usuario",
+
+      tipo_visao,
+      loja_codigo: loja_codigo_final,
+      loja_vinculada,
+      regional_vinculada: regional_principal_final,
+      regionais_vinculadas,
       subregional_vinculada,
+
+      primeiro_acesso: true,
+      permissoes: {},
     };
 
-    console.log("📤 Enviando payload para Edge Function create-user:", payload);
+    console.log("📦 Payload final do novo usuário:", payload);
 
-    const { data, error } = await window.db.functions.invoke("create-user", {
-      body: payload,
-    });
+    const { data, error } = await window.db
+      .from("usuarios")
+      .insert([payload])
+      .select("*")
+      .single();
 
-    if (error) {
-      console.error("❌ Erro ao invocar create-user:", error);
-      throw error;
-    }
+    if (error) throw error;
 
-    if (!data?.success || !data?.data) {
-      console.error("❌ Resposta inválida da Edge Function:", data);
-      throw new Error(data?.error || "Resposta inválida da criação de usuário");
-    }
+    console.log("✅ Usuário salvo com sucesso na tabela usuarios:", data);
 
-    const criado = data.data;
-
-    console.log("✅ Usuário criado definitivamente:", criado);
-
-    // log do sistema
     if (typeof registrarEventoSistema === "function") {
       try {
         await registrarEventoSistema({
           tipo_evento: "usuario",
           modulo: "Configurações",
-          acao: "criou usuário",
-          usuario_alvo: criado.nome,
-          perfil_alvo: criado.perfil,
+          acao: "criou usuário manual",
+          usuario_alvo: nome,
+          perfil_alvo: "usuario",
           autenticacao: "sessao_propria",
           status: "sucesso",
           contexto: {
-            email: criado.email,
-            matricula: criado.matricula,
-            funcao: criado.funcao,
-            tipo_visao: criado.tipo_visao,
-            loja_codigo: criado.loja_codigo,
-            loja_vinculada: criado.loja_vinculada,
-            regional_vinculada: criado.regional_vinculada,
-            subregional_vinculada: criado.subregional_vinculada,
+            email,
+            matricula,
+            funcao,
+            tipo_visao,
+            loja_codigo: loja_codigo_final,
+            loja_vinculada,
+            regional_vinculada: regional_principal_final,
+            regionais_vinculadas,
+            subregional_vinculada,
           },
         });
       } catch (erroLog) {
@@ -871,29 +1044,28 @@ async function salvarNovoUsuario() {
     if (resultadoEl) {
       resultadoEl.innerHTML = `
         <div class="msg-sucesso">
-          <strong>✅ Usuário criado com sucesso!</strong><br><br>
+          <strong>✅ Usuário criado com sucesso no sistema!</strong><br><br>
 
-          <div><b>Login:</b> ${criado.email}</div>
-          <div><b>Matrícula:</b> ${criado.matricula}</div>
-          <div><b>Função:</b> ${criado.funcao}</div>
-          <div><b>Perfil:</b> ${criado.perfil}</div>
-          <div><b>Visão:</b> ${criado.tipo_visao}</div>
-          <div><b>Loja:</b> ${criado.loja_vinculada || "-"}</div>
-          <div><b>Regional:</b> ${criado.regional_vinculada || "-"}</div>
-          <div><b>Subregional:</b> ${criado.subregional_vinculada || "-"}</div>
+          <div><b>Nome:</b> ${data.nome}</div>
+          <div><b>E-mail:</b> ${data.email}</div>
+          <div><b>Matrícula:</b> ${data.matricula}</div>
+          <div><b>Função:</b> ${data.funcao}</div>
+          <div><b>Perfil:</b> ${data.perfil}</div>
+          <div><b>Visão:</b> ${data.tipo_visao}</div>
+          <div><b>Loja:</b> ${data.loja_vinculada || "-"}</div>
+          <div><b>Regional principal:</b> ${data.regional_vinculada || "-"}</div>
+          <div><b>Regionais adicionais:</b> ${
+            Array.isArray(data.regionais_vinculadas)
+              ? data.regionais_vinculadas.join(", ")
+              : "-"
+          }</div>
+          <div><b>Subregional:</b> ${data.subregional_vinculada || "-"}</div>
 
-          <div class="senha-gerada-box">
-            <span>
-              <b>Senha temporária:</b>
-              <span id="senhaGeradaTexto">${criado.senha_temporaria}</span>
-            </span>
-
-            <button type="button" class="btn-secundario" onclick="copiarSenhaGerada()">
-              📋 Copiar
-            </button>
-          </div>
-
-          <small>⚠️ Oriente o usuário a alterar a senha no primeiro acesso.</small>
+          <br>
+          <small>
+            ⚠️ Lembrete: o login deste usuário deve ser criado manualmente no Supabase Auth.
+            No primeiro login, o sistema fará o vínculo automático pelo e-mail.
+          </small>
         </div>
       `;
     }
@@ -905,12 +1077,12 @@ async function salvarNovoUsuario() {
     document.getElementById("novo_funcao").value = "";
     document.getElementById("novo_loja_codigo").value = "";
     document.getElementById("novo_regional_vinculada").value = "";
+    document.getElementById("novo_regionais_vinculadas").value = "";
     document.getElementById("novo_subregional_vinculada").value = "";
   } catch (erro) {
-    console.error("❌ Erro definitivo ao criar usuário:", erro);
+    console.error("❌ Erro ao criar usuário manualmente:", erro);
 
-    const mensagem =
-      erro?.context?.error || erro?.message || "Erro ao criar usuário.";
+    const mensagem = erro?.message || "Erro ao criar usuário no sistema.";
 
     if (resultadoEl) {
       resultadoEl.innerHTML = `
@@ -1125,16 +1297,18 @@ function extrairCodigoDaLojaVinculada(texto) {
 
 // ==========================
 // 🏬 RESOLVER VÍNCULO AUTOMÁTICO
-// infere tipo_visao + loja/regional
+// infere tipo_visao + loja/regional + múltiplas regionais
 // ==========================
 async function resolverVinculoAutomaticoUsuario({
   loja_codigo,
   regional_vinculada,
   subregional_vinculada,
+  regionais_vinculadas,
 }) {
   const lojaCodigo = (loja_codigo || "").toString().trim();
-  const regional = (regional_vinculada || "").toString().trim();
+  const regional = normalizarTexto(regional_vinculada || "");
   const subregional = (subregional_vinculada || "").toString().trim();
+  let regionais = normalizarListaRegionais(regionais_vinculadas || []);
 
   if (lojaCodigo) {
     const { data: loja, error } = await window.db
@@ -1147,11 +1321,20 @@ async function resolverVinculoAutomaticoUsuario({
       throw new Error("Número da loja não encontrado na base.");
     }
 
+    const regionalFinal = normalizarTexto(loja.regional || regional || "");
+
+    if (regionalFinal && !regionais.includes(regionalFinal)) {
+      regionais.push(regionalFinal);
+    }
+
+    regionais = [...new Set(regionais)];
+
     return {
       tipo_visao: "gerencial",
       loja_codigo: String(loja.codigo),
       loja_vinculada: `${loja.codigo} - ${loja.nome}`,
-      regional_vinculada: loja.regional || regional || null,
+      regional_vinculada: regionalFinal || null,
+      regionais_vinculadas: regionais,
       subregional_vinculada: subregional || null,
     };
   }
@@ -1160,11 +1343,18 @@ async function resolverVinculoAutomaticoUsuario({
     throw new Error("Informe o número da loja ou a regional vinculada.");
   }
 
+  if (!regionais.includes(regional)) {
+    regionais.unshift(regional);
+  }
+
+  regionais = [...new Set(regionais)];
+
   return {
     tipo_visao: "regional",
     loja_codigo: null,
     loja_vinculada: null,
     regional_vinculada: regional,
+    regionais_vinculadas: regionais,
     subregional_vinculada: subregional || null,
   };
 }
@@ -1186,6 +1376,10 @@ function coletarCamposEdicaoUsuario() {
     regional_vinculada:
       document.getElementById("edit_perm_regional_vinculada")?.value.trim() ||
       "",
+    regionais_vinculadas:
+      document
+        .getElementById("edit_perm_regionais_vinculadas")
+        ?.value.trim() || "",
     subregional_vinculada:
       document
         .getElementById("edit_perm_subregional_vinculada")
@@ -1230,6 +1424,7 @@ async function autoSalvarUsuarioAcao(id, campoOrigem = "manual") {
           loja_codigo: dados.loja_codigo,
           regional_vinculada: dados.regional_vinculada,
           subregional_vinculada: dados.subregional_vinculada,
+          regionais_vinculadas: dados.regionais_vinculadas,
         });
 
         const payload = {
@@ -1242,6 +1437,7 @@ async function autoSalvarUsuarioAcao(id, campoOrigem = "manual") {
           loja_codigo: vinculoResolvido.loja_codigo,
           loja_vinculada: vinculoResolvido.loja_vinculada,
           regional_vinculada: vinculoResolvido.regional_vinculada,
+          regionais_vinculadas: vinculoResolvido.regionais_vinculadas,
           subregional_vinculada: vinculoResolvido.subregional_vinculada,
         };
 
@@ -1259,17 +1455,25 @@ async function autoSalvarUsuarioAcao(id, campoOrigem = "manual") {
         // feedback visual
         const infoVisao = document.getElementById("info_tipo_visao_inferida");
         if (infoVisao) {
-          infoVisao.textContent = vinculoResolvido.tipo_visao;
+          infoVisao.value = vinculoResolvido.tipo_visao;
         }
 
         const infoLoja = document.getElementById("info_loja_inferida");
         if (infoLoja) {
-          infoLoja.textContent = vinculoResolvido.loja_vinculada || "-";
+          infoLoja.value = vinculoResolvido.loja_vinculada || "-";
         }
 
         const infoRegional = document.getElementById("info_regional_inferida");
         if (infoRegional) {
-          infoRegional.textContent = vinculoResolvido.regional_vinculada || "-";
+          infoRegional.value = vinculoResolvido.regional_vinculada || "-";
+        }
+
+        const infoRegionaisLista = document.getElementById(
+          "info_regionais_inferidas",
+        );
+        if (infoRegionaisLista) {
+          infoRegionaisLista.value =
+            vinculoResolvido.regionais_vinculadas?.join(", ") || "-";
         }
 
         mostrarStatusAutosaveUsuario("✅ Salvo automaticamente", "sucesso");
@@ -1292,6 +1496,7 @@ async function autoSalvarUsuarioAcao(id, campoOrigem = "manual") {
               loja_codigo: vinculoResolvido.loja_codigo,
               loja_vinculada: vinculoResolvido.loja_vinculada,
               regional_vinculada: vinculoResolvido.regional_vinculada,
+              regionais_vinculadas: vinculoResolvido.regionais_vinculadas,
               subregional_vinculada: vinculoResolvido.subregional_vinculada,
             },
           });
@@ -1323,6 +1528,7 @@ function ativarAutosaveEdicaoUsuario(id) {
     "edit_perm_funcao",
     "edit_perm_loja_codigo",
     "edit_perm_subregional_vinculada",
+    "edit_perm_regionais_vinculadas",
   ];
 
   const camposChange = ["edit_perm_regional_vinculada", "edit_perm_perfil"];
@@ -1346,10 +1552,6 @@ function ativarAutosaveEdicaoUsuario(id) {
   });
 }
 
-// ==========================
-// ⚙️ EDITAR PERMISSÕES + VÍNCULO
-// Master pode trocar gerente de loja/regional aqui
-// ==========================
 // ==========================
 // ⚙️ EDITAR PERMISSÕES + AÇÃO + VÍNCULO
 // autosave nos campos principais
@@ -1384,12 +1586,18 @@ async function editarPermissoes(id) {
 
     const optionsRegionais = regionais
       .map((r) => {
-        return `<option value="${r}" ${data.regional_vinculada === r ? "selected" : ""}>${r}</option>`;
+        return `<option value="${r}" ${
+          normalizarTexto(data.regional_vinculada) === normalizarTexto(r)
+            ? "selected"
+            : ""
+        }>${r}</option>`;
       })
       .join("");
 
     const lojaCodigoAtual =
       data.loja_codigo || extrairCodigoDaLojaVinculada(data.loja_vinculada);
+
+    const regionaisTexto = listaRegionaisParaTexto(data.regionais_vinculadas);
 
     const agrupado = {};
 
@@ -1455,11 +1663,16 @@ async function editarPermissoes(id) {
           </div>
 
           <div class="campo">
-            <label>Regional vinculada</label>
+            <label>Regional principal</label>
             <select id="edit_perm_regional_vinculada">
               <option value="">Selecione</option>
               ${optionsRegionais}
             </select>
+          </div>
+
+          <div class="campo">
+            <label>Regionais adicionais</label>
+            <input id="edit_perm_regionais_vinculadas" value="${regionaisTexto || ""}" placeholder="Ex.: NE1, NE2">
           </div>
 
           <div class="campo">
@@ -1480,6 +1693,11 @@ async function editarPermissoes(id) {
           <div class="campo">
             <label>Regional inferida</label>
             <input id="info_regional_inferida" value="${data.regional_vinculada || "-"}" disabled>
+          </div>
+
+          <div class="campo">
+            <label>Regionais inferidas</label>
+            <input id="info_regionais_inferidas" value="${regionaisTexto || "-"}" disabled>
           </div>
 
         </div>
@@ -1540,7 +1758,8 @@ async function editarPermissoes(id) {
 }
 
 // ==========================
-// 💾 SALVAR PERMISSÕES + VÍNCULO
+// 💾 SALVAR PERMISSÕES
+// mantém compatibilidade com botão manual
 // ==========================
 async function salvarPermissoes(id) {
   const checks = document.querySelectorAll(
@@ -1549,85 +1768,57 @@ async function salvarPermissoes(id) {
 
   const selecionados = [...checks].map((c) => c.value);
 
-  const nome = document.getElementById("edit_perm_nome")?.value.trim() || "";
-  const matricula =
-    document.getElementById("edit_perm_matricula")?.value.trim() || "";
-  const email = document.getElementById("edit_perm_email")?.value.trim() || "";
-  const funcao =
-    document.getElementById("edit_perm_funcao")?.value.trim() || "";
-
-  const tipo_visao =
-    document.getElementById("edit_perm_tipo_visao")?.value || "gerencial";
-
-  const loja_vinculada =
-    document.getElementById("edit_perm_loja_vinculada")?.value.trim() || null;
-
-  const regional_vinculada =
-    document.getElementById("edit_perm_regional_vinculada")?.value || null;
-
-  const subregional_vinculada =
-    document.getElementById("edit_perm_subregional_vinculada")?.value.trim() ||
-    null;
-
+  const dados = coletarCamposEdicaoUsuario();
   const user = getUsuarioLogado();
   const isMaster = user?.perfil === "master";
 
-  const perfilNovo = isMaster
-    ? document.getElementById("edit_perm_perfil")?.value || "usuario"
-    : undefined;
-
-  console.log("💾 Salvando permissões + vínculo:", {
+  console.log("💾 Salvando permissões + vínculo manual:", {
     id,
-    nome,
-    matricula,
-    email,
-    funcao,
-    tipo_visao,
-    loja_vinculada,
-    regional_vinculada,
-    subregional_vinculada,
+    dados,
     selecionados,
-    perfilNovo,
   });
 
-  if (!nome || !matricula || !email || !funcao) {
+  if (!dados.nome || !dados.matricula || !dados.email || !dados.funcao) {
     alert("⚠️ Nome, matrícula, e-mail e função são obrigatórios.");
     return;
   }
 
-  if (tipo_visao === "gerencial" && !loja_vinculada) {
-    alert("⚠️ Se a visão for gerencial, selecione a loja vinculada.");
-    return;
-  }
-
-  if (tipo_visao === "regional" && !regional_vinculada) {
-    alert("⚠️ Se a visão for regional, selecione a regional vinculada.");
-    return;
-  }
-
-  const payload = {
-    nome,
-    matricula,
-    email,
-    funcao,
-    tipo_visao,
-    loja_vinculada: tipo_visao === "gerencial" ? loja_vinculada : null,
-    regional_vinculada: tipo_visao === "regional" ? regional_vinculada : null,
-    subregional_vinculada:
-      tipo_visao === "regional" ? subregional_vinculada : null,
-    permissoes: {
-      indicadores: selecionados,
-      classes: [],
-      acesso_total: false,
-    },
-  };
-
-  if (isMaster) {
-    payload.perfil = perfilNovo;
-  }
-
   try {
-    await window.db.from("usuarios").update(payload).eq("id", id);
+    const vinculoResolvido = await resolverVinculoAutomaticoUsuario({
+      loja_codigo: dados.loja_codigo,
+      regional_vinculada: dados.regional_vinculada,
+      subregional_vinculada: dados.subregional_vinculada,
+      regionais_vinculadas: dados.regionais_vinculadas,
+    });
+
+    const payload = {
+      nome: dados.nome,
+      matricula: dados.matricula,
+      email: dados.email,
+      funcao: dados.funcao,
+      tipo_visao: vinculoResolvido.tipo_visao,
+      loja_codigo: vinculoResolvido.loja_codigo,
+      loja_vinculada: vinculoResolvido.loja_vinculada,
+      regional_vinculada: vinculoResolvido.regional_vinculada,
+      regionais_vinculadas: vinculoResolvido.regionais_vinculadas,
+      subregional_vinculada: vinculoResolvido.subregional_vinculada,
+      permissoes: {
+        indicadores: selecionados,
+        classes: [],
+        acesso_total: false,
+      },
+    };
+
+    if (isMaster && dados.perfil) {
+      payload.perfil = dados.perfil;
+    }
+
+    const { error } = await window.db
+      .from("usuarios")
+      .update(payload)
+      .eq("id", id);
+
+    if (error) throw error;
 
     alert("✅ Permissões / vínculo atualizados!");
 
@@ -1636,18 +1827,20 @@ async function salvarPermissoes(id) {
         tipo_evento: "permissao",
         modulo: "Permissões",
         acao: "atualizou permissões e vínculo",
-        usuario_alvo: nome,
-        perfil_alvo: isMaster ? perfilNovo : undefined,
+        usuario_alvo: dados.nome,
+        perfil_alvo: isMaster ? dados.perfil : undefined,
         autenticacao: "sessao_propria",
         status: "sucesso",
         contexto: {
           indicadores: selecionados,
-          tipo_visao,
-          loja_vinculada,
-          regional_vinculada,
-          subregional_vinculada,
-          funcao,
-          matricula,
+          tipo_visao: vinculoResolvido.tipo_visao,
+          loja_codigo: vinculoResolvido.loja_codigo,
+          loja_vinculada: vinculoResolvido.loja_vinculada,
+          regional_vinculada: vinculoResolvido.regional_vinculada,
+          regionais_vinculadas: vinculoResolvido.regionais_vinculadas,
+          subregional_vinculada: vinculoResolvido.subregional_vinculada,
+          funcao: dados.funcao,
+          matricula: dados.matricula,
         },
       });
     }
@@ -1700,7 +1893,7 @@ async function abrirAuditoria() {
 
   container.innerHTML = `
     <div class="card-conteudo">
-      <h2>📊 Auditoria</h2>
+      <h2>📊 Histórico de Alterações</h2>
       <p>Carregando registros...</p>
     </div>
   `;

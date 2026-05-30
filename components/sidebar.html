@@ -20,23 +20,27 @@
     </div>
 
     <!-- ==========================
-         📋 MENU
+         📋 MENU PRINCIPAL
     =========================== -->
     <div class="menu">
       <ul id="menu-list">
+        <!-- DASHBOARD -->
         <li
           class="menu-item"
+          data-menu="dashboard"
           onclick="
             logMenu('dashboard');
             mostrar('dashboard');
           "
         >
-          <i class="fas fa-gauge-high" style="color: #4caf50"></i>
+          <i class="fas fa-tachometer-alt menu-icon icon-dashboard"></i>
           <span>Dashboard</span>
         </li>
 
+        <!-- RANKING -->
         <li
           class="menu-item"
+          data-menu="ranking"
           onclick="
             logMenu('ranking');
             mostrar('ranking');
@@ -46,8 +50,10 @@
           <span>Ranking</span>
         </li>
 
+        <!-- INDICADORES -->
         <li
           class="menu-item"
+          data-menu="indicadores"
           onclick="
             logMenu('indicadores');
             mostrar('indicadores');
@@ -57,8 +63,10 @@
           <span>Indicadores</span>
         </li>
 
+        <!-- COMPARATIVOS -->
         <li
           class="menu-item"
+          data-menu="comparativos"
           onclick="
             logMenu('comparativos');
             mostrar('comparativos');
@@ -76,8 +84,14 @@
          🔻 RODAPÉ
     =========================== -->
     <div class="bottom-area">
-      <!-- CONFIG -->
-      <div class="config-btn" onclick="abrirConfiguracoesMenu()">
+      <!-- CONFIGURAÇÕES -->
+      <div
+        class="config-btn"
+        onclick="
+          logMenu('configuracoes');
+          abrirConfiguracoesMenu();
+        "
+      >
         <div class="config-btn-content">
           <i class="fas fa-gear" style="color: #9e9e9e"></i>
           <span>Configurações</span>
@@ -100,6 +114,7 @@
 
         <!-- LOGOUT -->
         <button
+          type="button"
           class="btn-logout"
           onclick="
             logMenu('logout');

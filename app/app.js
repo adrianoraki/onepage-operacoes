@@ -55,9 +55,7 @@ function normalizarListaRegionais(valor) {
   if (!valor) return [];
 
   if (Array.isArray(valor)) {
-    return valor
-      .map((v) => normalizarTextoApp(v))
-      .filter(Boolean);
+    return valor.map((v) => normalizarTextoApp(v)).filter(Boolean);
   }
 
   if (typeof valor === "string") {
@@ -200,7 +198,10 @@ async function buscarPerfilPorAuthIdApp(authUserId) {
 
     return data;
   } catch (erro) {
-    console.error("❌ [APP] Falha inesperada em buscarPerfilPorAuthIdApp:", erro);
+    console.error(
+      "❌ [APP] Falha inesperada em buscarPerfilPorAuthIdApp:",
+      erro,
+    );
     return null;
   }
 }
@@ -231,7 +232,10 @@ async function buscarPerfilPorEmailApp(email) {
 
     return data;
   } catch (erro) {
-    console.error("❌ [APP] Falha inesperada em buscarPerfilPorEmailApp:", erro);
+    console.error(
+      "❌ [APP] Falha inesperada em buscarPerfilPorEmailApp:",
+      erro,
+    );
     return null;
   }
 }
@@ -247,15 +251,21 @@ async function vincularAuthUserIdAoPerfilApp(perfil, authUser) {
     }
 
     if (perfil.auth_user_id) {
-      console.log("ℹ️ [APP] Perfil já possui auth_user_id:", perfil.auth_user_id);
+      console.log(
+        "ℹ️ [APP] Perfil já possui auth_user_id:",
+        perfil.auth_user_id,
+      );
       return perfil;
     }
 
-    console.log("🔗 [APP] Vinculando auth_user_id ao perfil encontrado por e-mail...", {
-      usuario: perfil.nome,
-      email: perfil.email,
-      novoAuthId: authUser.id,
-    });
+    console.log(
+      "🔗 [APP] Vinculando auth_user_id ao perfil encontrado por e-mail...",
+      {
+        usuario: perfil.nome,
+        email: perfil.email,
+        novoAuthId: authUser.id,
+      },
+    );
 
     const { data, error } = await window.db
       .from("usuarios")
@@ -320,10 +330,14 @@ async function garantirPerfilLocal(authUser) {
       const perfilPorEmail = await buscarPerfilPorEmailApp(emailAuth);
 
       if (!perfilPorEmail) {
-        console.error("❌ [APP] Perfil não encontrado por auth_user_id nem por e-mail");
-        limparSessaoLocal();
-        window.location.replace("login.html");
-        return null;
+        console.warn(
+          "⚠️ [APP] Perfil não encontrado por auth_user_id nem por e-mail. Entrando com fallback local.",
+        );
+
+        const usuarioFallback = montarPerfilFallbackApp(authUser);
+        setUsuarioLocal(usuarioFallback);
+
+        return usuarioFallback;
       }
 
       // se achou por email e auth_user_id está vazio, vincula agora
@@ -331,21 +345,24 @@ async function garantirPerfilLocal(authUser) {
         perfil = await vincularAuthUserIdAoPerfilApp(perfilPorEmail, authUser);
 
         if (!perfil) {
-          console.error("❌ [APP] Falha ao vincular auth_user_id automaticamente");
+          console.error(
+            "❌ [APP] Falha ao vincular auth_user_id automaticamente",
+          );
           limparSessaoLocal();
           window.location.replace("login.html");
           return null;
         }
       } else {
         // se já existe auth_user_id diferente, bloqueia
-        if (
-          String(perfilPorEmail.auth_user_id) !== String(authUser.id)
-        ) {
-          console.error("❌ [APP] Perfil por e-mail já está vinculado a outro auth_user_id", {
-            email: perfilPorEmail.email,
-            auth_user_id_tabela: perfilPorEmail.auth_user_id,
-            auth_user_id_auth: authUser.id,
-          });
+        if (String(perfilPorEmail.auth_user_id) !== String(authUser.id)) {
+          console.error(
+            "❌ [APP] Perfil por e-mail já está vinculado a outro auth_user_id",
+            {
+              email: perfilPorEmail.email,
+              auth_user_id_tabela: perfilPorEmail.auth_user_id,
+              auth_user_id_auth: authUser.id,
+            },
+          );
 
           limparSessaoLocal();
           window.location.replace("login.html");
@@ -401,12 +418,7 @@ async function logout() {
 const classesIndicadores = {
   Auditoria: ["RUPTURA FINAL", "ETIQUETA"],
 
-  "Frente de Caixa": [
-    "SELF-CHECKOUT",
-    "DESCONTO",
-    "CANCELAMENTO",
-    "DEVOLUÇÃO",
-  ],
+  "Frente de Caixa": ["SELF-CHECKOUT", "DESCONTO", "CANCELAMENTO", "DEVOLUÇÃO"],
 
   Operações: [
     { nome: "Visita Prospecção", valor: "PSV" },
@@ -414,13 +426,7 @@ const classesIndicadores = {
     { nome: "PART.TELEVENDAS", valor: "PART.TELEVENDAS" },
   ],
 
-  Prevenção: [
-    "QUEBRA",
-    "QUEBRA FLV",
-    "QUEBRA AÇOUGUE",
-    "PSV",
-    "TROCA",
-  ],
+  Prevenção: ["QUEBRA", "QUEBRA FLV", "QUEBRA AÇOUGUE", "PSV", "TROCA"],
 
   "RH / Operacional": ["BANCOS DE HORAS", "TURNOVER"],
 };
@@ -691,10 +697,7 @@ async function testarConexao() {
       return false;
     }
 
-    const { error } = await supabaseClient
-      .from("lojas")
-      .select("*")
-      .limit(1);
+    const { error } = await supabaseClient.from("lojas").select("*").limit(1);
 
     if (error) {
       console.warn("⚠️ Erro ao testar conexão:", error);
@@ -909,3 +912,43 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 8) abre dashboard
   mostrar("dashboard");
 });
+
+// ==========================
+// 🆘 PERFIL FALLBACK PELO AUTH (APP)
+// usado quando existe sessão no Auth
+// mas não existe linha em usuarios
+// ==========================
+function montarPerfilFallbackApp(authUser) {
+  const email = (authUser?.email || "").toString().trim().toLowerCase();
+  const nomeBase = email.split("@")[0] || "usuario";
+
+  const perfilFallback = {
+    id: null,
+    auth_user_id: authUser?.id || null,
+    nome: nomeBase,
+    sobrenome: "",
+    email,
+    matricula: "",
+    perfil: "usuario",
+    funcao: "Usuário",
+    permissoes: {
+      indicadores: [],
+      classes: [],
+      acesso_total: false,
+    },
+
+    tipo_visao: "regional",
+    loja_codigo: null,
+    loja_vinculada: null,
+    regional_vinculada: null,
+    subregional_vinculada: null,
+    regionais_vinculadas: [],
+  };
+
+  console.warn(
+    "⚠️ [APP] Perfil não encontrado em usuarios. Usando fallback local:",
+    perfilFallback,
+  );
+
+  return perfilFallback;
+}
