@@ -8,6 +8,10 @@ let semanaSelecionada =
   localStorage.getItem("semana") ||
   getSemanaAtual().toString().padStart(2, "0");
 
+const TABELA_STATE = {
+  salvando: new Set(),
+};
+
 console.log("✅ tabela.js carregado");
 console.log("📅 Semana inicial:", semanaSelecionada);
 
@@ -49,6 +53,58 @@ function getSemanaAtual() {
 }
 
 // ==========================
+// 🔠 NORMALIZAR
+// ==========================
+function normalizarTextoTabela(valor) {
+  return (valor || "").toString().trim();
+}
+
+function normalizarTextoTabelaUpper(valor) {
+  return normalizarTextoTabela(valor).toUpperCase();
+}
+
+// ==========================
+// 🗝️ CHAVE DE REGISTRO
+// ==========================
+function getChaveRegistroTabela(loja, semana, indicadorBanco, classe) {
+  return `${loja}__${semana}__${indicadorBanco}__${classe}`;
+}
+
+// ==========================
+// 🖍️ STATUS VISUAL DO INPUT
+// ==========================
+function aplicarStatusInput(input, status) {
+  if (!input) return;
+
+  if (status === "salvando") {
+    input.style.border = "1px solid #1e88e5";
+    input.style.background = "#eef6ff";
+    return;
+  }
+
+  if (status === "sucesso") {
+    input.style.border = "1px solid #43a047";
+    input.style.background = "#eefaf0";
+
+    setTimeout(() => {
+      input.style.border = "1px solid #ccc";
+      input.style.background = "#fff";
+    }, 900);
+
+    return;
+  }
+
+  if (status === "erro") {
+    input.style.border = "1px solid #e53935";
+    input.style.background = "#fff2f2";
+    return;
+  }
+
+  input.style.border = "1px solid #ccc";
+  input.style.background = "#fff";
+}
+
+// ==========================
 // 🗓️ GERAR SEMANAS
 // ==========================
 function gerarSemanas() {
@@ -69,8 +125,8 @@ function gerarSemanas() {
 // 📂 CLASSE PELO CONTEXTO
 // ==========================
 function obterClasse(indicador, classeSelecionada = null) {
-  const indicadorNorm = (indicador || "").toString().trim().toUpperCase();
-  const classeMenu = (classeSelecionada || "").toString().trim();
+  const indicadorNorm = normalizarTextoTabelaUpper(indicador);
+  const classeMenu = normalizarTextoTabela(classeSelecionada);
 
   // usa config central se existir
   if (typeof getClasseIndicador === "function") {
@@ -90,8 +146,8 @@ function obterClasse(indicador, classeSelecionada = null) {
 // 🗃️ INDICADOR DO BANCO
 // ==========================
 function obterIndicadorBanco(indicador, classeSelecionada = null) {
-  const indicadorNorm = (indicador || "").toString().trim().toUpperCase();
-  const classeMenu = (classeSelecionada || "").toString().trim();
+  const indicadorNorm = normalizarTextoTabelaUpper(indicador);
+  const classeMenu = normalizarTextoTabela(classeSelecionada);
 
   if (typeof getIndicadorBanco === "function") {
     return getIndicadorBanco(indicadorNorm, classeMenu);
@@ -104,8 +160,8 @@ function obterIndicadorBanco(indicador, classeSelecionada = null) {
 // 🏷️ TÍTULO DE EXIBIÇÃO
 // ==========================
 function getTituloIndicador(indicador, classeSelecionada = null) {
-  const indicadorNorm = (indicador || "").toString().trim().toUpperCase();
-  const classeMenu = (classeSelecionada || "").toString().trim();
+  const indicadorNorm = normalizarTextoTabelaUpper(indicador);
+  const classeMenu = normalizarTextoTabela(classeSelecionada);
 
   if (typeof getNomeIndicador === "function") {
     return getNomeIndicador(indicadorNorm, classeMenu);
@@ -153,16 +209,19 @@ async function carregarTabela() {
     if (!indicadorSelecionado) {
       console.warn("⚠️ Nenhum indicador selecionado");
 
-      document.getElementById("conteudo").innerHTML = `
-        <h2>📥 Preenchimento</h2>
-        <p>Selecione um indicador.</p>
-      `;
+      const conteudo = document.getElementById("conteudo");
+      if (conteudo) {
+        conteudo.innerHTML = `
+          <h2>📥 Preenchimento</h2>
+          <p>Selecione um indicador.</p>
+        `;
+      }
       return;
     }
 
     const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
 
-    const indicadorNormalizado = indicadorSelecionado.toUpperCase().trim();
+    const indicadorNormalizado = normalizarTextoTabelaUpper(indicadorSelecionado);
     const indicadorBanco = obterIndicadorBanco(indicadorNormalizado, classeSelecionada);
     const classeAtual = obterClasse(indicadorNormalizado, classeSelecionada);
 
@@ -190,7 +249,8 @@ async function carregarTabela() {
         .from("resultados")
         .select("*")
         .eq("indicador", indicadorBanco)
-        .in("classe", getClassesConsulta(classeAtual)),
+        .in("classe", getClassesConsulta(classeAtual))
+        .in("semana", semanas),
     ]);
 
     if (lojasResp.error) throw lojasResp.error;
@@ -199,8 +259,8 @@ async function carregarTabela() {
     const lojas = lojasResp.data || [];
     const resultados = resultadosResp.data || [];
 
-    console.log("🏬 Lojas:", lojas.length);
-    console.log("📊 Registros:", resultados.length);
+    console.log("🏬 Lojas carregadas:", lojas.length);
+    console.log("📊 Registros carregados:", resultados.length);
 
     const mapa = {};
     resultados.forEach((r) => {
@@ -356,6 +416,11 @@ function montarLinha(loja, mapa, semanas, classeSelecionada = null) {
         ? formatarValorParaInput(valor, campoCfg.tipo)
         : valor;
 
+    const valorOriginal =
+      valor === null || valor === undefined || valor === ""
+        ? ""
+        : String(valor);
+
     html += `
       <td class="${destaque}">
         <input
@@ -366,6 +431,7 @@ function montarLinha(loja, mapa, semanas, classeSelecionada = null) {
           data-semana="${semana}"
           data-campo="valor"
           data-tipo="${campoCfg.tipo}"
+          data-original="${valorOriginal}"
           onfocus="prepararInputFormatado(this)"
           onblur="autoSalvar(this)"
           style="height:30px; border-radius:6px; padding-left:5px;"
@@ -455,25 +521,69 @@ function ativarFiltros() {
 // ⚡ AUTO SAVE
 // ==========================
 async function autoSalvar(input) {
+  if (!input) return;
+
   const loja = input.dataset.loja;
   const semana = input.dataset.semana;
   const tipo = input.dataset.tipo || "numero";
+  const valorOriginal = input.dataset.original ?? "";
 
   const valorLimpo =
     typeof limparValorParaSalvar === "function"
       ? limparValorParaSalvar(input.value, tipo)
       : Number((input.value || "").toString().replace(",", "."));
 
-  if (valorLimpo === null || Number.isNaN(valorLimpo)) return;
+  if (valorLimpo === null || Number.isNaN(valorLimpo)) {
+    console.warn("⚠️ Valor inválido ou vazio, salvamento ignorado", {
+      loja,
+      semana,
+      valorDigitado: input.value,
+      tipo
+    });
+
+    return;
+  }
+
+  const valorComparacao = String(valorLimpo);
+
+  // ✅ evita salvar se nada mudou
+  if (valorComparacao === valorOriginal) {
+    console.log("ℹ️ Valor não alterado, salvamento ignorado", {
+      loja,
+      semana,
+      valor: valorComparacao
+    });
+
+    // reaplica formatação se necessário
+    if (typeof formatarValorParaInput === "function") {
+      input.value = formatarValorParaInput(valorLimpo, tipo);
+    }
+
+    return;
+  }
 
   // reaplica máscara no campo
   if (typeof formatarValorParaInput === "function") {
     input.value = formatarValorParaInput(valorLimpo, tipo);
   }
 
-  console.log("⚡ AutoSave", { loja, semana, valor: valorLimpo, tipo });
+  console.log("⚡ AutoSave", {
+    loja,
+    semana,
+    valor: valorLimpo,
+    tipo
+  });
 
-  await salvarValor(loja, semana, valorLimpo);
+  aplicarStatusInput(input, "salvando");
+
+  const salvou = await salvarValor(loja, semana, valorLimpo);
+
+  if (salvou) {
+    input.dataset.original = String(valorLimpo);
+    aplicarStatusInput(input, "sucesso");
+  } else {
+    aplicarStatusInput(input, "erro");
+  }
 }
 
 // ==========================
@@ -481,12 +591,24 @@ async function autoSalvar(input) {
 // ==========================
 async function salvarValor(loja, semana, valor) {
   const numero = Number(valor);
-  if (isNaN(numero)) return;
+  if (isNaN(numero)) {
+    console.warn("⚠️ salvarValor ignorado por número inválido:", valor);
+    return false;
+  }
 
   const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
-  const indicadorNormalizado = indicadorSelecionado.toUpperCase().trim();
+  const indicadorNormalizado = normalizarTextoTabelaUpper(indicadorSelecionado);
   const indicadorBanco = obterIndicadorBanco(indicadorNormalizado, classeSelecionada);
   const classe = obterClasse(indicadorNormalizado, classeSelecionada);
+
+  const chaveSalvar = getChaveRegistroTabela(loja, semana, indicadorBanco, classe);
+
+  if (TABELA_STATE.salvando.has(chaveSalvar)) {
+    console.warn("⚠️ Já existe um salvamento em andamento para este registro:", chaveSalvar);
+    return false;
+  }
+
+  TABELA_STATE.salvando.add(chaveSalvar);
 
   console.log("💾 SALVAR:", {
     indicadorSelecionado,
@@ -499,45 +621,83 @@ async function salvarValor(loja, semana, valor) {
   });
 
   try {
-    const { data: existente, error: erroBusca } = await window.db
+    const { data: existentes, error: erroBusca } = await window.db
       .from("resultados")
-      .select("id")
+      .select("id, valor")
       .eq("loja", loja)
       .eq("semana", semana)
       .eq("indicador", indicadorBanco)
       .eq("classe", classe)
-      .maybeSingle();
+      .order("id", { ascending: true });
 
     if (erroBusca) throw erroBusca;
 
-    if (existente) {
+    const registros = existentes || [];
+
+    if (registros.length > 1) {
+      console.warn("⚠️ Registros duplicados encontrados para a mesma chave:", {
+        loja,
+        semana,
+        indicadorBanco,
+        classe,
+        qtd: registros.length,
+        ids: registros.map((r) => r.id),
+      });
+    }
+
+    if (registros.length >= 1) {
+      const idAlvo = registros[0].id;
+
       const { error: erroUpdate } = await window.db
         .from("resultados")
         .update({ valor: numero })
-        .eq("id", existente.id);
+        .eq("id", idAlvo);
 
       if (erroUpdate) throw erroUpdate;
 
-      console.log("✅ Atualizado");
-    } else {
-      const { error: erroInsert } = await window.db
-        .from("resultados")
-        .insert([
-          {
-            loja,
-            semana,
-            indicador: indicadorBanco,
-            classe,
-            valor: numero,
-          },
-        ]);
+      console.log("✅ Registro atualizado com sucesso:", {
+        id: idAlvo,
+        loja,
+        semana,
+        indicadorBanco,
+        classe,
+        valor: numero,
+      });
 
-      if (erroInsert) throw erroInsert;
-
-      console.log("✅ Inserido");
+      return true;
     }
+
+    const { data: inserido, error: erroInsert } = await window.db
+      .from("resultados")
+      .insert([
+        {
+          loja,
+          semana,
+          indicador: indicadorBanco,
+          classe,
+          valor: numero,
+        },
+      ])
+      .select("id")
+      .single();
+
+    if (erroInsert) throw erroInsert;
+
+    console.log("✅ Registro inserido com sucesso:", {
+      id: inserido?.id,
+      loja,
+      semana,
+      indicadorBanco,
+      classe,
+      valor: numero,
+    });
+
+    return true;
   } catch (erro) {
     console.error("❌ Erro salvarValor:", erro);
+    return false;
+  } finally {
+    TABELA_STATE.salvando.delete(chaveSalvar);
   }
 }
 

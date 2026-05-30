@@ -1,7 +1,52 @@
 // ==========================
 // 🧩 TABELA ESPECIAL RH
-// (BANCOS DE HORAS)
+// (BANCOS DE HORAS / RH ESPECIAL)
 // ==========================
+
+const TABELA_RH_STATE = {
+  salvando: new Set(),
+};
+
+// ==========================
+// 🗝️ CHAVE DE REGISTRO RH
+// ==========================
+function getChaveRegistroRH(loja, semana, indicadorBanco, classe, campo) {
+  return `${loja}__${semana}__${indicadorBanco}__${classe}__${campo}`;
+}
+
+// ==========================
+// 🖍️ STATUS VISUAL DO INPUT RH
+// ==========================
+function aplicarStatusInputRH(input, status) {
+  if (!input) return;
+
+  if (status === "salvando") {
+    input.style.border = "1px solid #1e88e5";
+    input.style.background = "#eef6ff";
+    return;
+  }
+
+  if (status === "sucesso") {
+    input.style.border = "1px solid #43a047";
+    input.style.background = "#eefaf0";
+
+    setTimeout(() => {
+      input.style.border = "";
+      input.style.background = "";
+    }, 900);
+
+    return;
+  }
+
+  if (status === "erro") {
+    input.style.border = "1px solid #e53935";
+    input.style.background = "#fff2f2";
+    return;
+  }
+
+  input.style.border = "";
+  input.style.background = "";
+}
 
 // ==========================
 // ⚙️ CONFIG RH
@@ -10,6 +55,7 @@ function getConfigTabelaRH(indicador, classeSelecionada = null) {
   // tenta usar o arquivo central de configuração
   if (typeof getIndicadorConfig === "function") {
     const cfg = getIndicadorConfig(indicador, classeSelecionada);
+
     const campo1 =
       typeof getCampoConfig === "function"
         ? getCampoConfig(indicador, "valor", classeSelecionada)
@@ -141,6 +187,16 @@ function montarTabelaRH(lojas, mapa, semanas) {
           ? formatarValorParaInput(horasMenos, config.tipo2)
           : horasMenos;
 
+      const original1 =
+        horasMais === null || horasMais === undefined || horasMais === ""
+          ? ""
+          : String(horasMais);
+
+      const original2 =
+        horasMenos === null || horasMenos === undefined || horasMenos === ""
+          ? ""
+          : String(horasMenos);
+
       html += `
         <td class="${destaque}">
           <input
@@ -151,6 +207,7 @@ function montarTabelaRH(lojas, mapa, semanas) {
             data-semana="${semana}"
             data-campo="valor"
             data-tipo="${config.tipo1}"
+            data-original="${original1}"
             class="input-tabela input-tabela-rh"
             onfocus="prepararInputRH(this)"
             onblur="autoSalvarRH(this)"
@@ -166,6 +223,7 @@ function montarTabelaRH(lojas, mapa, semanas) {
             data-semana="${semana}"
             data-campo="valor2"
             data-tipo="${config.tipo2}"
+            data-original="${original2}"
             class="input-tabela input-tabela-rh"
             onfocus="prepararInputRH(this)"
             onblur="autoSalvarRH(this)"
@@ -267,10 +325,13 @@ function ativarFiltroRH() {
 // 💾 AUTOSAVE RH
 // ==========================
 async function autoSalvarRH(input) {
+  if (!input) return;
+
   const loja = input.dataset.loja;
   const semana = input.dataset.semana;
   const campo = input.dataset.campo;
   const tipo = input.dataset.tipo || "numero";
+  const original = input.dataset.original ?? "";
 
   let valorLimpo = null;
 
@@ -281,11 +342,33 @@ async function autoSalvarRH(input) {
     valorLimpo = isNaN(numero) ? null : numero;
   }
 
-  if (valorLimpo === null) return;
+  if (valorLimpo === null) {
+    console.warn("⚠️ Valor RH inválido ou vazio, salvamento ignorado", {
+      loja,
+      semana,
+      campo,
+      valorDigitado: input.value,
+      tipo
+    });
+    return;
+  }
 
   // reaplica máscara
   if (typeof formatarValorParaInput === "function") {
     input.value = formatarValorParaInput(valorLimpo, tipo);
+  }
+
+  const comparacao = String(valorLimpo);
+
+  // ✅ evita salvar se não alterou
+  if (comparacao === original) {
+    console.log("ℹ️ Valor RH não alterado, salvamento ignorado", {
+      loja,
+      semana,
+      campo,
+      valor: comparacao
+    });
+    return;
   }
 
   const indicadorNormalizado = (indicadorSelecionado || "")
@@ -301,7 +384,7 @@ async function autoSalvarRH(input) {
         ? obterClasse(indicadorNormalizado, classeSelecionada)
         : classeSelecionada || "RH / Operacional";
 
-  console.log("💾 SALVAR RH:", {
+  console.log("⚡ AUTOSAVE RH:", {
     loja,
     semana,
     campo,
@@ -311,49 +394,150 @@ async function autoSalvarRH(input) {
     classe,
   });
 
+  aplicarStatusInputRH(input, "salvando");
+
+  const salvou = await salvarValorRH(
+    loja,
+    semana,
+    campo,
+    valorLimpo,
+    indicadorNormalizado,
+    classe
+  );
+
+  if (salvou) {
+    input.dataset.original = String(valorLimpo);
+    aplicarStatusInputRH(input, "sucesso");
+  } else {
+    aplicarStatusInputRH(input, "erro");
+  }
+}
+
+// ==========================
+// 💾 SALVAR VALOR RH
+// ==========================
+async function salvarValorRH(
+  loja,
+  semana,
+  campo,
+  valor,
+  indicadorNormalizado,
+  classe
+) {
+  const numero = Number(valor);
+  if (isNaN(numero)) {
+    console.warn("⚠️ salvarValorRH ignorado por número inválido:", valor);
+    return false;
+  }
+
+  const indicadorBanco =
+    typeof getIndicadorBanco === "function"
+      ? getIndicadorBanco(indicadorNormalizado, localStorage.getItem("classeSelecionada") || "")
+      : indicadorNormalizado;
+
+  const chaveSalvar = getChaveRegistroRH(
+    loja,
+    semana,
+    indicadorBanco,
+    classe,
+    campo
+  );
+
+  if (TABELA_RH_STATE.salvando.has(chaveSalvar)) {
+    console.warn("⚠️ Já existe salvamento RH em andamento:", chaveSalvar);
+    return false;
+  }
+
+  TABELA_RH_STATE.salvando.add(chaveSalvar);
+
+  console.log("💾 SALVAR RH:", {
+    loja,
+    semana,
+    campo,
+    valor: numero,
+    indicador: indicadorNormalizado,
+    indicadorBanco,
+    classe,
+  });
+
   try {
-    const { data: existente, error } = await window.db
+    const { data: existentes, error } = await window.db
       .from("resultados")
       .select("id, valor, valor2")
       .eq("loja", loja)
       .eq("semana", semana)
-      .eq("indicador", indicadorNormalizado)
+      .eq("indicador", indicadorBanco)
       .eq("classe", classe)
-      .maybeSingle();
+      .order("id", { ascending: true });
 
     if (error) throw error;
 
-    if (existente) {
+    const registros = existentes || [];
+
+    if (registros.length > 1) {
+      console.warn("⚠️ Registros RH duplicados encontrados:", {
+        loja,
+        semana,
+        indicadorBanco,
+        classe,
+        qtd: registros.length,
+        ids: registros.map((r) => r.id),
+      });
+    }
+
+    if (registros.length >= 1) {
+      const idAlvo = registros[0].id;
       const updateData = {};
-      updateData[campo] = valorLimpo;
+      updateData[campo] = numero;
 
       const { error: updateError } = await window.db
         .from("resultados")
         .update(updateData)
-        .eq("id", existente.id);
+        .eq("id", idAlvo);
 
       if (updateError) throw updateError;
 
-      console.log("✅ RH atualizado");
-    } else {
-      const novoRegistro = {
+      console.log("✅ RH atualizado com sucesso:", {
+        id: idAlvo,
         loja,
         semana,
-        indicador: indicadorNormalizado,
-        classe,
-        valor: campo === "valor" ? valorLimpo : null,
-        valor2: campo === "valor2" ? valorLimpo : null,
-      };
+        campo,
+        valor: numero,
+      });
 
-      const { error: insertError } = await window.db
-        .from("resultados")
-        .insert([novoRegistro]);
-
-      if (insertError) throw insertError;
-
-      console.log("✅ RH inserido");
+      return true;
     }
+
+    const novoRegistro = {
+      loja,
+      semana,
+      indicador: indicadorBanco,
+      classe,
+      valor: campo === "valor" ? numero : null,
+      valor2: campo === "valor2" ? numero : null,
+    };
+
+    const { data: inserido, error: insertError } = await window.db
+      .from("resultados")
+      .insert([novoRegistro])
+      .select("id")
+      .single();
+
+    if (insertError) throw insertError;
+
+    console.log("✅ RH inserido com sucesso:", {
+      id: inserido?.id,
+      loja,
+      semana,
+      campo,
+      valor: numero,
+    });
+
+    return true;
   } catch (erro) {
     console.error("❌ Erro ao salvar RH:", erro);
+    return false;
+  } finally {
+    TABELA_RH_STATE.salvando.delete(chaveSalvar);
   }
 }

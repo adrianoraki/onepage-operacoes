@@ -3,6 +3,51 @@
 // (SELF-CHECKOUT / PART.TELEVENDAS)
 // ==========================
 
+const TABELA_ESPECIAL_STATE = {
+  salvando: new Set(),
+};
+
+// ==========================
+// 🗝️ CHAVE DE REGISTRO ESPECIAL
+// ==========================
+function getChaveRegistroEspecial(loja, semana, indicadorBanco, classe, campo) {
+  return `${loja}__${semana}__${indicadorBanco}__${classe}__${campo}`;
+}
+
+// ==========================
+// 🖍️ STATUS VISUAL DO INPUT ESPECIAL
+// ==========================
+function aplicarStatusInputEspecial(input, status) {
+  if (!input) return;
+
+  if (status === "salvando") {
+    input.style.border = "1px solid #1e88e5";
+    input.style.background = "#eef6ff";
+    return;
+  }
+
+  if (status === "sucesso") {
+    input.style.border = "1px solid #43a047";
+    input.style.background = "#eefaf0";
+
+    setTimeout(() => {
+      input.style.border = "";
+      input.style.background = "";
+    }, 900);
+
+    return;
+  }
+
+  if (status === "erro") {
+    input.style.border = "1px solid #e53935";
+    input.style.background = "#fff2f2";
+    return;
+  }
+
+  input.style.border = "";
+  input.style.background = "";
+}
+
 // ==========================
 // ⚙️ CONFIG DA TABELA ESPECIAL
 // ==========================
@@ -146,15 +191,28 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
       const item = mapa[key] || {};
       const destaque = semana === semanaAtualReal ? "coluna-atual" : "";
 
+      const valor = item.valor ?? "";
+      const valor2 = item.valor2 ?? "";
+
       const valorFormatado =
         typeof formatarValorParaInput === "function"
-          ? formatarValorParaInput(item.valor ?? "", config.tipo1)
-          : item.valor ?? "";
+          ? formatarValorParaInput(valor, config.tipo1)
+          : valor;
 
       const valor2Formatado =
         typeof formatarValorParaInput === "function"
-          ? formatarValorParaInput(item.valor2 ?? "", config.tipo2)
-          : item.valor2 ?? "";
+          ? formatarValorParaInput(valor2, config.tipo2)
+          : valor2;
+
+      const original1 =
+        valor === null || valor === undefined || valor === ""
+          ? ""
+          : String(valor);
+
+      const original2 =
+        valor2 === null || valor2 === undefined || valor2 === ""
+          ? ""
+          : String(valor2);
 
       html += `
         <td class="${destaque}">
@@ -167,6 +225,7 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
             data-semana="${semana}"
             data-campo="valor"
             data-tipo="${config.tipo1}"
+            data-original="${original1}"
             onfocus="prepararInputEspecial(this)"
             onblur="autoSalvarEspecial(this)"
           >
@@ -182,6 +241,7 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
             data-semana="${semana}"
             data-campo="valor2"
             data-tipo="${config.tipo2}"
+            data-original="${original2}"
             onfocus="prepararInputEspecial(this)"
             onblur="autoSalvarEspecial(this)"
           >
@@ -282,10 +342,13 @@ function ativarFiltroEspecial() {
 // ⚡ AUTOSAVE ESPECIAL
 // ==========================
 async function autoSalvarEspecial(input) {
+  if (!input) return;
+
   const loja = input.dataset.loja;
   const semana = input.dataset.semana;
   const campo = input.dataset.campo;
   const tipo = input.dataset.tipo || "numero";
+  const original = input.dataset.original ?? "";
 
   let valorLimpo = null;
 
@@ -296,7 +359,34 @@ async function autoSalvarEspecial(input) {
     valorLimpo = isNaN(numero) ? null : numero;
   }
 
-  if (valorLimpo === null) return;
+  if (valorLimpo === null) {
+    console.warn("⚠️ Valor especial inválido ou vazio, salvamento ignorado", {
+      loja,
+      semana,
+      campo,
+      valorDigitado: input.value,
+      tipo
+    });
+    return;
+  }
+
+  const comparacao = String(valorLimpo);
+
+  // ✅ evita salvar se não alterou
+  if (comparacao === original) {
+    console.log("ℹ️ Valor especial não alterado, salvamento ignorado", {
+      loja,
+      semana,
+      campo,
+      valor: comparacao
+    });
+
+    if (typeof formatarValorParaInput === "function") {
+      input.value = formatarValorParaInput(valorLimpo, tipo);
+    }
+
+    return;
+  }
 
   if (typeof formatarValorParaInput === "function") {
     input.value = formatarValorParaInput(valorLimpo, tipo);
@@ -310,7 +400,16 @@ async function autoSalvarEspecial(input) {
     tipo,
   });
 
-  await salvarValorEspecial(loja, semana, campo, valorLimpo);
+  aplicarStatusInputEspecial(input, "salvando");
+
+  const salvou = await salvarValorEspecial(loja, semana, campo, valorLimpo);
+
+  if (salvou) {
+    input.dataset.original = String(valorLimpo);
+    aplicarStatusInputEspecial(input, "sucesso");
+  } else {
+    aplicarStatusInputEspecial(input, "erro");
+  }
 }
 
 // ==========================
@@ -318,7 +417,10 @@ async function autoSalvarEspecial(input) {
 // ==========================
 async function salvarValorEspecial(loja, semana, campo, valor) {
   const numero = Number(valor);
-  if (isNaN(numero)) return;
+  if (isNaN(numero)) {
+    console.warn("⚠️ salvarValorEspecial ignorado por número inválido:", valor);
+    return false;
+  }
 
   const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
   const indicadorNormalizado = (indicadorSelecionado || "")
@@ -338,6 +440,21 @@ async function salvarValorEspecial(loja, semana, campo, valor) {
         ? obterClasse(indicadorNormalizado, classeSelecionada)
         : classeSelecionada || "Outros";
 
+  const chaveSalvar = getChaveRegistroEspecial(
+    loja,
+    semana,
+    indicadorBanco,
+    classe,
+    campo
+  );
+
+  if (TABELA_ESPECIAL_STATE.salvando.has(chaveSalvar)) {
+    console.warn("⚠️ Já existe salvamento especial em andamento:", chaveSalvar);
+    return false;
+  }
+
+  TABELA_ESPECIAL_STATE.salvando.add(chaveSalvar);
+
   console.log("💾 SALVAR ESPECIAL:", {
     indicador: indicadorNormalizado,
     indicadorBanco,
@@ -349,48 +466,83 @@ async function salvarValorEspecial(loja, semana, campo, valor) {
   });
 
   try {
-    const { data: existente, error: erroBusca } = await window.db
+    const { data: existentes, error: erroBusca } = await window.db
       .from("resultados")
       .select("id, valor, valor2")
       .eq("loja", loja)
       .eq("semana", semana)
       .eq("indicador", indicadorBanco)
       .eq("classe", classe)
-      .maybeSingle();
+      .order("id", { ascending: true });
 
     if (erroBusca) throw erroBusca;
 
-    if (existente) {
+    const registros = existentes || [];
+
+    if (registros.length > 1) {
+      console.warn("⚠️ Registros especiais duplicados encontrados:", {
+        loja,
+        semana,
+        indicadorBanco,
+        classe,
+        qtd: registros.length,
+        ids: registros.map((r) => r.id),
+      });
+    }
+
+    if (registros.length >= 1) {
+      const idAlvo = registros[0].id;
       const updateData = {};
       updateData[campo] = numero;
 
       const { error: erroUpdate } = await window.db
         .from("resultados")
         .update(updateData)
-        .eq("id", existente.id);
+        .eq("id", idAlvo);
 
       if (erroUpdate) throw erroUpdate;
 
-      console.log("✅ Especial atualizado");
-    } else {
-      const payload = {
+      console.log("✅ Especial atualizado com sucesso:", {
+        id: idAlvo,
         loja,
         semana,
-        indicador: indicadorBanco,
-        classe,
-        valor: campo === "valor" ? numero : null,
-        valor2: campo === "valor2" ? numero : null,
-      };
+        campo,
+        valor: numero,
+      });
 
-      const { error: erroInsert } = await window.db
-        .from("resultados")
-        .insert([payload]);
-
-      if (erroInsert) throw erroInsert;
-
-      console.log("✅ Especial inserido");
+      return true;
     }
+
+    const payload = {
+      loja,
+      semana,
+      indicador: indicadorBanco,
+      classe,
+      valor: campo === "valor" ? numero : null,
+      valor2: campo === "valor2" ? numero : null,
+    };
+
+    const { data: inserido, error: erroInsert } = await window.db
+      .from("resultados")
+      .insert([payload])
+      .select("id")
+      .single();
+
+    if (erroInsert) throw erroInsert;
+
+    console.log("✅ Especial inserido com sucesso:", {
+      id: inserido?.id,
+      loja,
+      semana,
+      campo,
+      valor: numero,
+    });
+
+    return true;
   } catch (erro) {
     console.error("❌ Erro salvarValorEspecial:", erro);
+    return false;
+  } finally {
+    TABELA_ESPECIAL_STATE.salvando.delete(chaveSalvar);
   }
 }
