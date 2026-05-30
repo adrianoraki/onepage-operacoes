@@ -3,16 +3,23 @@
 // ==========================
 const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co";
 const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY"; // mantenha sua anon key atual aqui
 
 let supabaseClient = null;
 
 // ==========================
 // 🗂️ HELPERS STORAGE
 // ==========================
+const STORAGE_KEYS = {
+  usuario: "usuario",
+  indicador: "indicador",
+  classeSelecionada: "classeSelecionada",
+  semana: "semana",
+};
+
 function getUsuarioLocal() {
   try {
-    return JSON.parse(localStorage.getItem("usuario"));
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.usuario));
   } catch (e) {
     console.error("❌ Erro ao ler usuário local:", e);
     return null;
@@ -21,10 +28,72 @@ function getUsuarioLocal() {
 
 function setUsuarioLocal(usuario) {
   try {
-    localStorage.setItem("usuario", JSON.stringify(usuario));
+    localStorage.setItem(STORAGE_KEYS.usuario, JSON.stringify(usuario));
   } catch (e) {
     console.error("❌ Erro ao salvar usuário local:", e);
   }
+}
+
+function limparSessaoLocal() {
+  localStorage.removeItem(STORAGE_KEYS.usuario);
+  localStorage.removeItem(STORAGE_KEYS.indicador);
+  localStorage.removeItem(STORAGE_KEYS.classeSelecionada);
+}
+
+// ==========================
+// 🔠 HELPERS DE NORMALIZAÇÃO
+// ==========================
+function normalizarTextoApp(valor) {
+  return (valor || "").toString().trim();
+}
+
+function normalizarTextoAppLower(valor) {
+  return normalizarTextoApp(valor).toLowerCase();
+}
+
+function normalizarListaRegionais(valor) {
+  if (!valor) return [];
+
+  if (Array.isArray(valor)) {
+    return valor
+      .map((v) => normalizarTextoApp(v))
+      .filter(Boolean);
+  }
+
+  if (typeof valor === "string") {
+    return valor
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+// ==========================
+// 👤 MONTAR USUÁRIO LOCAL
+// ==========================
+function montarUsuarioLocalAPartirDoPerfil(data) {
+  return {
+    id: data.id,
+    auth_user_id: data.auth_user_id || null,
+    nome: data.nome || "",
+    sobrenome: data.sobrenome || "",
+    email: data.email || "",
+    matricula: data.matricula || "",
+    perfil: (data.perfil || "").toString().trim().toLowerCase(),
+    funcao: data.funcao || "",
+    permissoes: data.permissoes || {},
+
+    tipo_visao: normalizarTextoAppLower(data.tipo_visao) || null,
+    loja_codigo: data.loja_codigo || null,
+    loja_vinculada: data.loja_vinculada || null,
+    regional_vinculada: data.regional_vinculada || null,
+    subregional_vinculada: data.subregional_vinculada || null,
+
+    // ✅ já prepara para cenário de múltiplas regionais
+    regionais_vinculadas: normalizarListaRegionais(data.regionais_vinculadas),
+  };
 }
 
 // ==========================
@@ -43,7 +112,14 @@ function initSupabase() {
     }
 
     const { createClient } = window.supabase;
-    supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
 
     // ✅ client global do app
     window.db = supabaseClient;
@@ -86,7 +162,11 @@ async function verificarSessao() {
       return false;
     }
 
-    console.log("✅ Sessão válida:", session.user.id);
+    console.log("✅ Sessão válida:", {
+      auth_user_id: session.user.id,
+      email: session.user.email,
+    });
+
     return session.user;
   } catch (erro) {
     console.error("❌ Erro ao verificar sessão:", erro);
@@ -96,13 +176,122 @@ async function verificarSessao() {
 }
 
 // ==========================
+// 🔎 BUSCAR PERFIL POR AUTH ID
+// ==========================
+async function buscarPerfilPorAuthIdApp(authUserId) {
+  try {
+    console.log("🔎 [APP] Buscando perfil por auth_user_id:", authUserId);
+
+    const { data, error } = await window.db
+      .from("usuarios")
+      .select("*")
+      .eq("auth_user_id", authUserId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("⚠️ [APP] Erro ao buscar perfil por auth_user_id:", error);
+      return null;
+    }
+
+    if (!data) {
+      console.warn("⚠️ [APP] Nenhum perfil encontrado por auth_user_id");
+      return null;
+    }
+
+    return data;
+  } catch (erro) {
+    console.error("❌ [APP] Falha inesperada em buscarPerfilPorAuthIdApp:", erro);
+    return null;
+  }
+}
+
+// ==========================
+// 🔎 BUSCAR PERFIL POR EMAIL
+// fallback para usuários criados manualmente no Auth
+// ==========================
+async function buscarPerfilPorEmailApp(email) {
+  try {
+    console.log("🔎 [APP] Buscando perfil por e-mail:", email);
+
+    const { data, error } = await window.db
+      .from("usuarios")
+      .select("*")
+      .ilike("email", email)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("⚠️ [APP] Erro ao buscar perfil por e-mail:", error);
+      return null;
+    }
+
+    if (!data) {
+      console.warn("⚠️ [APP] Nenhum perfil encontrado por e-mail");
+      return null;
+    }
+
+    return data;
+  } catch (erro) {
+    console.error("❌ [APP] Falha inesperada em buscarPerfilPorEmailApp:", erro);
+    return null;
+  }
+}
+
+// ==========================
+// 🔗 VINCULAR AUTH_USER_ID AO PERFIL
+// ==========================
+async function vincularAuthUserIdAoPerfilApp(perfil, authUser) {
+  try {
+    if (!perfil || !authUser?.id) {
+      console.warn("⚠️ [APP] Dados insuficientes para vincular auth_user_id");
+      return null;
+    }
+
+    if (perfil.auth_user_id) {
+      console.log("ℹ️ [APP] Perfil já possui auth_user_id:", perfil.auth_user_id);
+      return perfil;
+    }
+
+    console.log("🔗 [APP] Vinculando auth_user_id ao perfil encontrado por e-mail...", {
+      usuario: perfil.nome,
+      email: perfil.email,
+      novoAuthId: authUser.id,
+    });
+
+    const { data, error } = await window.db
+      .from("usuarios")
+      .update({
+        auth_user_id: authUser.id,
+      })
+      .eq("id", perfil.id)
+      .select("*")
+      .single();
+
+    if (error || !data) {
+      console.error("❌ [APP] Erro ao vincular auth_user_id:", error);
+      return null;
+    }
+
+    console.log("✅ [APP] auth_user_id vinculado com sucesso:", {
+      usuario: data.nome,
+      auth_user_id: data.auth_user_id,
+    });
+
+    return data;
+  } catch (erro) {
+    console.error("❌ [APP] Falha inesperada ao vincular auth_user_id:", erro);
+    return null;
+  }
+}
+
+// ==========================
 // 👤 GARANTIR PERFIL LOCAL
+// agora com fallback por e-mail + vínculo automático
 // ==========================
 async function garantirPerfilLocal(authUser) {
   try {
     const usuarioLocal = getUsuarioLocal();
 
-    // ✅ se já existe e bate com a sessão atual, mantém
+    // ✅ se já existe e bate com a sessão atual, mantém como fallback
     if (
       usuarioLocal &&
       usuarioLocal.auth_user_id &&
@@ -112,32 +301,62 @@ async function garantirPerfilLocal(authUser) {
       return usuarioLocal;
     }
 
-    console.log("🔄 Buscando perfil do usuário no banco...");
+    console.log("🔄 [APP] Resolvendo perfil do usuário no banco...");
 
-    const { data, error } = await window.db
-      .from("usuarios")
-      .select("*")
-      .eq("auth_user_id", authUser.id)
-      .single();
+    // 1) tenta por auth_user_id
+    let perfil = await buscarPerfilPorAuthIdApp(authUser.id);
 
-    if (error || !data) {
-      console.error("❌ Perfil do usuário não encontrado:", error);
-      localStorage.removeItem("usuario");
-      window.location.replace("login.html");
-      return null;
+    // 2) se não achou, tenta por email
+    if (!perfil) {
+      const emailAuth = normalizarTextoAppLower(authUser.email);
+
+      if (!emailAuth) {
+        console.error("❌ [APP] Usuário auth sem e-mail para fallback");
+        limparSessaoLocal();
+        window.location.replace("login.html");
+        return null;
+      }
+
+      const perfilPorEmail = await buscarPerfilPorEmailApp(emailAuth);
+
+      if (!perfilPorEmail) {
+        console.error("❌ [APP] Perfil não encontrado por auth_user_id nem por e-mail");
+        limparSessaoLocal();
+        window.location.replace("login.html");
+        return null;
+      }
+
+      // se achou por email e auth_user_id está vazio, vincula agora
+      if (!perfilPorEmail.auth_user_id) {
+        perfil = await vincularAuthUserIdAoPerfilApp(perfilPorEmail, authUser);
+
+        if (!perfil) {
+          console.error("❌ [APP] Falha ao vincular auth_user_id automaticamente");
+          limparSessaoLocal();
+          window.location.replace("login.html");
+          return null;
+        }
+      } else {
+        // se já existe auth_user_id diferente, bloqueia
+        if (
+          String(perfilPorEmail.auth_user_id) !== String(authUser.id)
+        ) {
+          console.error("❌ [APP] Perfil por e-mail já está vinculado a outro auth_user_id", {
+            email: perfilPorEmail.email,
+            auth_user_id_tabela: perfilPorEmail.auth_user_id,
+            auth_user_id_auth: authUser.id,
+          });
+
+          limparSessaoLocal();
+          window.location.replace("login.html");
+          return null;
+        }
+
+        perfil = perfilPorEmail;
+      }
     }
 
-    const usuario = {
-      id: data.id,
-      auth_user_id: data.auth_user_id,
-      nome: data.nome || "",
-      sobrenome: data.sobrenome || "",
-      email: data.email || "",
-      matricula: data.matricula || "",
-      perfil: (data.perfil || "").toString().trim().toLowerCase(),
-      funcao: data.funcao || "",
-      permissoes: data.permissoes || {},
-    };
+    const usuario = montarUsuarioLocalAPartirDoPerfil(perfil);
 
     setUsuarioLocal(usuario);
 
@@ -145,7 +364,7 @@ async function garantirPerfilLocal(authUser) {
     return usuario;
   } catch (erro) {
     console.error("❌ Erro ao sincronizar perfil local:", erro);
-    localStorage.removeItem("usuario");
+    limparSessaoLocal();
     window.location.replace("login.html");
     return null;
   }
@@ -158,9 +377,13 @@ async function logout() {
   try {
     console.log("🔒 Logout iniciado");
 
-    localStorage.removeItem("usuario");
-    localStorage.removeItem("indicador");
-    localStorage.removeItem("classeSelecionada");
+    window.dashboardModoApresentacao = false;
+
+    if (typeof pausarTimerInatividade === "function") {
+      pausarTimerInatividade();
+    }
+
+    limparSessaoLocal();
 
     if (supabaseClient?.auth) {
       await supabaseClient.auth.signOut();
@@ -251,6 +474,8 @@ async function carregarSidebar() {
 
     if (el.dataset.loaded === "true") {
       console.warn("⚠️ Sidebar já carregado - não recarregar");
+      preencherUsuario();
+      montarMenuIndicadores();
       return;
     }
 
@@ -310,14 +535,24 @@ function preencherUsuario() {
 }
 
 // ==========================
+// 🧹 LIMPAR ITENS DINÂMICOS DO MENU
+// sem apagar Dashboard / Ranking / Indicadores / Comparativos
+// ==========================
+function limparItensDinamicosMenu(menu) {
+  if (!menu) return;
+
+  const dinamicos = menu.querySelectorAll("[data-menu-dinamico='true']");
+  dinamicos.forEach((el) => el.remove());
+}
+
+// ==========================
 // 🧭 MENU POR CLASSE
 // ==========================
 function montarMenuIndicadores() {
   const menu = document.querySelector("#menu-list");
   if (!menu) return;
 
-  // ✅ evita duplicar itens se for chamado novamente
-  menu.innerHTML = "";
+  limparItensDinamicosMenu(menu);
 
   let index = 0;
 
@@ -329,6 +564,7 @@ function montarMenuIndicadores() {
 
     const liClasse = document.createElement("li");
     liClasse.classList.add("menu-classe");
+    liClasse.dataset.menuDinamico = "true";
 
     liClasse.innerHTML = `
       <i class="fas ${icon}" style="color:${cor}"></i>
@@ -345,6 +581,7 @@ function montarMenuIndicadores() {
     const submenu = document.createElement("ul");
     submenu.classList.add("submenu");
     submenu.id = id;
+    submenu.dataset.menuDinamico = "true";
 
     classesIndicadores[classe].forEach((item) => {
       const li = document.createElement("li");
@@ -357,7 +594,7 @@ function montarMenuIndicadores() {
 
       li.onclick = () => {
         console.log("📊 Indicador:", valor, "| Classe:", classe);
-        localStorage.setItem("classeSelecionada", classe);
+        localStorage.setItem(STORAGE_KEYS.classeSelecionada, classe);
         selecionarIndicador(valor);
       };
 
@@ -391,10 +628,12 @@ function toggleClasse(id) {
 function selecionarIndicador(indicador) {
   console.log("✅ Indicador:", indicador);
 
-  localStorage.setItem("indicador", indicador);
+  localStorage.setItem(STORAGE_KEYS.indicador, indicador);
 
   if (typeof carregarTabela === "function") {
     carregarTabela();
+  } else {
+    console.error("❌ carregarTabela não encontrada");
   }
 
   document.querySelectorAll(".submenu").forEach((el) => {
@@ -447,6 +686,11 @@ function mostrarErro(msg) {
 // ==========================
 async function testarConexao() {
   try {
+    if (!supabaseClient) {
+      console.warn("⚠️ Supabase não inicializado ao testar conexão");
+      return false;
+    }
+
     const { error } = await supabaseClient
       .from("lojas")
       .select("*")
@@ -524,7 +768,13 @@ function mostrar(tela) {
     // ======================
     if (nomeTela === "dashboard") {
       console.log("📊 Abrindo Dashboard");
-      telaInicial();
+
+      if (typeof telaDashboard === "function") {
+        telaDashboard();
+      } else {
+        telaInicial();
+      }
+
       return;
     }
 
@@ -642,8 +892,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!perfilLocal) return;
 
   // 4) limpa contexto de indicador, mas mantém semana
-  localStorage.removeItem("indicador");
-  localStorage.removeItem("classeSelecionada");
+  localStorage.removeItem(STORAGE_KEYS.indicador);
+  localStorage.removeItem(STORAGE_KEYS.classeSelecionada);
 
   // 5) carrega sidebar
   await carregarSidebar();
@@ -651,6 +901,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 6) testa conexão
   await testarConexao();
 
-  // 7) abre dashboard
+  // 7) inicia monitoramento de inatividade
+  if (typeof iniciarMonitoramentoInatividade === "function") {
+    iniciarMonitoramentoInatividade();
+  }
+
+  // 8) abre dashboard
   mostrar("dashboard");
 });

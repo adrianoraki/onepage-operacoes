@@ -513,6 +513,42 @@
   flex-wrap: wrap;
 }
 
+/* ==========================
+   💾 STATUS AUTOSAVE
+========================== */
+.status-autosave {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.status-autosave.neutro {
+  background: #f6f8fa;
+  color: #42515c;
+  border: 1px solid #e4eaef;
+}
+
+.status-autosave.info {
+  background: #eef6ff;
+  color: #1e6091;
+  border: 1px solid #d5e7f7;
+}
+
+.status-autosave.sucesso {
+  background: #eefaf0;
+  color: #2e7d32;
+  border: 1px solid #bfe3c5;
+}
+
+.status-autosave.erro {
+  background: #fff2f2;
+  color: #9c2b2b;
+  border: 1px solid #f0c2c2;
+}
+
 
 /* ==========================
    📱 RESPONSIVO
