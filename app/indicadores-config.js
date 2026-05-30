@@ -335,3 +335,50 @@ function limparValorParaSalvar(valor, tipo) {
   const numero = Number(texto);
   return isNaN(numero) ? null : numero;
 }
+// ==========================
+// 🔍 PEGAR CONFIG DE UM CAMPO
+// ==========================
+function getCampoConfig(indicador, campoKey = "valor", classeSelecionada = null) {
+  const cfg = getIndicadorConfig(indicador, classeSelecionada);
+  const campo = (cfg.campos || []).find(c => c.key === campoKey);
+
+  if (campo) return campo;
+
+  return {
+    key: campoKey,
+    label: "Resultado",
+    tipo: cfg.tipo === "percentual" ? "percentual" : "numero"
+  };
+}
+
+// ==========================
+// ✍️ FORMATAR VALOR PARA INPUT
+// (melhor para campos editáveis)
+// ==========================
+function formatarValorParaInput(valor, tipo) {
+  if (valor === null || valor === undefined || valor === "") return "";
+
+  const numero = Number(valor);
+  if (isNaN(numero)) return "";
+
+  if (tipo === "percentual") {
+    return `${numero.toFixed(2).replace(".", ",")}%`;
+  }
+
+  if (tipo === "moeda") {
+    return `R$ ${numero.toFixed(2).replace(".", ",")}`;
+  }
+
+  return numero.toString().replace(".", ",");
+}
+
+// ==========================
+// 🎯 PREPARAR INPUT PARA EDIÇÃO
+// remove máscara ao focar
+// ==========================
+function prepararInputFormatado(input) {
+  const tipo = input.dataset.tipo || "numero";
+  const valorLimpo = limparValorParaSalvar(input.value, tipo);
+
+  input.value = valorLimpo === null ? "" : String(valorLimpo).replace(".", ",");
+}

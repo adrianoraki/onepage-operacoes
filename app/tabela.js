@@ -12,33 +12,26 @@ console.log("✅ tabela.js carregado");
 console.log("📅 Semana inicial:", semanaSelecionada);
 
 // ==========================
-// 📂 MAPA DE CLASSES
+// 📂 MAPA DE CLASSES (compatibilidade)
 // ==========================
 const mapaClasse = {
-  // ✅ Auditoria
   "RUPTURA FINAL": "Auditoria",
   ETIQUETA: "Auditoria",
 
-  // ✅ Frente de Caixa
   "SELF-CHECKOUT": "Frente de Caixa",
   DESCONTO: "Frente de Caixa",
   CANCELAMENTO: "Frente de Caixa",
   DEVOLUÇÃO: "Frente de Caixa",
 
-  // ✅ NOVO NOME (antes Comercial)
   PSV: "Operações",
   NPS: "Operações",
   "PART.TELEVENDAS": "Operações",
 
-  // ✅ NOVO NOME (antes Quebras)
   QUEBRA: "Prevenção",
   "QUEBRA FLV": "Prevenção",
   "QUEBRA AÇOUGUE": "Prevenção",
+  TROCA: "Prevenção",
 
-  // ✅ PSV também na Prevenção ✅
-  PSV_PREVENCAO: "Prevenção",
-
-  // ✅ RH
   "BANCOS DE HORAS": "RH / Operacional",
   TURNOVER: "RH / Operacional",
 };
@@ -46,14 +39,10 @@ const mapaClasse = {
 // ==========================
 // 📅 SEMANA ATUAL
 // ==========================
-
 function getSemanaAtual() {
   const hoje = new Date();
-
   const inicioAno = new Date(hoje.getFullYear(), 0, 1);
-
   const dias = Math.floor((hoje - inicioAno) / (24 * 60 * 60 * 1000));
-
   const semana = Math.ceil((dias + inicioAno.getDay() + 1) / 7);
 
   return semana;
@@ -63,10 +52,10 @@ function getSemanaAtual() {
 // 🗓️ GERAR SEMANAS
 // ==========================
 function gerarSemanas() {
-  const atual = parseInt(semanaSelecionada || getSemanaAtual());
+  const atual = parseInt(semanaSelecionada || getSemanaAtual(), 10);
 
   const lista = [atual - 3, atual - 2, atual - 1, atual].map((s) =>
-    s <= 0 ? 52 + s : s,
+    s <= 0 ? 52 + s : s
   );
 
   const semanas = lista.map((s) => s.toString().padStart(2, "0"));
@@ -77,29 +66,82 @@ function gerarSemanas() {
 }
 
 // ==========================
-// 📊 CARREGAR TABELA
+// 📂 CLASSE PELO CONTEXTO
 // ==========================
+function obterClasse(indicador, classeSelecionada = null) {
+  const indicadorNorm = (indicador || "").toString().trim().toUpperCase();
+  const classeMenu = (classeSelecionada || "").toString().trim();
 
-function obterClasse(indicador) {
-  // ✅ novo padrão
-  if (mapaClasse[indicador]) {
-    return mapaClasse[indicador];
+  // usa config central se existir
+  if (typeof getClasseIndicador === "function") {
+    return getClasseIndicador(indicadorNorm, classeMenu);
   }
 
-  // ✅ compatibilidade com palavras antigas
-  if (indicador === "PSV") return "Operações";
-  if (indicador === "NPS") return "Operações";
+  // compatibilidade
+  if (indicadorNorm === "PSV" && classeMenu === "Prevenção") return "Prevenção";
+  if (indicadorNorm === "PSV" && classeMenu === "Operações") return "Operações";
 
-  // ✅ fallback antigo
-  if (indicador === "QUEBRA") return "Prevenção";
+  if (mapaClasse[indicadorNorm]) return mapaClasse[indicadorNorm];
 
   return "Outros";
 }
 
+// ==========================
+// 🗃️ INDICADOR DO BANCO
+// ==========================
+function obterIndicadorBanco(indicador, classeSelecionada = null) {
+  const indicadorNorm = (indicador || "").toString().trim().toUpperCase();
+  const classeMenu = (classeSelecionada || "").toString().trim();
+
+  if (typeof getIndicadorBanco === "function") {
+    return getIndicadorBanco(indicadorNorm, classeMenu);
+  }
+
+  return indicadorNorm;
+}
+
+// ==========================
+// 🏷️ TÍTULO DE EXIBIÇÃO
+// ==========================
+function getTituloIndicador(indicador, classeSelecionada = null) {
+  const indicadorNorm = (indicador || "").toString().trim().toUpperCase();
+  const classeMenu = (classeSelecionada || "").toString().trim();
+
+  if (typeof getNomeIndicador === "function") {
+    return getNomeIndicador(indicadorNorm, classeMenu);
+  }
+
+  if (indicadorNorm === "PSV" && classeMenu === "Operações") {
+    return "Visita Prospecção";
+  }
+
+  return indicadorNorm;
+}
+
+// ==========================
+// 🔗 CLASSES COMPATÍVEIS (banco legado)
+// ==========================
+function getClassesConsulta(classeAtual) {
+  return [
+    classeAtual,
+    classeAtual === "Operações" ? "Comercial" : null,
+    classeAtual === "Prevenção" ? "Quebras" : null,
+  ].filter(Boolean);
+}
+
+// ==========================
+// 📊 CARREGAR TABELA
+// ==========================
 async function carregarTabela() {
   console.log("🚀 carregarTabela");
 
   try {
+    if (!window.db) {
+      console.error("❌ window.db não inicializado");
+      mostrarErro("Conexão com banco não iniciada");
+      return;
+    }
+
     semanaSelecionada =
       localStorage.getItem("semana") ||
       getSemanaAtual().toString().padStart(2, "0");
@@ -118,21 +160,27 @@ async function carregarTabela() {
       return;
     }
 
+    const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
+
     const indicadorNormalizado = indicadorSelecionado.toUpperCase().trim();
+    const indicadorBanco = obterIndicadorBanco(indicadorNormalizado, classeSelecionada);
+    const classeAtual = obterClasse(indicadorNormalizado, classeSelecionada);
 
-    const classeAtual = obterClasse(indicadorNormalizado);
+    const isEspecial =
+      typeof isIndicadorEspecial === "function"
+        ? isIndicadorEspecial(indicadorNormalizado, classeSelecionada)
+        : false;
 
-    // ✅ especiais tabela2.js
-    const isEspecial = isIndicadorEspecial(indicadorNormalizado);
-    const isEspecialRH = isIndicadorEspecialRH(indicadorNormalizado);
-
-    console.log("🧩 É especial?", isEspecial);
-    console.log("🧩 É RH especial?", isEspecialRH);
+    const isEspecialRH =
+      typeof isIndicadorEspecialRH === "function"
+        ? isIndicadorEspecialRH(indicadorNormalizado, classeSelecionada)
+        : false;
 
     console.log("📂 Classe:", classeAtual);
+    console.log("📊 Indicador normalizado:", indicadorNormalizado);
+    console.log("🗃️ Indicador banco:", indicadorBanco);
     console.log("🧩 É especial?", isEspecial);
     console.log("🧩 É RH especial?", isEspecialRH);
-    console.log("📊 Indicador normalizado:", indicadorNormalizado);
 
     const semanas = gerarSemanas();
 
@@ -141,15 +189,8 @@ async function carregarTabela() {
       window.db
         .from("resultados")
         .select("*")
-        .eq("indicador", indicadorNormalizado)
-        .in(
-          "classe",
-          [
-            classeAtual,
-            classeAtual === "Operações" ? "Comercial" : null,
-            classeAtual === "Prevenção" ? "Quebras" : null,
-          ].filter(Boolean),
-        ),
+        .eq("indicador", indicadorBanco)
+        .in("classe", getClassesConsulta(classeAtual)),
     ]);
 
     if (lojasResp.error) throw lojasResp.error;
@@ -167,6 +208,10 @@ async function carregarTabela() {
     });
 
     const container = document.getElementById("conteudo");
+    if (!container) {
+      console.error("❌ #conteudo não encontrado");
+      return;
+    }
 
     if (isEspecialRH) {
       console.log("🧩 Usando tabela RH");
@@ -189,7 +234,17 @@ async function carregarTabela() {
         return;
       }
     } else {
-      container.innerHTML = montarHTMLTabela(lojas, mapa, semanas);
+      container.innerHTML = montarHTMLTabela(
+        lojas,
+        mapa,
+        semanas,
+        classeSelecionada
+      );
+    }
+
+    // ✅ aplica bloqueio/liberação nos inputs
+    if (typeof aplicarPermissoesTabela === "function") {
+      aplicarPermissoesTabela(indicadorNormalizado, classeAtual);
     }
 
     ativarFiltros();
@@ -198,48 +253,128 @@ async function carregarTabela() {
     mostrarErro("Erro ao carregar tabela");
   }
 }
+
 // ==========================
-// 🧱 HTML TABELA
+// 🧱 HTML TABELA NORMAL
 // ==========================
-function montarHTMLTabela(lojas, mapa, semanas) {
+function montarHTMLTabela(lojas, mapa, semanas, classeSelecionada = null) {
+  const titulo = getTituloIndicador(indicadorSelecionado, classeSelecionada);
+  const semanaAtualReal = getSemanaAtual().toString().padStart(2, "0");
+
   let html = `
-  <div class="card-conteudo">
+    <div class="card-conteudo">
 
-    <div class="header-tabela">
-      <h2>📊 ${indicadorSelecionado}</h2>
+      <div class="header-tabela">
+        <h2>📊 ${titulo}</h2>
 
-      <!-- 🔥 SELETOR DE SEMANA -->
-      <select class="filtro-semana" onchange="alterarSemana(this.value)">
-        ${gerarOptionsSemanas()}
-      </select>
-    </div>
+        <select class="filtro-semana" onchange="alterarSemana(this.value)">
+          ${gerarOptionsSemanas()}
+        </select>
+      </div>
 
-    <div class="filtros-tabela">
-      <input type="text" id="filtroCodigo" placeholder="Código">
-      <input type="text" id="filtroLoja" placeholder="Loja">
-      <input type="text" id="filtroRegional" placeholder="Regional">
-    </div>
+      <div class="filtros-tabela filtros-novos">
+        <input
+          type="text"
+          id="filtroBuscaLoja"
+          placeholder="Buscar código ou nome da loja"
+        >
 
-    <div class="tabela-container">
-      <table class="tabela">
-        <thead>
-          <tr>
-            <th>Código</th>
-            <th>Loja</th>
-            <th>Regional</th>
+        <div class="grupo-filtro-regional">
+          <button type="button" class="btn-filtro-regional ativo" data-regional="TODAS">
+            Todas
+          </button>
+          <button type="button" class="btn-filtro-regional" data-regional="NE1">
+            NE1
+          </button>
+          <button type="button" class="btn-filtro-regional" data-regional="NE2">
+            NE2
+          </button>
+        </div>
+      </div>
+
+      <div class="tabela-container">
+        <table class="tabela">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Loja</th>
+              <th>Regional</th>
   `;
 
   semanas.forEach((sem) => {
-    html += `<th>SEM ${sem}</th>`;
+    const destaque = sem === semanaAtualReal ? ' class="coluna-atual"' : "";
+    html += `<th${destaque}>SEM ${sem}</th>`;
   });
 
-  html += `</tr></thead><tbody id="tbody-tabela">`;
+  html += `
+            </tr>
+          </thead>
+          <tbody id="tbody-tabela">
+  `;
 
   lojas.forEach((loja) => {
-    html += montarLinha(loja, mapa, semanas);
+    html += montarLinha(loja, mapa, semanas, classeSelecionada);
   });
 
-  html += `</tbody></table></div></div>`;
+  html += `
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  `;
+
+  return html;
+}
+
+// ==========================
+// 🧱 LINHAS DA TABELA NORMAL
+// ==========================
+function montarLinha(loja, mapa, semanas, classeSelecionada = null) {
+  const chaveLoja = `${loja.codigo} - ${loja.nome}`;
+  const semanaAtualReal = getSemanaAtual().toString().padStart(2, "0");
+
+  const campoCfg =
+    typeof getCampoConfig === "function"
+      ? getCampoConfig(indicadorSelecionado, "valor", classeSelecionada)
+      : { key: "valor", label: "Resultado", tipo: "numero" };
+
+  let html = `
+    <tr>
+      <td>${loja.codigo}</td>
+      <td>${loja.nome}</td>
+      <td>${loja.regional || "-"}</td>
+  `;
+
+  semanas.forEach((semana) => {
+    const reg = mapa[`${chaveLoja}-${semana}`];
+    const valor = reg?.valor ?? "";
+    const destaque = semana === semanaAtualReal ? "coluna-atual" : "";
+
+    const valorFormatado =
+      typeof formatarValorParaInput === "function"
+        ? formatarValorParaInput(valor, campoCfg.tipo)
+        : valor;
+
+    html += `
+      <td class="${destaque}">
+        <input
+          type="text"
+          inputmode="decimal"
+          value="${valorFormatado}"
+          data-loja="${chaveLoja}"
+          data-semana="${semana}"
+          data-campo="valor"
+          data-tipo="${campoCfg.tipo}"
+          onfocus="prepararInputFormatado(this)"
+          onblur="autoSalvar(this)"
+          style="height:30px; border-radius:6px; padding-left:5px;"
+        >
+      </td>
+    `;
+  });
+
+  html += `</tr>`;
 
   return html;
 }
@@ -254,7 +389,6 @@ function alterarSemana(sem) {
   }
 
   semanaSelecionada = sem;
-
   localStorage.setItem("semana", sem);
 
   console.log("📅 Semana alterada:", sem);
@@ -264,86 +398,82 @@ function alterarSemana(sem) {
 
 // ==========================
 // 🔎 FILTROS
+// Busca por código ou loja + botão NE1/NE2
 // ==========================
 function ativarFiltros() {
   console.log("🔎 Ativando filtros");
 
-  const cod = document.getElementById("filtroCodigo");
-  const loja = document.getElementById("filtroLoja");
-  const reg = document.getElementById("filtroRegional");
+  const busca = document.getElementById("filtroBuscaLoja");
+  const botoesRegional = document.querySelectorAll(".btn-filtro-regional");
 
-  // ✅ SE NÃO EXISTIR → NÃO FAZ NADA
-  if (!cod || !loja || !reg) {
-    console.warn("⚠️ Filtros não disponíveis nessa tabela");
+  // ✅ se a tabela atual não tiver esse filtro, não faz nada
+  if (!busca || !botoesRegional.length) {
+    console.warn("⚠️ Filtros padrão não disponíveis nessa tabela");
     return;
   }
 
+  let regionalSelecionada = "TODAS";
+
   const aplicar = () => {
+    const termo = busca.value.toLowerCase().trim();
+
     document.querySelectorAll("#tbody-tabela tr").forEach((row) => {
       const tds = row.querySelectorAll("td");
+      if (tds.length < 3) return;
 
-      const ok =
-        tds[0].textContent.toLowerCase().includes(cod.value.toLowerCase()) &&
-        tds[1].textContent.toLowerCase().includes(loja.value.toLowerCase()) &&
-        tds[2].textContent.toLowerCase().includes(reg.value.toLowerCase());
+      const codigo = tds[0].textContent.toLowerCase();
+      const loja = tds[1].textContent.toLowerCase();
+      const regional = tds[2].textContent.toLowerCase();
 
-      row.style.display = ok ? "" : "none";
+      const matchBusca =
+        !termo ||
+        codigo.includes(termo) ||
+        loja.includes(termo);
+
+      const matchRegional =
+        regionalSelecionada === "TODAS" ||
+        regional === regionalSelecionada.toLowerCase();
+
+      row.style.display = matchBusca && matchRegional ? "" : "none";
     });
   };
 
-  [cod, loja, reg].forEach((i) => i.addEventListener("input", aplicar));
-}
-// ==========================
-// 🧱 LINHAS
-// ==========================
-function montarLinha(loja, mapa, semanas) {
-  const chaveLoja = `${loja.codigo} - ${loja.nome}`;
+  busca.addEventListener("input", aplicar);
 
-  const semanaAtualReal = getSemanaAtual().toString().padStart(2, "0");
+  botoesRegional.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      botoesRegional.forEach((b) => b.classList.remove("ativo"));
+      btn.classList.add("ativo");
 
-  let html = `<tr>
-    <td>${loja.codigo}</td>
-    <td>${loja.nome}</td>
-    <td>${loja.regional || "-"}</td>`;
-
-  semanas.forEach((semana) => {
-    const reg = mapa[`${chaveLoja}-${semana}`];
-    const valor = reg?.valor ?? "";
-    const destaque = semana === semanaAtualReal ? "coluna-atual" : "";
-
-    html += `
-      <td class="${destaque}">
-  <input
-    type="number"
-    step="0.01"
-    value="${valor}"
-    data-loja="${chaveLoja}"
-    data-semana="${semana}"
-    onblur="autoSalvar(this)"
-    style="height:30px; border-radius:6px; padding-left:5px;"
-  >
-</td>
-    `;
+      regionalSelecionada = btn.dataset.regional || "TODAS";
+      aplicar();
+    });
   });
-
-  html += `</tr>`;
-
-  return html;
 }
 
 // ==========================
 // ⚡ AUTO SAVE
 // ==========================
 async function autoSalvar(input) {
-  const valor = input.value;
   const loja = input.dataset.loja;
   const semana = input.dataset.semana;
+  const tipo = input.dataset.tipo || "numero";
 
-  if (!valor) return;
+  const valorLimpo =
+    typeof limparValorParaSalvar === "function"
+      ? limparValorParaSalvar(input.value, tipo)
+      : Number((input.value || "").toString().replace(",", "."));
 
-  console.log("⚡ AutoSave", { loja, semana, valor });
+  if (valorLimpo === null || Number.isNaN(valorLimpo)) return;
 
-  await salvarValor(loja, semana, valor);
+  // reaplica máscara no campo
+  if (typeof formatarValorParaInput === "function") {
+    input.value = formatarValorParaInput(valorLimpo, tipo);
+  }
+
+  console.log("⚡ AutoSave", { loja, semana, valor: valorLimpo, tipo });
+
+  await salvarValor(loja, semana, valorLimpo);
 }
 
 // ==========================
@@ -353,11 +483,15 @@ async function salvarValor(loja, semana, valor) {
   const numero = Number(valor);
   if (isNaN(numero)) return;
 
+  const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
   const indicadorNormalizado = indicadorSelecionado.toUpperCase().trim();
-  const classe = mapaClasse[indicadorNormalizado] || "Outros";
+  const indicadorBanco = obterIndicadorBanco(indicadorNormalizado, classeSelecionada);
+  const classe = obterClasse(indicadorNormalizado, classeSelecionada);
 
   console.log("💾 SALVAR:", {
     indicadorSelecionado,
+    indicadorNormalizado,
+    indicadorBanco,
     classe,
     loja,
     semana,
@@ -365,32 +499,40 @@ async function salvarValor(loja, semana, valor) {
   });
 
   try {
-    const { data: existente } = await window.db
+    const { data: existente, error: erroBusca } = await window.db
       .from("resultados")
       .select("id")
       .eq("loja", loja)
       .eq("semana", semana)
-      .eq("indicador", indicadorSelecionado)
+      .eq("indicador", indicadorBanco)
       .eq("classe", classe)
       .maybeSingle();
 
+    if (erroBusca) throw erroBusca;
+
     if (existente) {
-      await window.db
+      const { error: erroUpdate } = await window.db
         .from("resultados")
         .update({ valor: numero })
         .eq("id", existente.id);
 
+      if (erroUpdate) throw erroUpdate;
+
       console.log("✅ Atualizado");
     } else {
-      await window.db.from("resultados").insert([
-        {
-          loja,
-          semana,
-          indicador: indicadorSelecionado,
-          classe,
-          valor: numero,
-        },
-      ]);
+      const { error: erroInsert } = await window.db
+        .from("resultados")
+        .insert([
+          {
+            loja,
+            semana,
+            indicador: indicadorBanco,
+            classe,
+            valor: numero,
+          },
+        ]);
+
+      if (erroInsert) throw erroInsert;
 
       console.log("✅ Inserido");
     }
@@ -400,12 +542,11 @@ async function salvarValor(loja, semana, valor) {
 }
 
 // ==========================
-// 🔢 GERAR OPTIONS SEMANA (VERSÃO FINAL)
+// 🔢 GERAR OPTIONS SEMANA
 // ==========================
 function gerarOptionsSemanas() {
   let html = "";
 
-  // ✅ garante sempre string formatada correta
   const atual =
     semanaSelecionada || getSemanaAtual().toString().padStart(2, "0");
 
@@ -413,11 +554,7 @@ function gerarOptionsSemanas() {
 
   for (let i = 1; i <= 53; i++) {
     const s = i.toString().padStart(2, "0");
-
-    // ✅ seleciona corretamente
     const selected = s === atual ? "selected" : "";
-
-    // ✅ adiciona classe visual (opcional para CSS)
     const classe = s === atual ? "semana-ativa" : "";
 
     html += `

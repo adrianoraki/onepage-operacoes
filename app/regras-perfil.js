@@ -6,6 +6,16 @@ let usuarioLogado = null;
 console.log("✅ regras-perfil.js carregado");
 
 // ==========================
+// 🔠 NORMALIZAR TEXTO
+// ==========================
+function normalizarTexto(valor) {
+  return (valor || "")
+    .toString()
+    .trim()
+    .toUpperCase();
+}
+
+// ==========================
 // 🔄 USUÁRIO LOGADO
 // ==========================
 function getUsuarioLogado() {
@@ -17,91 +27,173 @@ function getUsuarioLogado() {
       return null;
     }
 
-    usuarioLogado = user;
+    usuarioLogado = {
+      ...user,
+      perfil: (user.perfil || "").toString().trim().toLowerCase(),
+    };
 
     console.log("👤 Usuário:", {
-      nome: user.nome,
-      perfil: user.perfil,
+      nome: usuarioLogado.nome,
+      perfil: usuarioLogado.perfil,
     });
 
-    return user;
+    return usuarioLogado;
   } catch (e) {
     console.error("❌ erro usuário:", e);
     return null;
   }
 }
-function podeEditar(indicador, classe, semana) {
-  const user = getUsuarioLogado();
-  if (!user) return false;
 
-  const semanaAtual = getSemanaAtual();
+// ==========================
+// 📅 SEMANA ANTERIOR
+// ==========================
+function getSemanaAnterior(semanaAtual) {
+  const atual = Number(semanaAtual);
+
+  if (atual <= 1) return 53; // ajuste virada de ano
+  return atual - 1;
+}
+
+// ==========================
+// 📅 JANELA DE EDIÇÃO
+// semana atual + semana anterior
+// ==========================
+function podeEditarNaJanela(perfil, semanaInformada, semanaAtual) {
+  const s = Number(semanaInformada);
+  const atual = Number(semanaAtual);
+  const anterior = getSemanaAnterior(atual);
+
+  // 👑 master sempre pode
+  if (perfil === "master") return true;
+
+  // admin e usuário: semana atual + anterior
+  return s === atual || s === anterior;
+}
+
+// ==========================
+// 🔍 MOTIVO DO BLOQUEIO
+// ==========================
+function getMotivoBloqueio(indicador, classe, semana) {
+  const user = getUsuarioLogado();
+  if (!user) return "Usuário não autenticado";
+
+  const perfil = (user.perfil || "").toString().trim().toLowerCase();
+
+  const semanaAtual = getSemanaAtual().toString().padStart(2, "0");
+  const semanaInformada = String(semana).padStart(2, "0");
 
   const permissoes = user.permissoes || {};
-  const indicadores = permissoes.indicadores || [];
-  const classes = permissoes.classes || [];
+  const indicadores = (permissoes.indicadores || []).map(normalizarTexto);
+  const classes = (permissoes.classes || []).map(normalizarTexto);
+
+  const indicadorNorm = normalizarTexto(indicador);
+  const classeNorm = normalizarTexto(classe);
+
+  const permitido =
+    indicadores.includes(indicadorNorm) ||
+    classes.includes(classeNorm) ||
+    indicadores.includes("TODAS");
 
   console.log("🔍 Permissão check:", {
     user: user.nome,
-    perfil: user.perfil,
-    indicador,
-    semana,
+    perfil,
+    indicador: indicadorNorm,
+    classe: classeNorm,
+    semana: semanaInformada,
+    semanaAtual,
+    permitido,
+    indicadores,
+    classes,
   });
 
-  if (user.perfil === "master") return true;
+  // 👑 master
+  if (perfil === "master") return null;
 
-  if (user.perfil === "usuario") {
-    if (semana !== semanaAtual) return false;
-
-    return indicadores.includes(indicador) || classes.includes(classe);
+  // admin / usuario só podem o que foi concedido
+  if (!permitido) {
+    return "Sem permissão para este indicador/tabela";
   }
 
-  if (user.perfil === "admin") {
-    const permitido =
-      indicadores.includes(indicador) ||
-      classes.includes(classe) ||
-      indicadores.includes("todas");
+  // valida janela de edição
+  const dentroDaJanela = podeEditarNaJanela(
+    perfil,
+    Number(semanaInformada),
+    Number(semanaAtual)
+  );
 
-    return permitido;
+  if (!dentroDaJanela) {
+    return "Prazo encerrado. Somente com desbloqueio administrativo.";
   }
 
-  return false;
+  return null;
 }
+
+// ==========================
+// 🔐 REGRA FINAL DE EDIÇÃO
+// ==========================
+function podeEditar(indicador, classe, semana) {
+  return getMotivoBloqueio(indicador, classe, semana) === null;
+}
+
+// ==========================
+// 🔒 APLICAR BLOQUEIO NO INPUT
+// Obs.: não sobrescreve mais onblur,
+// para não quebrar tabela normal/especial/RH.
+// ==========================
 function aplicarPermissaoInput(input, indicador, classe, semana) {
-  const allowed = podeEditar(indicador, classe, semana);
+  const motivo = getMotivoBloqueio(indicador, classe, semana);
+  const allowed = motivo === null;
 
   if (!allowed) {
     input.disabled = true;
-    input.style.background = "#eee";
+    input.readOnly = true;
+    input.removeAttribute("onblur");
+    input.onblur = null;
+
+    input.style.background = "#f1f1f1";
+    input.style.color = "#777";
+    input.style.cursor = "not-allowed";
+    input.style.border = "1px solid #ddd";
+
+    input.title = motivo;
+    input.dataset.bloqueado = "true";
+    input.dataset.motivo = motivo;
     return;
   }
 
   input.disabled = false;
+  input.readOnly = false;
+  input.style.background = "#fff";
+  input.style.color = "#000";
+  input.style.cursor = "text";
+  input.style.border = "1px solid #ccc";
 
-  input.onblur = async () => {
-    const valorNovo = input.value;
+  input.removeAttribute("title");
+  input.dataset.bloqueado = "false";
+  input.dataset.motivo = "";
+}
 
-    // 🔥 BUSCA VALOR ANTIGO
-    const { data } = await supabase
-      .from("resultados")
-      .select("valor")
-      .eq("indicador", indicador)
-      .eq("semana", semana)
-      .eq("loja", input.dataset.loja)
-      .maybeSingle();
+// ==========================
+// 🧩 APLICAR PERMISSÕES NA TABELA
+// ==========================
+function aplicarPermissoesTabela(indicador, classe) {
+  console.log("🛡️ Aplicando permissões na tabela...", { indicador, classe });
 
-    const valorAntigo = data?.valor || null;
+  const inputs = document.querySelectorAll(
+    "#conteudo input[data-loja][data-semana]"
+  );
 
-    await autoSalvar(input);
+  if (!inputs.length) {
+    console.warn("⚠️ Nenhum input encontrado para aplicar permissão");
+    return;
+  }
 
-    // 🔥 LOG
-    await registrarLog({
-      loja: input.dataset.loja,
-      indicador,
-      semana,
-      antigo: valorAntigo,
-      novo: valorNovo,
-    });
-  };
+  inputs.forEach((input) => {
+    const semana = input.dataset.semana;
+    aplicarPermissaoInput(input, indicador, classe, semana);
+  });
+
+  console.log("✅ Permissões aplicadas:", inputs.length);
 }
 
 // ==========================
@@ -117,11 +209,8 @@ function gerarSenhaAleatoria(tamanho = 10) {
 
   let senha = "";
 
-  // garante variedade mínima
-  senha +=
-    letrasMaiusculas[Math.floor(Math.random() * letrasMaiusculas.length)];
-  senha +=
-    letrasMinusculas[Math.floor(Math.random() * letrasMinusculas.length)];
+  senha += letrasMaiusculas[Math.floor(Math.random() * letrasMaiusculas.length)];
+  senha += letrasMinusculas[Math.floor(Math.random() * letrasMinusculas.length)];
   senha += numeros[Math.floor(Math.random() * numeros.length)];
   senha += simbolos[Math.floor(Math.random() * simbolos.length)];
 
@@ -129,7 +218,6 @@ function gerarSenhaAleatoria(tamanho = 10) {
     senha += todos[Math.floor(Math.random() * todos.length)];
   }
 
-  // embaralha
   senha = senha
     .split("")
     .sort(() => Math.random() - 0.5)
@@ -138,280 +226,76 @@ function gerarSenhaAleatoria(tamanho = 10) {
   return senha;
 }
 
+// ==========================
+// 📋 COPIAR SENHA GERADA
+// ==========================
+function copiarSenhaGerada() {
+  const texto = document.getElementById("senhaGeradaTexto")?.textContent;
+
+  if (!texto) return;
+
+  navigator.clipboard
+    .writeText(texto)
+    .then(() => {
+      alert("✅ Senha copiada!");
+    })
+    .catch((erro) => {
+      console.error("❌ Erro ao copiar senha:", erro);
+    });
+}
+
+// ==========================
+// ⚙️ ABRIR CONFIGURAÇÕES
+// ==========================
 function abrirConfiguracoes() {
   console.log("⚙️ Abrindo Configurações");
 
   const user = getUsuarioLogado();
+  if (!user) return;
 
-  if (!user) {
-    console.warn("⚠️ Usuário não encontrado");
-    return;
-  }
-
-  // ✅ verifica perfil
   const isAdmin = user.perfil === "admin" || user.perfil === "master";
 
   document.getElementById("conteudo").innerHTML = `
-
     <div class="pagina-container">
-
-      <div class="card-conteudo config-full">
+      <div class="card-conteudo">
 
         <div class="header-tabela">
           <h2>⚙️ Configurações</h2>
         </div>
 
         <div class="config-grid">
-
-          <!-- ✅ TODOS PODEM -->
           <button onclick="abrirAlterarSenha()">🔑 Alterar senha</button>
 
-          <!-- ✅ SÓ ADMIN / MASTER -->
           ${
             isAdmin
               ? `
-            <button onclick="novoUsuario()">➕ Novo usuário</button>
-            <button onclick="abrirTelaPermissoes()">🎯 Permissões</button>
-            <button onclick="abrirAuditoria()">📊 Logs do Sistema</button>
-          `
+                <button onclick="novoUsuario()">➕ Novo usuário</button>
+                <button onclick="abrirTelaPermissoes()">🎯 Permissões</button>
+                <button onclick="abrirLogsSistema()">📋 Logs do Sistema</button>
+              `
               : ""
           }
-
         </div>
 
-        <!-- ✅ ÁREA DINÂMICA -->
-        <div id="config-conteudo"></div>
-
-      </div>
-
-    </div>
-  `;
-}
-
-async function listarUsuarios() {
-  const { data } = await window.db.from("usuarios").select("*");
-
-  let html = `<h2>Usuários</h2><table>`;
-
-  data.forEach((u) => {
-    html += `
-      <tr>
-        <td>${u.nome}</td>
-        <td>${u.perfil}</td>
-        <td>
-          ${
-            u.perfil !== "master"
-              ? `<button onclick="editarPermissoes('${u.id}')">⚙️</button>`
-              : "👑"
-          }
-        </td>
-      </tr>
-    `;
-  });
-
-  html += "</table>";
-
-  document.getElementById("lista-usuarios").innerHTML = html;
-}
-
-async function editarPermissoes(id) {
-  console.log("⚙️ Editando permissões:", id);
-
-  const container = document.getElementById("config-conteudo");
-
-  // ✅ LOADING
-  container.innerHTML = `
-    <div class="card-conteudo">
-      <h3>⚙️ Carregando permissões...</h3>
-    </div>
-  `;
-
-  try {
-    const { data } = await supabase
-      .from("usuarios")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    // ✅ AGRUPA INDICADORES POR CLASSE
-    const agrupado = {};
-
-    Object.entries(mapaClasse).forEach(([indicador, classe]) => {
-      if (!agrupado[classe]) {
-        agrupado[classe] = [];
-      }
-
-      agrupado[classe].push(indicador);
-    });
-
-    const atuais = data.permissoes?.indicadores || [];
-
-    let html = `
-  <div class="card-conteudo">
-
-    <h3>⚙️ Permissões - ${data.nome}</h3>
-`;
-
-    Object.keys(agrupado).forEach((classe) => {
-      html += `
-    <div class="grupo-permissao">
-
-      <h4>${classe}</h4>
-
-      <div class="permissoes-grid">
-  `;
-
-      agrupado[classe].forEach((indicador) => {
-        html += `
-      <label class="check-item">
-        <input type="checkbox"
-          value="${indicador}"
-          ${atuais.includes(indicador) ? "checked" : ""}
-        >
-        ${indicador}
-      </label>
-    `;
-      });
-
-      html += `
-      </div>
-    </div>
-  `;
-    });
-
-    html += `
-    <br>
-
-    <button class="btn-salvar" onclick="salvarPermissoes('${data.id}')">
-      ✅ Salvar Permissões
-    </button>
-
-  </div>
-`;
-
-    // ✅ AQUI É A CORREÇÃO
-    container.innerHTML = html;
-  } catch (erro) {
-    console.error("❌ erro permissões:", erro);
-
-    container.innerHTML = `
-      <div class="card-conteudo">
-        <h3>❌ Erro</h3>
-        <p>Falha ao carregar permissões</p>
-      </div>
-    `;
-  }
-}
-
-// ==========================
-// 💾 SALVAR PERMISSÕES
-// ==========================
-
-async function salvarPermissoes(id) {
-  const checks = document.querySelectorAll(
-    "#config-conteudo input[type=checkbox]:checked",
-  );
-
-  const selecionados = [...checks].map((c) => c.value);
-
-  console.log("💾 Salvando permissões:", selecionados);
-
-  await supabase
-    .from("usuarios")
-    .update({
-      permissoes: {
-        indicadores: selecionados,
-        classes: [],
-        acesso_total: false,
-      },
-    })
-    .eq("id", id);
-
-  alert("✅ Permissões atualizadas!");
-
-  abrirTelaPermissoes(); // volta pra lista
-}
-``;
-// ==========================
-// 🧾 LOG DE ALTERAÇÃO
-// ==========================
-async function registrarLog(dados) {
-  try {
-    const user = getUsuarioLogado();
-
-    await window.db.from("auditoria").insert([
-      {
-        usuario: user.nome,
-        perfil: user.perfil,
-        loja: dados.loja,
-        indicador: dados.indicador,
-        semana: dados.semana,
-        valor_antigo: dados.antigo,
-        valor_novo: dados.novo,
-      },
-    ]);
-
-    console.log("📊 LOG:", dados);
-  } catch (e) {
-    console.error("❌ erro log:", e);
-  }
-}
-function abrirConfiguracoes() {
-  console.log("⚙️ Abrindo Configurações (layout fixo)");
-
-  const user = getUsuarioLogado();
-
-  document.getElementById("conteudo").innerHTML = `
-
-    <div class="pagina-container">
-
-      <div class="card-conteudo">
-
-        <!-- ✅ HEADER FIXO -->
-        <div class="header-tabela">
-          <h2>⚙️ Configurações</h2>
-        </div>
-
-        <!-- ✅ BOTÕES FIXOS -->
-        <div class="config-grid">
-
-          <button onclick="abrirAlterarSenha()">🔑 Alterar senha</button>
-
-          ${
-            user.perfil !== "usuario"
-              ? `
-            <button onclick="novoUsuario()">➕ Novo usuário</button>
-          `
-              : ""
-          }
-
-
-          <button onclick="abrirTelaPermissoes()">🎯 Permissões</button>
-
-
-          <button onclick="abrirAuditoria()">📊 Auditoria</button>
-
-        </div>
-
-        <!-- ✅ ÁREA DINÂMICA (AQUI MUDA!) -->
         <div id="config-conteudo" style="margin-top:20px;"></div>
 
       </div>
-
     </div>
   `;
 }
 
+// ==========================
+// ✏️ EDITAR DADOS DO USUÁRIO
+// ==========================
 function editarDadosUsuario() {
   const user = getUsuarioLogado();
 
   document.getElementById("config-conteudo").innerHTML = `
-
     <div class="config-box">
 
       <h3>✏️ Editar Dados</h3>
 
-      <input id="edit_nome" value="${user.nome}"><br><br>
+      <input id="edit_nome" value="${user.nome || ""}"><br><br>
       <input id="edit_matricula" value="${user.matricula || ""}"><br><br>
       <input id="edit_email" value="${user.email || ""}"><br><br>
       <input id="edit_funcao" value="${user.funcao || ""}"><br><br>
@@ -424,6 +308,9 @@ function editarDadosUsuario() {
   `;
 }
 
+// ==========================
+// 💾 SALVAR DADOS DO USUÁRIO
+// ==========================
 async function salvarDadosUsuario() {
   const nome = document.getElementById("edit_nome").value;
   const matricula = document.getElementById("edit_matricula").value;
@@ -433,7 +320,7 @@ async function salvarDadosUsuario() {
   const user = getUsuarioLogado();
 
   try {
-    await supabase
+    await window.db
       .from("usuarios")
       .update({
         nome,
@@ -445,7 +332,6 @@ async function salvarDadosUsuario() {
 
     alert("✅ Dados atualizados!");
 
-    // Atualiza localStorage
     localStorage.setItem(
       "usuario",
       JSON.stringify({
@@ -454,7 +340,7 @@ async function salvarDadosUsuario() {
         matricula,
         email,
         funcao,
-      }),
+      })
     );
 
     abrirAlterarSenha();
@@ -464,20 +350,19 @@ async function salvarDadosUsuario() {
   }
 }
 
-// ========================== Alterar senha ================//
+// ==========================
+// 🔑 ALTERAR SENHA
+// ==========================
 function abrirAlterarSenha() {
   const user = getUsuarioLogado();
 
   document.getElementById("config-conteudo").innerHTML = `
-
     <div class="config-flex">
 
-      <!-- ✅ ESQUERDA: DADOS -->
       <div class="config-box">
-
         <h3>👤 Dados do Usuário</h3>
 
-        <p><b>Nome:</b> <span id="info_nome">${user.nome}</span></p>
+        <p><b>Nome:</b> <span id="info_nome">${user.nome || "-"}</span></p>
         <p><b>Matrícula:</b> <span id="info_matricula">${user.matricula || "-"}</span></p>
         <p><b>E-mail:</b> <span id="info_email">${user.email || "-"}</span></p>
         <p><b>Função:</b> <span id="info_funcao">${user.funcao || user.perfil}</span></p>
@@ -487,12 +372,9 @@ function abrirAlterarSenha() {
         <button onclick="editarDadosUsuario()" class="btn-salvar">
           ✏️ Editar dados
         </button>
-
       </div>
 
-      <!-- ✅ DIREITA: SENHA -->
       <div class="config-box">
-
         <h3>🔑 Alterar Senha</h3>
 
         <input id="novaSenha" type="password" placeholder="Nova senha"><br><br>
@@ -501,13 +383,17 @@ function abrirAlterarSenha() {
         <button class="btn-salvar" onclick="salvarSenha()">
           ✅ Salvar Senha
         </button>
-
       </div>
 
     </div>
   `;
 }
 
+// ==========================
+// 💾 SALVAR SENHA
+// Obs.: aqui ainda está placeholder.
+// Se quiser, eu te ajudo depois a ligar isso com Supabase Auth.
+// ==========================
 async function salvarSenha() {
   const nova = document.getElementById("novaSenha").value;
   const confirmar = document.getElementById("confirmarSenha").value;
@@ -518,12 +404,12 @@ async function salvarSenha() {
   }
 
   console.log("🔑 Senha alterada");
-
-  alert("✅ Senha atualizada (implementar backend depois)");
+  alert("✅ Senha atualizada (ligar no Auth depois)");
 }
 
-// ========================== Novo Usuário ================//
-
+// ==========================
+// ➕ NOVO USUÁRIO
+// ==========================
 function novoUsuario() {
   console.log("➕ Novo Usuário");
 
@@ -531,7 +417,6 @@ function novoUsuario() {
   if (!user) return;
 
   document.getElementById("config-conteudo").innerHTML = `
-
     <div class="card-conteudo">
 
       <h3>➕ Novo Usuário</h3>
@@ -572,6 +457,12 @@ function novoUsuario() {
   `;
 }
 
+// ==========================
+// 💾 SALVAR NOVO USUÁRIO
+// Obs.: este fluxo ainda salva direto na tabela usuarios.
+// Se você for fechar 100% com Supabase Auth, depois migramos
+// esse processo para criar no Auth + tabela usuarios.
+// ==========================
 async function salvarNovoUsuario() {
   const nome = document.getElementById("novo_nome")?.value.trim();
   const matricula = document.getElementById("novo_matricula")?.value.trim();
@@ -599,23 +490,24 @@ async function salvarNovoUsuario() {
   }
 
   try {
-    // ✅ gera senha automática
     const senhaGerada = gerarSenhaAleatoria(10);
 
     console.log("🔐 Senha gerada para novo usuário:", senhaGerada);
 
     const payload = {
       nome,
-      sobrenome: "", // ✅ se não tiver campo na tela, salva vazio
+      sobrenome: "",
       matricula,
       email,
       funcao,
-      perfil: "usuario", // ✅ perfil padrão
-      senha: senhaGerada, // ✅ salva no banco
-      permissoes: {}, // ✅ permissões vazias no início
+      perfil: "usuario",
+      senha: senhaGerada,
+      permissoes: {},
     };
 
-    const { error } = await window.db.from("usuarios").insert([payload]);
+    const { error } = await window.db
+      .from("usuarios")
+      .insert([payload]);
 
     if (error) throw error;
 
@@ -644,7 +536,6 @@ async function salvarNovoUsuario() {
       `;
     }
 
-    // ✅ limpa os campos depois de criar
     document.getElementById("novo_nome").value = "";
     document.getElementById("novo_matricula").value = "";
     document.getElementById("novo_email").value = "";
@@ -662,27 +553,9 @@ async function salvarNovoUsuario() {
   }
 }
 
-function copiarSenhaGerada() {
-  const texto = document.getElementById("senhaGeradaTexto")?.textContent;
-
-  if (!texto) return;
-
-  navigator.clipboard
-    .writeText(texto)
-    .then(() => {
-      alert("✅ Senha copiada!");
-    })
-    .catch((erro) => {
-      console.error("❌ Erro ao copiar senha:", erro);
-    });
-}
-
-// ========================== PERMISSÕES ================//
-
 // ==========================
-// 🎯 PERMISSÕES - UI PROFISSIONAL
+// 🎯 ABRIR TELA DE PERMISSÕES
 // ==========================
-
 function abrirTelaPermissoes() {
   console.log("🎯 Abrindo Permissões");
 
@@ -714,7 +587,6 @@ function abrirTelaPermissoes() {
 function resumoPermissoesUsuario(usuario) {
   if (!usuario) return `<span class="perm-vazia">Sem dados</span>`;
 
-  // 👑 Master
   if (usuario.perfil === "master") {
     return `<span class="perm-tag perm-master">Permissões master</span>`;
   }
@@ -723,7 +595,6 @@ function resumoPermissoesUsuario(usuario) {
   const indicadores = permissoes.indicadores || [];
   const classes = permissoes.classes || [];
 
-  // ✅ se tiver "todas" ou acesso_total
   if (permissoes.acesso_total === true || indicadores.includes("todas")) {
     return `<span class="perm-tag perm-total">Todas as tabelas</span>`;
   }
@@ -735,11 +606,7 @@ function resumoPermissoesUsuario(usuario) {
   }
 
   return lista
-    .map(
-      (item) => `
-    <span class="perm-tag">${item}</span>
-  `,
-    )
+    .map((item) => `<span class="perm-tag">${item}</span>`)
     .join("");
 }
 
@@ -750,38 +617,33 @@ function podeGerenciarUsuarioAlvo(alvo) {
   const user = getUsuarioLogado();
   if (!user || !alvo) return false;
 
-  // 👑 Master pode editar qualquer um
-  if (user.perfil === "master") {
-    return true;
-  }
+  // 👑 master pode editar qualquer um
+  if (user.perfil === "master") return true;
 
-  // 🧑‍💼 Admin:
-  // - pode editar o próprio admin
+  // admin:
   // - pode editar usuários
-  // - NÃO pode editar master
-  // - NÃO pode editar outros admins
+  // - pode editar o próprio admin
+  // - não edita master
+  // - não edita outros admins
   if (user.perfil === "admin") {
     if (alvo.perfil === "master") return false;
-
     if (alvo.perfil === "usuario") return true;
-
-    if (alvo.perfil === "admin" && alvo.id === user.id) return true;
-
+    if (alvo.perfil === "admin" && String(alvo.id) === String(user.id)) {
+      return true;
+    }
     return false;
   }
 
-  // 👤 Usuário não gerencia ninguém
   return false;
 }
 
 // ==========================
-// 🎯 CARREGAR USUÁRIOS - TELA DE PERMISSÕES
+// 📋 CARREGAR LISTA DE PERMISSÕES
 // ==========================
 async function carregarUsuariosPermissoes() {
   console.log("🔄 Buscando usuários para permissões...");
 
   const container = document.getElementById("lista-permissoes");
-  const userLogado = getUsuarioLogado();
 
   if (!container) {
     console.error("❌ lista-permissoes não encontrado");
@@ -811,7 +673,7 @@ async function carregarUsuariosPermissoes() {
     `;
 
     data.forEach((u) => {
-      const podeEditar = podeGerenciarUsuarioAlvo(u);
+      const podeEditarUsuario = podeGerenciarUsuarioAlvo(u);
 
       let badgePerfil = `<span class="badge-perfil badge-user">${u.perfil}</span>`;
 
@@ -841,7 +703,7 @@ async function carregarUsuariosPermissoes() {
 
           <td class="acao-cell">
             ${
-              podeEditar
+              podeEditarUsuario
                 ? `<button class="btn-acao" onclick="editarPermissoes('${u.id}')">⚙️</button>`
                 : `<span class="acao-bloqueada">🔒</span>`
             }
@@ -872,6 +734,147 @@ async function carregarUsuariosPermissoes() {
 }
 
 // ==========================
+// ⚙️ EDITAR PERMISSÕES
+// ==========================
+async function editarPermissoes(id) {
+  console.log("⚙️ Editando permissões:", id);
+
+  const container = document.getElementById("config-conteudo");
+
+  container.innerHTML = `
+    <div class="card-conteudo">
+      <h3>⚙️ Carregando permissões...</h3>
+    </div>
+  `;
+
+  try {
+    const { data } = await window.db
+      .from("usuarios")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    const agrupado = {};
+
+    Object.entries(mapaClasse).forEach(([indicador, classe]) => {
+      if (!agrupado[classe]) {
+        agrupado[classe] = [];
+      }
+
+      if (!agrupado[classe].includes(indicador)) {
+        agrupado[classe].push(indicador);
+      }
+    });
+
+    const atuais = data.permissoes?.indicadores || [];
+
+    let html = `
+      <div class="card-conteudo">
+        <h3>⚙️ Permissões - ${data.nome}</h3>
+    `;
+
+    Object.keys(agrupado).forEach((classe) => {
+      html += `
+        <div class="grupo-permissao">
+          <h4>${classe}</h4>
+          <div class="permissoes-grid">
+      `;
+
+      agrupado[classe].forEach((indicador) => {
+        html += `
+          <label class="check-item">
+            <input
+              type="checkbox"
+              value="${indicador}"
+              ${atuais.includes(indicador) ? "checked" : ""}
+            >
+            ${indicador}
+          </label>
+        `;
+      });
+
+      html += `
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+        <br>
+
+        <button class="btn-salvar" onclick="salvarPermissoes('${data.id}')">
+          ✅ Salvar Permissões
+        </button>
+      </div>
+    `;
+
+    container.innerHTML = html;
+  } catch (erro) {
+    console.error("❌ erro permissões:", erro);
+
+    container.innerHTML = `
+      <div class="card-conteudo">
+        <h3>❌ Erro</h3>
+        <p>Falha ao carregar permissões</p>
+      </div>
+    `;
+  }
+}
+
+// ==========================
+// 💾 SALVAR PERMISSÕES
+// ==========================
+async function salvarPermissoes(id) {
+  const checks = document.querySelectorAll(
+    "#config-conteudo input[type=checkbox]:checked"
+  );
+
+  const selecionados = [...checks].map((c) => c.value);
+
+  console.log("💾 Salvando permissões:", selecionados);
+
+  await window.db
+    .from("usuarios")
+    .update({
+      permissoes: {
+        indicadores: selecionados,
+        classes: [],
+        acesso_total: false,
+      },
+    })
+    .eq("id", id);
+
+  alert("✅ Permissões atualizadas!");
+
+  abrirTelaPermissoes();
+}
+
+// ==========================
+// 🧾 LOG DE ALTERAÇÃO
+// ==========================
+async function registrarLog(dados) {
+  try {
+    const user = getUsuarioLogado();
+
+    await window.db.from("auditoria").insert([
+      {
+        usuario: user.nome,
+        perfil: user.perfil,
+        loja: dados.loja,
+        indicador: dados.indicador,
+        semana: dados.semana,
+        valor_antigo: dados.antigo,
+        valor_novo: dados.novo,
+      },
+    ]);
+
+    console.log("📊 LOG:", dados);
+  } catch (e) {
+    console.error("❌ erro log:", e);
+  }
+}
+
+// ==========================
 // 📊 AUDITORIA
 // ==========================
 async function abrirAuditoria() {
@@ -879,7 +882,6 @@ async function abrirAuditoria() {
 
   const container = document.getElementById("config-conteudo");
 
-  // ✅ loading
   container.innerHTML = `
     <div class="card-conteudo">
       <h2>📊 Auditoria</h2>
@@ -888,7 +890,7 @@ async function abrirAuditoria() {
   `;
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await window.db
       .from("auditoria")
       .select("*")
       .order("id", { ascending: false })

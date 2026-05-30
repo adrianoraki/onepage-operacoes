@@ -2,6 +2,7 @@
 <html lang="pt-br">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login - Sistema</title>
 
     <link rel="stylesheet" href="/css/login.css" />
@@ -11,17 +12,30 @@
       <div class="login-box">
         <h2>🔐 Acesso ao Sistema</h2>
 
-        <input type="email" id="email" placeholder="Digite seu e-mail" />
-        <input type="password" id="senha" placeholder="Digite sua senha" />
+        <form onsubmit="event.preventDefault(); fazerLogin();">
+          <input
+            type="email"
+            id="email"
+            placeholder="Digite seu e-mail"
+            autocomplete="username"
+          />
 
-        <button id="btnLogin" onclick="fazerLogin()">Entrar</button>
+          <input
+            type="password"
+            id="senha"
+            placeholder="Digite sua senha"
+            autocomplete="current-password"
+          />
 
-        <p id="erro"></p>
+          <button id="btnLogin" type="submit">Entrar</button>
+
+          <p id="erro" aria-live="polite"></p>
+        </form>
       </div>
     </div>
 
     <!-- Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-    <script src="app/login.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js" defer></script>
+    <script src="app/login.js" defer></script>
   </body>
 </html>

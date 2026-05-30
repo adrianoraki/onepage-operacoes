@@ -6,9 +6,16 @@
          🔷 LOGO
     =========================== -->
     <div class="logo">
-      <a href="#">
+      <a
+        href="#"
+        onclick="
+          logMenu('dashboard-logo');
+          mostrar('dashboard');
+          return false;
+        "
+      >
         <i class="fas fa-layer-group" style="color: #3f7bcc"></i>
-        OnePage Expert
+        <span>OnePage Expert</span>
       </a>
     </div>
 
@@ -18,6 +25,7 @@
     <div class="menu">
       <ul id="menu-list">
         <li
+          class="menu-item"
           onclick="
             logMenu('dashboard');
             mostrar('dashboard');
@@ -28,6 +36,7 @@
         </li>
 
         <li
+          class="menu-item"
           onclick="
             logMenu('ranking');
             mostrar('ranking');
@@ -38,6 +47,7 @@
         </li>
 
         <li
+          class="menu-item"
           onclick="
             logMenu('indicadores');
             mostrar('indicadores');
@@ -48,6 +58,7 @@
         </li>
 
         <li
+          class="menu-item"
           onclick="
             logMenu('comparativos');
             mostrar('comparativos');
@@ -66,10 +77,11 @@
     =========================== -->
     <div class="bottom-area">
       <!-- CONFIG -->
-
       <div class="config-btn" onclick="abrirConfiguracoesMenu()">
-        <i class="fas fa-gear" style="color: #9e9e9e"></i>
-        <span>Configurações</span>
+        <div class="config-btn-content">
+          <i class="fas fa-gear" style="color: #9e9e9e"></i>
+          <span>Configurações</span>
+        </div>
       </div>
 
       <!-- ==========================
@@ -87,7 +99,6 @@
         </div>
 
         <!-- LOGOUT -->
-
         <button
           class="btn-logout"
           onclick="
@@ -96,7 +107,7 @@
           "
         >
           <i class="fas fa-right-from-bracket"></i>
-          Sair
+          <span>Sair</span>
         </button>
       </div>
     </div>

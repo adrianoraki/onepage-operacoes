@@ -1,58 +1,129 @@
-
 // ==========================
 // 🧩 TABELA ESPECIAL
 // (SELF-CHECKOUT / PART.TELEVENDAS)
 // ==========================
+
+// ==========================
+// ⚙️ CONFIG DA TABELA ESPECIAL
+// ==========================
+function getConfigTabelaEspecial(indicador, classeSelecionada = null) {
+  // ✅ usa config central se existir
+  if (typeof getIndicadorConfig === "function") {
+    const cfg = getIndicadorConfig(indicador, classeSelecionada);
+
+    const campo1 =
+      typeof getCampoConfig === "function"
+        ? getCampoConfig(indicador, "valor", classeSelecionada)
+        : { key: "valor", label: "Coluna 1", tipo: "numero" };
+
+    const campo2 =
+      typeof getCampoConfig === "function"
+        ? getCampoConfig(indicador, "valor2", classeSelecionada)
+        : { key: "valor2", label: "Coluna 2", tipo: "numero" };
+
+    return {
+      titulo: cfg?.nomeExibicao || indicador,
+      col1: campo1.label || "Coluna 1",
+      col2: campo2.label || "Coluna 2",
+      tipo1: campo1.tipo || "numero",
+      tipo2: campo2.tipo || "numero",
+    };
+  }
+
+  // ✅ fallback seguro
+  const indicadorNorm = (indicador || "").toString().trim().toUpperCase();
+
+  if (indicadorNorm === "PART.TELEVENDAS") {
+    return {
+      titulo: "PART.TELEVENDAS",
+      col1: "Part %",
+      col2: "Margem",
+      tipo1: "percentual",
+      tipo2: "percentual",
+    };
+  }
+
+  if (indicadorNorm === "SELF-CHECKOUT") {
+    return {
+      titulo: "SELF-CHECKOUT",
+      col1: "Participação",
+      col2: "Qtd Passantes",
+      tipo1: "moeda",
+      tipo2: "numero",
+    };
+  }
+
+  return {
+    titulo: indicadorNorm,
+    col1: "Coluna 1",
+    col2: "Coluna 2",
+    tipo1: "numero",
+    tipo2: "numero",
+  };
+}
+
+// ==========================
+// 🧱 MONTAR TABELA ESPECIAL
+// ==========================
 function montarTabelaEspecial(lojas, mapa, semanas) {
-
-  // ✅ Define colunas baseado no indicador
-  let col1 = "Meta";
-  let col2 = "Real";
-
-  if (indicadorSelecionado === "PART.TELEVENDAS") {
-    col1 = "Part %";
-    col2 = "Margem";
-  }
-
-  if (indicadorSelecionado === "SELF-CHECKOUT") {
-    col1 = "Participação";
-    col2 = "Qtd Passantes";
-  }
+  const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
+  const config = getConfigTabelaEspecial(indicadorSelecionado, classeSelecionada);
+  const semanaAtualReal = getSemanaAtual().toString().padStart(2, "0");
 
   let html = `
     <div class="card-conteudo">
 
       <div class="header-tabela">
-        <h2>📊 ${indicadorSelecionado}</h2>
+        <h2>📊 ${config.titulo}</h2>
+
+        <select class="filtro-semana" onchange="alterarSemana(this.value)">
+          ${gerarOptionsSemanas()}
+        </select>
       </div>
 
-      <!-- ✅ filtro -->
-      <div class="filtros-tabela">
-        <input type="text" id="filtroEspecial" placeholder="Pesquisar código, loja ou regional">
+      <div class="filtros-tabela filtros-novos">
+        <input
+          type="text"
+          id="filtroEspecial"
+          placeholder="Buscar código ou nome da loja"
+        >
+
+        <div class="grupo-filtro-regional">
+          <button type="button" class="btn-filtro-regional ativo" data-regional="TODAS">
+            Todas
+          </button>
+          <button type="button" class="btn-filtro-regional" data-regional="NE1">
+            NE1
+          </button>
+          <button type="button" class="btn-filtro-regional" data-regional="NE2">
+            NE2
+          </button>
+        </div>
       </div>
 
-      <div class="tabela-container">
-        <table class="tabela">
+      <div class="tabela-container tabela-compacta-container">
+        <table class="tabela tabela-especial-compacta">
           <thead>
-
             <tr>
-              <th rowspan="2">Código</th>
-              <th rowspan="2">Loja</th>
-              <th rowspan="2">Regional</th>
+              <th rowspan="2" class="col-codigo">Código</th>
+              <th rowspan="2" class="col-loja">Loja</th>
+              <th rowspan="2" class="col-regional">Regional</th>
   `;
 
-  // semanas
-  semanas.forEach(semana => {
-    html += `<th colspan="2">Semana ${semana}</th>`;
+  // cabeçalhos de semana
+  semanas.forEach((semana) => {
+    const destaque = semana === semanaAtualReal ? ' class="coluna-atual"' : "";
+    html += `<th colspan="2"${destaque}>Semana ${semana}</th>`;
   });
 
   html += `</tr><tr>`;
 
-  // ✅ colunas dinâmicas
-  semanas.forEach(() => {
+  // subcolunas
+  semanas.forEach((semana) => {
+    const destaque = semana === semanaAtualReal ? ' class="coluna-atual"' : "";
     html += `
-      <th>${col1}</th>
-      <th>${col2}</th>
+      <th${destaque}>${config.col1}</th>
+      <th${destaque}>${config.col2}</th>
     `;
   });
 
@@ -62,38 +133,57 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
           <tbody id="tbody-especial">
   `;
 
-  // ✅ linhas
-  lojas.forEach(loja => {
-
+  lojas.forEach((loja) => {
     const chaveLoja = `${loja.codigo} - ${loja.nome}`;
 
     html += `<tr>`;
+    html += `<td class="col-codigo">${loja.codigo}</td>`;
+    html += `<td class="col-loja">${loja.nome}</td>`;
+    html += `<td class="col-regional">${loja.regional || "-"}</td>`;
 
-    html += `<td>${loja.codigo}</td>`;
-    html += `<td>${loja.nome}</td>`;
-    html += `<td>${loja.regional || "-"}</td>`;
-
-    semanas.forEach(semana => {
-
+    semanas.forEach((semana) => {
       const key = `${chaveLoja}-${semana}`;
       const item = mapa[key] || {};
+      const destaque = semana === semanaAtualReal ? "coluna-atual" : "";
+
+      const valorFormatado =
+        typeof formatarValorParaInput === "function"
+          ? formatarValorParaInput(item.valor ?? "", config.tipo1)
+          : item.valor ?? "";
+
+      const valor2Formatado =
+        typeof formatarValorParaInput === "function"
+          ? formatarValorParaInput(item.valor2 ?? "", config.tipo2)
+          : item.valor2 ?? "";
 
       html += `
-        <td>
+        <td class="${destaque}">
           <input
-            type="number"
-            step="0.01"
-            value="${item.valor || ""}"
-            class="input-tabela"
+            type="text"
+            inputmode="decimal"
+            value="${valorFormatado}"
+            class="input-tabela input-tabela-compacto"
+            data-loja="${chaveLoja}"
+            data-semana="${semana}"
+            data-campo="valor"
+            data-tipo="${config.tipo1}"
+            onfocus="prepararInputEspecial(this)"
+            onblur="autoSalvarEspecial(this)"
           >
         </td>
 
-        <td>
+        <td class="${destaque}">
           <input
-            type="number"
-            step="0.01"
-            value="${item.valor2 || ""}"
-            class="input-tabela"
+            type="text"
+            inputmode="decimal"
+            value="${valor2Formatado}"
+            class="input-tabela input-tabela-compacto"
+            data-loja="${chaveLoja}"
+            data-semana="${semana}"
+            data-campo="valor2"
+            data-tipo="${config.tipo2}"
+            onfocus="prepararInputEspecial(this)"
+            onblur="autoSalvarEspecial(this)"
           >
         </td>
       `;
@@ -108,39 +198,199 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
       </div>
 
     </div>
-
   `;
 
-  // ✅ ativa filtro depois do render
-  setTimeout(() => ativarFiltroEspecial(), 100);
+  requestAnimationFrame(() => {
+    ativarFiltroEspecial();
+  });
 
   return html;
 }
 
+// ==========================
+// ✍️ PREPARAR INPUT ESPECIAL
+// remove máscara ao focar
+// ==========================
+function prepararInputEspecial(input) {
+  const tipo = input.dataset.tipo || "numero";
+
+  if (typeof prepararInputFormatado === "function") {
+    prepararInputFormatado(input);
+    return;
+  }
+
+  // fallback simples
+  let valor = (input.value || "").toString().trim();
+  valor = valor
+    .replace("R$", "")
+    .replace("%", "")
+    .replace(/\s/g, "")
+    .trim();
+
+  input.value = valor;
+}
+
+// ==========================
+// 🔎 FILTRO TABELA ESPECIAL
+// ==========================
 function ativarFiltroEspecial() {
-
   const input = document.getElementById("filtroEspecial");
+  const botoesRegional = document.querySelectorAll(".btn-filtro-regional");
 
-  if (!input) return;
+  if (!input || !botoesRegional.length) {
+    console.warn("⚠️ Filtro especial não encontrado");
+    return;
+  }
 
-  input.addEventListener("input", () => {
+  let regionalSelecionada = "TODAS";
 
-    const valor = input.value.toLowerCase();
+  const aplicar = () => {
+    const termo = input.value.toLowerCase().trim();
 
-    document.querySelectorAll("#tbody-especial tr").forEach(row => {
+    document.querySelectorAll("#tbody-especial tr").forEach((row) => {
+      const codigo = row.children[0]?.textContent.toLowerCase() || "";
+      const loja = row.children[1]?.textContent.toLowerCase() || "";
+      const regional = row.children[2]?.textContent.toLowerCase() || "";
 
-      const codigo = row.children[0].textContent.toLowerCase();
-      const loja = row.children[1].textContent.toLowerCase();
-      const regional = row.children[2].textContent.toLowerCase();
+      const matchBusca =
+        !termo ||
+        codigo.includes(termo) ||
+        loja.includes(termo);
 
-      const ok =
-        codigo.includes(valor) ||
-        loja.includes(valor) ||
-        regional.includes(valor);
+      const matchRegional =
+        regionalSelecionada === "TODAS" ||
+        regional === regionalSelecionada.toLowerCase();
 
-      row.style.display = ok ? "" : "none";
-
+      row.style.display = matchBusca && matchRegional ? "" : "none";
     });
+  };
 
+  input.addEventListener("input", aplicar);
+
+  botoesRegional.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      botoesRegional.forEach((b) => b.classList.remove("ativo"));
+      btn.classList.add("ativo");
+
+      regionalSelecionada = btn.dataset.regional || "TODAS";
+      aplicar();
+    });
   });
+}
+
+// ==========================
+// ⚡ AUTOSAVE ESPECIAL
+// ==========================
+async function autoSalvarEspecial(input) {
+  const loja = input.dataset.loja;
+  const semana = input.dataset.semana;
+  const campo = input.dataset.campo;
+  const tipo = input.dataset.tipo || "numero";
+
+  let valorLimpo = null;
+
+  if (typeof limparValorParaSalvar === "function") {
+    valorLimpo = limparValorParaSalvar(input.value, tipo);
+  } else {
+    const numero = Number((input.value || "").toString().replace(",", "."));
+    valorLimpo = isNaN(numero) ? null : numero;
+  }
+
+  if (valorLimpo === null) return;
+
+  if (typeof formatarValorParaInput === "function") {
+    input.value = formatarValorParaInput(valorLimpo, tipo);
+  }
+
+  console.log("⚡ AutoSave Especial", {
+    loja,
+    semana,
+    campo,
+    valor: valorLimpo,
+    tipo,
+  });
+
+  await salvarValorEspecial(loja, semana, campo, valorLimpo);
+}
+
+// ==========================
+// 💾 SALVAR VALOR ESPECIAL
+// ==========================
+async function salvarValorEspecial(loja, semana, campo, valor) {
+  const numero = Number(valor);
+  if (isNaN(numero)) return;
+
+  const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
+  const indicadorNormalizado = (indicadorSelecionado || "")
+    .toString()
+    .trim()
+    .toUpperCase();
+
+  const indicadorBanco =
+    typeof getIndicadorBanco === "function"
+      ? getIndicadorBanco(indicadorNormalizado, classeSelecionada)
+      : indicadorNormalizado;
+
+  const classe =
+    typeof getClasseIndicador === "function"
+      ? getClasseIndicador(indicadorNormalizado, classeSelecionada)
+      : typeof obterClasse === "function"
+        ? obterClasse(indicadorNormalizado, classeSelecionada)
+        : classeSelecionada || "Outros";
+
+  console.log("💾 SALVAR ESPECIAL:", {
+    indicador: indicadorNormalizado,
+    indicadorBanco,
+    classe,
+    loja,
+    semana,
+    campo,
+    numero,
+  });
+
+  try {
+    const { data: existente, error: erroBusca } = await window.db
+      .from("resultados")
+      .select("id, valor, valor2")
+      .eq("loja", loja)
+      .eq("semana", semana)
+      .eq("indicador", indicadorBanco)
+      .eq("classe", classe)
+      .maybeSingle();
+
+    if (erroBusca) throw erroBusca;
+
+    if (existente) {
+      const updateData = {};
+      updateData[campo] = numero;
+
+      const { error: erroUpdate } = await window.db
+        .from("resultados")
+        .update(updateData)
+        .eq("id", existente.id);
+
+      if (erroUpdate) throw erroUpdate;
+
+      console.log("✅ Especial atualizado");
+    } else {
+      const payload = {
+        loja,
+        semana,
+        indicador: indicadorBanco,
+        classe,
+        valor: campo === "valor" ? numero : null,
+        valor2: campo === "valor2" ? numero : null,
+      };
+
+      const { error: erroInsert } = await window.db
+        .from("resultados")
+        .insert([payload]);
+
+      if (erroInsert) throw erroInsert;
+
+      console.log("✅ Especial inserido");
+    }
+  } catch (erro) {
+    console.error("❌ Erro salvarValorEspecial:", erro);
+  }
 }
