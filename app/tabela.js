@@ -64,6 +64,170 @@ function normalizarTextoTabelaUpper(valor) {
 }
 
 // ==========================
+// 📝 JUSTIFICATIVAS SEM RESPOSTA
+// ==========================
+const JUSTIFICATIVAS_SEM_RESPOSTA = [
+  "Mudança Layout / Reforma",
+  "Inventário Geral",
+  "Falha Wifi",
+  "Falta Energia",
+  "Greve Ônibus",
+  "Feriado Municipal",
+  "Problema Zebra",
+  "Interdição",
+  "Fenômeno da Natureza",
+  "Troca Servidor",
+  "Falta Equipe",
+  "Alteração de Cluster",
+  "Alinhado com Gerente Operações",
+];
+
+function escapeHtmlTabela(valor) {
+  return (valor || "")
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function gerarOptionsJustificativa(selecionada = "") {
+  const selecionadaNorm = normalizarTextoTabela(selecionada);
+
+  let html = `<option value="">Just.</option>`;
+
+  JUSTIFICATIVAS_SEM_RESPOSTA.forEach((motivo) => {
+    const selected =
+      normalizarTextoTabela(motivo) === selecionadaNorm ? "selected" : "";
+
+    html += `<option value="${escapeHtmlTabela(motivo)}" ${selected}>${motivo}</option>`;
+  });
+
+  return html;
+}
+
+function getStyleJustificativaCompacta(mostrar = true) {
+  return `
+    display:${mostrar ? "inline-block" : "none"};
+    width:62px;
+    min-width:62px;
+    max-width:62px;
+    height:22px;
+    border-radius:4px;
+    padding:0 3px;
+    border:1px solid #ccc;
+    font-size:10px;
+    line-height:1;
+    background:#fff;
+    vertical-align:middle;
+    box-sizing:border-box;
+  `;
+}
+
+function valorCampoEstaVazioTabela(valor) {
+  return (valor || "").toString().trim() === "";
+}
+
+function getSeletorJustificativa(loja, semana) {
+  return document.querySelector(
+    `select[data-loja="${CSS.escape(loja)}"][data-semana="${CSS.escape(
+      semana
+    )}"][data-campo="justificativa"]`
+  );
+}
+
+function getInputValorTabela(loja, semana) {
+  return document.querySelector(
+    `input[data-loja="${CSS.escape(loja)}"][data-semana="${CSS.escape(
+      semana
+    )}"][data-campo="valor"]`
+  );
+}
+
+function getSelectJustificativaDoInput(input) {
+  if (!input) return null;
+  return getSeletorJustificativa(input.dataset.loja, input.dataset.semana);
+}
+
+function getInputDoSelectJustificativa(select) {
+  if (!select) return null;
+  return getInputValorTabela(select.dataset.loja, select.dataset.semana);
+}
+
+function atualizarVisibilidadeJustificativa(input, limparSeTiverValor = true) {
+  if (!input) return;
+
+  const select = getSelectJustificativaDoInput(input);
+  if (!select) return;
+
+  const temValor = !valorCampoEstaVazioTabela(input.value);
+  const bloqueado =
+    input.disabled || input.readOnly || input.dataset.bloqueado === "true";
+
+  select.style.width = "62px";
+  select.style.minWidth = "62px";
+  select.style.maxWidth = "62px";
+  select.style.height = "22px";
+  select.style.fontSize = "10px";
+  select.style.padding = "0 3px";
+  select.style.borderRadius = "4px";
+  select.style.boxSizing = "border-box";
+
+  if (temValor) {
+    if (limparSeTiverValor) {
+      select.value = "";
+      select.title = "Selecione uma justificativa";
+    }
+
+    select.style.display = "none";
+    select.disabled = true;
+    return;
+  }
+
+  select.style.display = "inline-block";
+  select.disabled = bloqueado;
+  select.title = select.value || "Selecione uma justificativa";
+}
+
+function sincronizarJustificativasComPermissoesTabela() {
+  const inputs = document.querySelectorAll(
+    '#conteudo input[data-loja][data-semana][data-campo="valor"]'
+  );
+
+  inputs.forEach((input) => {
+    const select = getSelectJustificativaDoInput(input);
+    if (!select) return;
+
+    const bloqueado =
+      input.disabled || input.readOnly || input.dataset.bloqueado === "true";
+
+    select.style.width = "62px";
+    select.style.minWidth = "62px";
+    select.style.maxWidth = "62px";
+    select.style.height = "22px";
+    select.style.fontSize = "10px";
+    select.style.padding = "0 3px";
+    select.style.borderRadius = "4px";
+    select.style.boxSizing = "border-box";
+
+    if (bloqueado) {
+      select.disabled = true;
+      select.style.cursor = "not-allowed";
+      select.style.background = "#f1f1f1";
+      select.style.color = "#777";
+      select.title = input.dataset.motivo || input.title || "Campo bloqueado";
+    } else {
+      select.style.cursor = "pointer";
+      select.style.background = "#fff";
+      select.style.color = "#000";
+      select.title = select.value || "Selecione uma justificativa";
+      atualizarVisibilidadeJustificativa(input, false);
+    }
+  });
+}
+
+// ==========================
 // 🗝️ CHAVE DE REGISTRO
 // ==========================
 function getChaveRegistroTabela(loja, semana, indicadorBanco, classe) {
@@ -111,7 +275,7 @@ function gerarSemanas() {
   const atual = parseInt(semanaSelecionada || getSemanaAtual(), 10);
 
   const lista = [atual - 3, atual - 2, atual - 1, atual].map((s) =>
-    s <= 0 ? 52 + s : s,
+    s <= 0 ? 52 + s : s
   );
 
   const semanas = lista.map((s) => s.toString().padStart(2, "0"));
@@ -225,7 +389,7 @@ async function carregarTabela() {
       normalizarTextoTabelaUpper(indicadorSelecionado);
     const indicadorBanco = obterIndicadorBanco(
       indicadorNormalizado,
-      classeSelecionada,
+      classeSelecionada
     );
     const classeAtual = obterClasse(indicadorNormalizado, classeSelecionada);
 
@@ -302,7 +466,7 @@ async function carregarTabela() {
         lojas,
         mapa,
         semanas,
-        classeSelecionada,
+        classeSelecionada
       );
     }
 
@@ -311,6 +475,7 @@ async function carregarTabela() {
       aplicarPermissoesTabela(indicadorNormalizado, classeAtual);
     }
 
+    sincronizarJustificativasComPermissoesTabela();
     ativarFiltros();
   } catch (erro) {
     console.error("❌ Erro carregarTabela:", erro);
@@ -413,6 +578,7 @@ function montarLinha(loja, mapa, semanas, classeSelecionada = null) {
   semanas.forEach((semana) => {
     const reg = mapa[`${chaveLoja}-${semana}`];
     const valor = reg?.valor ?? "";
+    const justificativa = reg?.justificativa ?? "";
     const destaque = semana === semanaAtualReal ? "coluna-atual" : "";
 
     const valorFormatado =
@@ -425,21 +591,60 @@ function montarLinha(loja, mapa, semanas, classeSelecionada = null) {
         ? ""
         : String(valor);
 
+    const mostrarJustificativa =
+      valor === null || valor === undefined || valor === "";
+
     html += `
       <td class="${destaque}">
-        <input
-          type="text"
-          inputmode="decimal"
-          value="${valorFormatado}"
-          data-loja="${chaveLoja}"
-          data-semana="${semana}"
-          data-campo="valor"
-          data-tipo="${campoCfg.tipo}"
-          data-original="${valorOriginal}"
-          onfocus="prepararInputFormatado(this)"
-          onblur="autoSalvar(this)"
-          style="height:30px; border-radius:6px; padding-left:5px;"
+        <div
+          class="campo-tabela-com-justificativa"
+          style="
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            gap:3px;
+          "
         >
+          <input
+            type="text"
+            inputmode="decimal"
+            value="${escapeHtmlTabela(valorFormatado)}"
+            data-loja="${escapeHtmlTabela(chaveLoja)}"
+            data-semana="${escapeHtmlTabela(semana)}"
+            data-campo="valor"
+            data-tipo="${escapeHtmlTabela(campoCfg.tipo)}"
+            data-original="${escapeHtmlTabela(valorOriginal)}"
+            data-original-justificativa="${escapeHtmlTabela(justificativa)}"
+            onfocus="prepararInputFormatado(this)"
+            oninput="atualizarVisibilidadeJustificativa(this)"
+            onblur="autoSalvar(this)"
+            style="
+              width:48px;
+              min-width:48px;
+              max-width:48px;
+              height:22px;
+              border-radius:4px;
+              padding:0 4px;
+              text-align:center;
+              box-sizing:border-box;
+            "
+          >
+
+          <select
+            data-loja="${escapeHtmlTabela(chaveLoja)}"
+            data-semana="${escapeHtmlTabela(semana)}"
+            data-campo="justificativa"
+            data-original="${escapeHtmlTabela(justificativa)}"
+            onchange="autoSalvarJustificativa(this)"
+            title="${escapeHtmlTabela(
+              justificativa || "Selecione uma justificativa"
+            )}"
+            style="${getStyleJustificativaCompacta(mostrarJustificativa)}"
+          >
+            ${gerarOptionsJustificativa(justificativa)}
+          </select>
+        </div>
       </td>
     `;
   });
@@ -523,89 +728,188 @@ function ativarFiltros() {
 }
 
 // ==========================
-// ⚡ AUTO SAVE
+// 📝 SALVAR JUSTIFICATIVA PELO SELECT
 // ==========================
-async function autoSalvar(input) {
+async function autoSalvarJustificativa(select) {
+  if (!select) return;
+
+  const input = getInputDoSelectJustificativa(select);
   if (!input) return;
+
+  await processarAutoSalvarCampoTabela(input, select);
+}
+
+// ==========================
+// 💾 PROCESSAR AUTO SAVE COMPLETO DO CAMPO
+// valor + justificativa
+// ==========================
+async function processarAutoSalvarCampoTabela(input, select = null) {
+  if (!input) return false;
 
   const loja = input.dataset.loja;
   const semana = input.dataset.semana;
   const tipo = input.dataset.tipo || "numero";
+
+  const seletor = select || getSelectJustificativaDoInput(input);
+
+  const valorDigitado = (input.value || "").toString().trim();
+  let justificativaSelecionada = normalizarTextoTabela(seletor?.value || "");
+
   const valorOriginal = input.dataset.original ?? "";
+  const justificativaOriginal = input.dataset.originalJustificativa ?? "";
 
-  const valorLimpo =
-    typeof limparValorParaSalvar === "function"
-      ? limparValorParaSalvar(input.value, tipo)
-      : Number((input.value || "").toString().replace(",", "."));
-
-  if (valorLimpo === null || Number.isNaN(valorLimpo)) {
-    console.warn("⚠️ Valor inválido ou vazio, salvamento ignorado", {
-      loja,
-      semana,
-      valorDigitado: input.value,
-      tipo,
-    });
-
-    return;
+  // se tem valor preenchido, justificativa deixa de existir
+  if (!valorCampoEstaVazioTabela(valorDigitado)) {
+    justificativaSelecionada = "";
+    if (seletor) {
+      seletor.value = "";
+      seletor.style.display = "none";
+      seletor.disabled = true;
+      seletor.title = "Selecione uma justificativa";
+    }
+  } else {
+    if (seletor) {
+      seletor.style.display = "inline-block";
+      seletor.disabled =
+        input.disabled ||
+        input.readOnly ||
+        input.dataset.bloqueado === "true";
+      seletor.title = seletor.value || "Selecione uma justificativa";
+    }
   }
 
-  const valorComparacao = String(valorLimpo);
+  let valorLimpo = null;
 
-  // ✅ evita salvar se nada mudou
-  if (valorComparacao === valorOriginal) {
-    console.log("ℹ️ Valor não alterado, salvamento ignorado", {
+  if (!valorCampoEstaVazioTabela(valorDigitado)) {
+    valorLimpo =
+      typeof limparValorParaSalvar === "function"
+        ? limparValorParaSalvar(valorDigitado, tipo)
+        : Number(valorDigitado.replace(",", "."));
+
+    if (valorLimpo === null || Number.isNaN(valorLimpo)) {
+      console.warn("⚠️ Valor inválido, salvamento ignorado", {
+        loja,
+        semana,
+        valorDigitado,
+        tipo,
+      });
+
+      aplicarStatusInput(input, "erro");
+      return false;
+    }
+  }
+
+  const valorComparacao =
+    valorLimpo === null || valorLimpo === undefined ? "" : String(valorLimpo);
+
+  // nada mudou
+  if (
+    valorComparacao === valorOriginal &&
+    justificativaSelecionada === justificativaOriginal
+  ) {
+    console.log("ℹ️ Nenhuma alteração detectada, salvamento ignorado", {
       loja,
       semana,
       valor: valorComparacao,
+      justificativa: justificativaSelecionada,
     });
 
-    // reaplica formatação se necessário
-    if (typeof formatarValorParaInput === "function") {
+    if (
+      valorLimpo !== null &&
+      typeof formatarValorParaInput === "function"
+    ) {
       input.value = formatarValorParaInput(valorLimpo, tipo);
     }
 
-    return;
+    return true;
   }
 
-  // reaplica máscara no campo
-  if (typeof formatarValorParaInput === "function") {
+  // se não tem valor, exige justificativa
+  if (valorLimpo === null && !justificativaSelecionada) {
+    console.warn("⚠️ Campo sem valor e sem justificativa. Salvamento bloqueado.", {
+      loja,
+      semana,
+    });
+
+    if (seletor) {
+      seletor.style.border = "1px solid #e53935";
+      seletor.focus();
+    }
+
+    aplicarStatusInput(input, "erro");
+    return false;
+  }
+
+  // reaplica máscara no campo se existir valor
+  if (valorLimpo !== null && typeof formatarValorParaInput === "function") {
     input.value = formatarValorParaInput(valorLimpo, tipo);
   }
 
-  console.log("⚡ AutoSave", {
+  console.log("⚡ AutoSave completo", {
     loja,
     semana,
     valor: valorLimpo,
+    justificativa: justificativaSelecionada,
     tipo,
   });
 
   aplicarStatusInput(input, "salvando");
 
-  const salvou = await salvarValor(loja, semana, valorLimpo);
+  const salvou = await salvarValor(
+    loja,
+    semana,
+    valorLimpo,
+    justificativaSelecionada
+  );
 
   if (salvou) {
-    input.dataset.original = String(valorLimpo);
+    input.dataset.original = valorComparacao;
+    input.dataset.originalJustificativa = justificativaSelecionada;
+
+    if (seletor) {
+      seletor.dataset.original = justificativaSelecionada;
+      seletor.style.border = "1px solid #ccc";
+      seletor.title = justificativaSelecionada || "Selecione uma justificativa";
+    }
+
     aplicarStatusInput(input, "sucesso");
-  } else {
-    aplicarStatusInput(input, "erro");
+    atualizarVisibilidadeJustificativa(input, false);
+    return true;
   }
+
+  aplicarStatusInput(input, "erro");
+  return false;
+}
+
+// ==========================
+// ⚡ AUTO SAVE
+// ==========================
+async function autoSalvar(input) {
+  if (!input) return;
+  await processarAutoSalvarCampoTabela(input);
 }
 
 // ==========================
 // 💾 SALVAR
 // ==========================
-async function salvarValor(loja, semana, valor) {
-  const numero = Number(valor);
-  if (isNaN(numero)) {
+async function salvarValor(loja, semana, valor, justificativa = "") {
+  const numero =
+    valor === null || valor === undefined || valor === ""
+      ? null
+      : Number(valor);
+
+  if (valor !== null && valor !== undefined && valor !== "" && isNaN(numero)) {
     console.warn("⚠️ salvarValor ignorado por número inválido:", valor);
     return false;
   }
+
+  const justificativaFinal = normalizarTextoTabela(justificativa || "") || null;
 
   const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
   const indicadorNormalizado = normalizarTextoTabelaUpper(indicadorSelecionado);
   const indicadorBanco = obterIndicadorBanco(
     indicadorNormalizado,
-    classeSelecionada,
+    classeSelecionada
   );
   const classe = obterClasse(indicadorNormalizado, classeSelecionada);
 
@@ -613,13 +917,13 @@ async function salvarValor(loja, semana, valor) {
     loja,
     semana,
     indicadorBanco,
-    classe,
+    classe
   );
 
   if (TABELA_STATE.salvando.has(chaveSalvar)) {
     console.warn(
       "⚠️ Já existe um salvamento em andamento para este registro:",
-      chaveSalvar,
+      chaveSalvar
     );
     return false;
   }
@@ -634,12 +938,13 @@ async function salvarValor(loja, semana, valor) {
     loja,
     semana,
     numero,
+    justificativa: justificativaFinal,
   });
 
   try {
     const { data: existentes, error: erroBusca } = await window.db
       .from("resultados")
-      .select("id, valor")
+      .select("id, valor, justificativa")
       .eq("loja", loja)
       .eq("semana", semana)
       .eq("indicador", indicadorBanco)
@@ -661,12 +966,17 @@ async function salvarValor(loja, semana, valor) {
       });
     }
 
+    const payload = {
+      valor: numero,
+      justificativa: numero !== null ? null : justificativaFinal,
+    };
+
     if (registros.length >= 1) {
       const idAlvo = registros[0].id;
 
       const { error: erroUpdate } = await window.db
         .from("resultados")
-        .update({ valor: numero })
+        .update(payload)
         .eq("id", idAlvo);
 
       if (erroUpdate) throw erroUpdate;
@@ -678,6 +988,7 @@ async function salvarValor(loja, semana, valor) {
         indicadorBanco,
         classe,
         valor: numero,
+        justificativa: payload.justificativa,
       });
 
       return true;
@@ -692,6 +1003,7 @@ async function salvarValor(loja, semana, valor) {
           indicador: indicadorBanco,
           classe,
           valor: numero,
+          justificativa: numero !== null ? null : justificativaFinal,
         },
       ])
       .select("id")
@@ -706,6 +1018,7 @@ async function salvarValor(loja, semana, valor) {
       indicadorBanco,
       classe,
       valor: numero,
+      justificativa: numero !== null ? null : justificativaFinal,
     });
 
     return true;

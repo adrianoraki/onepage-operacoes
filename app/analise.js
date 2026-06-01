@@ -461,37 +461,32 @@ function agruparIndicadoresAnalise(resultadosMes, tipoValorPrincipal) {
   });
 }
 
-// ✅ força todas as classes, mesmo sem dado
-function agruparClassesAnalise(resultadosMes) {
-  const classesBase = getClassesAnaliseDisponiveis();
+// ✅ RESUMO POR SUBCLASSE
+function agruparSubclassesAnalise(resultadosMes) {
   const mapa = {};
 
-  classesBase.forEach((classe) => {
-    mapa[classe] = {
-      classe,
-      valores: [],
-      qtd: 0,
-    };
-  });
-
   resultadosMes.forEach((r) => {
-    if (!mapa[r.classe]) {
-      mapa[r.classe] = {
-        classe: r.classe,
+    const chave = r.subclasse || r.classe || "Sem subclasse";
+
+    if (!mapa[chave]) {
+      mapa[chave] = {
+        subclasse: chave,
         valores: [],
         qtd: 0,
       };
     }
 
-    mapa[r.classe].valores.push(Number(r.valor));
-    mapa[r.classe].qtd += 1;
+    mapa[chave].valores.push(Number(r.valor));
+    mapa[chave].qtd += 1;
   });
 
-  return Object.values(mapa).map((item) => ({
-    classe: item.classe,
-    media: item.qtd ? calcularMediaAnalise(item.valores) : 0,
-    qtd: item.qtd,
-  }));
+  return Object.values(mapa)
+    .map((item) => ({
+      subclasse: item.subclasse,
+      media: item.qtd ? calcularMediaAnalise(item.valores) : 0,
+      qtd: item.qtd,
+    }))
+    .sort((a, b) => b.media - a.media);
 }
 
 function calcularAmplitudeAnalise(melhor, pior) {
@@ -527,7 +522,6 @@ async function telaAnalises() {
     return;
   }
 
-  // respeita a troca quando o usuário pode trocar
   if (!contexto.podeTrocarVisao) {
     ANALISE_STATE.visao = contexto.visao || "regional";
   } else if (!ANALISE_STATE.visao) {
@@ -831,7 +825,7 @@ function renderAnaliseRegional({ resultados, semanasInfo }) {
     resultados,
     tipoValorPrincipal
   );
-  const classes = agruparClassesAnalise(resultados);
+  const subclasses = agruparSubclassesAnalise(resultados);
 
   const amplitude = calcularAmplitudeAnalise(
     melhorPior.melhor,
@@ -871,12 +865,12 @@ function renderAnaliseRegional({ resultados, semanasInfo }) {
 
     <div class="dashboard-card dashboard-grafico-resumo span-12">
       <div class="dashboard-card-header">
-        <span class="dashboard-card-titulo">Resumo por classe</span>
+        <span class="dashboard-card-titulo">Resumo por subclasse</span>
         <span class="dashboard-card-subtitulo dashboard-card-subtitulo-info">
-          Média do valor principal por classe
+          Média do valor principal por subclasse
           <span
             class="dashboard-info-tip"
-            title="Este gráfico mostra a média consolidada do valor principal em cada classe, considerando o filtro e o período selecionados."
+            title="Este gráfico mostra a média consolidada do valor principal em cada subclasse, considerando o filtro e o período selecionados."
           >ⓘ</span>
         </span>
       </div>
@@ -888,7 +882,7 @@ function renderAnaliseRegional({ resultados, semanasInfo }) {
     ${renderTabelaRankingLojasAnalise(ranking.completo, tipoValorPrincipal)}
   `;
 
-  renderGraficosAnaliseRegional(ranking, classes, tipoValorPrincipal);
+  renderGraficosAnaliseRegional(ranking, subclasses, tipoValorPrincipal);
 }
 
 // ==========================
@@ -911,7 +905,7 @@ function renderAnaliseGerencial({ resultados }) {
     resultados,
     tipoValorPrincipal
   );
-  const classes = agruparClassesAnalise(resultados);
+  const subclasses = agruparSubclassesAnalise(resultados);
 
   const melhor = rankingIndicadores[0] || null;
   const pior = rankingIndicadores[rankingIndicadores.length - 1] || null;
@@ -954,12 +948,12 @@ function renderAnaliseGerencial({ resultados }) {
 
     <div class="dashboard-card dashboard-grafico-resumo span-12">
       <div class="dashboard-card-header">
-        <span class="dashboard-card-titulo">Resumo por classe</span>
+        <span class="dashboard-card-titulo">Resumo por subclasse</span>
         <span class="dashboard-card-subtitulo dashboard-card-subtitulo-info">
-          Média do valor principal por classe
+          Média do valor principal por subclasse
           <span
             class="dashboard-info-tip"
-            title="Este gráfico mostra a média consolidada do valor principal em cada classe, considerando o filtro e o período selecionados."
+            title="Este gráfico mostra a média consolidada do valor principal em cada subclasse, considerando o filtro e o período selecionados."
           >ⓘ</span>
         </span>
       </div>
@@ -976,7 +970,7 @@ function renderAnaliseGerencial({ resultados }) {
 
   renderGraficosAnaliseGerencial(
     rankingIndicadores,
-    classes,
+    subclasses,
     tipoValorPrincipal
   );
 }
@@ -1215,7 +1209,7 @@ function renderTabelaRankingIndicadoresAnalise(lista, tipoValorPrincipal) {
 // ==========================
 // 📈 GRÁFICOS
 // ==========================
-function renderGraficosAnaliseRegional(ranking, classes, tipoValorPrincipal) {
+function renderGraficosAnaliseRegional(ranking, subclasses, tipoValorPrincipal) {
   if (!chartAnaliseDisponivel()) return;
 
   requestAnimationFrame(() => {
@@ -1237,7 +1231,7 @@ function renderGraficosAnaliseRegional(ranking, classes, tipoValorPrincipal) {
         "#F44336"
       );
 
-      renderGraficoClassesAnalise(classes, tipoValorPrincipal);
+      renderGraficoSubclassesAnalise(subclasses, tipoValorPrincipal);
     } catch (erro) {
       console.error("❌ Erro ao renderizar gráficos de análise regional:", erro);
     }
@@ -1246,7 +1240,7 @@ function renderGraficosAnaliseRegional(ranking, classes, tipoValorPrincipal) {
 
 function renderGraficosAnaliseGerencial(
   rankingIndicadores,
-  classes,
+  subclasses,
   tipoValorPrincipal
 ) {
   if (!chartAnaliseDisponivel()) return;
@@ -1272,7 +1266,7 @@ function renderGraficosAnaliseGerencial(
         "#FF9800"
       );
 
-      renderGraficoClassesAnalise(classes, tipoValorPrincipal);
+      renderGraficoSubclassesAnalise(subclasses, tipoValorPrincipal);
     } catch (erro) {
       console.error("❌ Erro ao renderizar gráficos de análise gerencial:", erro);
     }
@@ -1415,7 +1409,7 @@ function renderGraficoSecundarioAnalise(labels, dados, label, cor) {
   });
 }
 
-function renderGraficoClassesAnalise(classes, tipoValorPrincipal) {
+function renderGraficoSubclassesAnalise(subclasses, tipoValorPrincipal) {
   const canvas = document.getElementById("graficoAnaliseClasses");
   if (!canvas) return;
 
@@ -1423,20 +1417,22 @@ function renderGraficoClassesAnalise(classes, tipoValorPrincipal) {
     window.analiseCharts.classes.destroy();
   }
 
-  ajustarAlturaChartAnalise("graficoAnaliseClasses", classes?.length || 0, {
+  ajustarAlturaChartAnalise("graficoAnaliseClasses", subclasses?.length || 0, {
     minimo: 145,
-    maximo: 210,
+    maximo: 230,
     pxPorItem: 22,
   });
+
+  const isPercentual = tipoPercentualAnalise(tipoValorPrincipal);
 
   window.analiseCharts.classes = new Chart(canvas, {
     type: "bar",
     data: {
-      labels: (classes || []).map((i) => i.classe),
+      labels: (subclasses || []).map((i) => i.subclasse),
       datasets: [
         {
           label: `Média (${tipoValorPrincipal})`,
-          data: (classes || []).map((i) => i.media),
+          data: (subclasses || []).map((i) => i.media),
           backgroundColor: [
             "#1e6091",
             "#4CAF50",
@@ -1444,6 +1440,8 @@ function renderGraficoClassesAnalise(classes, tipoValorPrincipal) {
             "#9C27B0",
             "#F44336",
             "#00BCD4",
+            "#3F51B5",
+            "#009688",
           ],
           borderRadius: 6,
           maxBarThickness: 14,
@@ -1469,7 +1467,10 @@ function renderGraficoClassesAnalise(classes, tipoValorPrincipal) {
         tooltip: {
           callbacks: {
             label: (ctx) =>
-              ` Média: ${formatarValorAnalise(ctx.raw, tipoValorPrincipal)}`,
+              ` Média: ${formatarKpiAnalise(ctx.raw, {
+                percentual: isPercentual,
+                casas: 2,
+              })}`,
           },
         },
       },
@@ -1482,6 +1483,10 @@ function renderGraficoClassesAnalise(classes, tipoValorPrincipal) {
               size: 12,
               weight: "600",
             },
+            callback: (value) =>
+              isPercentual
+                ? `${formatarNumeroAnalise(value, 1)}%`
+                : formatarNumeroAnalise(value, 1),
           },
           grid: {
             color: "rgba(10, 61, 98, 0.06)",
