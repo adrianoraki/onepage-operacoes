@@ -15,8 +15,10 @@ const DASHBOARD_STATE = {
   classe: "TODAS",
   indicador: "TODOS",
   regional: "TODAS",
-  loja: "TODAS"
+  loja: "TODAS",
 };
+
+const LIMITE_RANKING_DASHBOARD = 12;
 
 // ==========================
 // 📈 INSTÂNCIAS DOS GRÁFICOS
@@ -24,7 +26,7 @@ const DASHBOARD_STATE = {
 window.dashboardCharts = window.dashboardCharts || {
   evolucao: null,
   ranking: null,
-  classes: null
+  classes: null,
 };
 
 // ==========================
@@ -44,18 +46,16 @@ function normalizarTextoDashboardLower(valor) {
 
 function formatarNumeroDashboard(valor, casas = 2) {
   const numero = Number(valor);
-  if (isNaN(numero)) return "-";
+  if (!isFinite(numero)) return "-";
 
   return numero.toLocaleString("pt-BR", {
     minimumFractionDigits: casas,
-    maximumFractionDigits: casas
+    maximumFractionDigits: casas,
   });
 }
 
 function calcularMediaDashboard(lista = []) {
-  const numeros = lista
-    .map((v) => Number(v))
-    .filter((v) => !isNaN(v));
+  const numeros = (lista || []).map((v) => Number(v)).filter((v) => !isNaN(v));
 
   if (!numeros.length) return 0;
 
@@ -70,10 +70,126 @@ function gerarJanelaSemanasDashboard(semanaBase) {
   const atual = parseInt(semanaBase || getSemanaAtual(), 10);
 
   const lista = [atual - 3, atual - 2, atual - 1, atual].map((s) =>
-    s <= 0 ? 52 + s : s
+    s <= 0 ? 52 + s : s,
   );
 
   return lista.map((s) => s.toString().padStart(2, "0"));
+}
+
+// ==========================
+// 🎯 HELPERS DE EXIBIÇÃO KPI
+// ==========================
+function tipoPercentualDashboard(tipo) {
+  const tipoNorm = normalizarTextoDashboardLower(tipo);
+  return (
+    tipoNorm.includes("percent") ||
+    tipoNorm.includes("porcent") ||
+    tipoNorm === "%"
+  );
+}
+
+function formatarKpiDashboard(valor, { percentual = false, casas = 2 } = {}) {
+  const numero = Number(valor);
+  if (!isFinite(numero)) return "-";
+
+  const texto = formatarNumeroDashboard(numero, casas);
+  return percentual ? `${texto}%` : texto;
+}
+
+// ==========================
+// 🏬 QUEBRAR NOME DA LOJA
+// ex.: "119 - Camaragibe" => código + nome
+// ==========================
+function quebrarNomeLojaDashboard(loja) {
+  const texto = normalizarTextoDashboard(loja);
+
+  if (!texto.includes("-")) {
+    return {
+      codigo: "",
+      nome: texto || "-",
+    };
+  }
+
+  const partes = texto.split("-");
+  const codigo = normalizarTextoDashboard(partes.shift());
+  const nome = normalizarTextoDashboard(partes.join("-"));
+
+  return {
+    codigo,
+    nome: nome || texto,
+  };
+}
+
+// ==========================
+// 📉 REGRA DE MELHOR RESULTADO
+// para % => menor é melhor
+// para demais => usa ordem do ranking/config
+// ==========================
+function menorEhMelhorDashboard(tipoValorPrincipal) {
+  if (tipoPercentualDashboard(tipoValorPrincipal)) return true;
+
+  if (DASHBOARD_STATE.indicador && DASHBOARD_STATE.indicador !== "TODOS") {
+    const ordem = getOrdemRankingDashboard(
+      DASHBOARD_STATE.indicador,
+      DASHBOARD_STATE.classe === "TODAS" ? null : DASHBOARD_STATE.classe,
+    );
+
+    return ordem === "asc";
+  }
+
+  return false;
+}
+
+// ==========================
+// 📅 SEMANA POR DATA
+// ==========================
+function getNumeroSemanaPorDataDashboard(data) {
+  const hoje = new Date(data);
+  const inicioAno = new Date(hoje.getFullYear(), 0, 1);
+  const dias = Math.floor((hoje - inicioAno) / (24 * 60 * 60 * 1000));
+  const semana = Math.ceil((dias + inicioAno.getDay() + 1) / 7);
+
+  return semana;
+}
+
+// ==========================
+// 📆 SEMANAS DO MÊS VIGENTE
+// ==========================
+function getSemanasMesVigenteDashboard() {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth();
+
+  const primeiroDia = new Date(ano, mes, 1);
+  const ultimoDia = new Date(ano, mes + 1, 0);
+
+  const semanasSet = new Set();
+
+  for (
+    let d = new Date(primeiroDia);
+    d <= ultimoDia;
+    d.setDate(d.getDate() + 1)
+  ) {
+    semanasSet.add(
+      getNumeroSemanaPorDataDashboard(d).toString().padStart(2, "0"),
+    );
+  }
+
+  return [...semanasSet];
+}
+
+// ==========================
+// 📆 PRIMEIRA E ÚLTIMA SEMANA DO MÊS VIGENTE
+// ==========================
+function getPrimeiraEUltimaSemanaMesVigenteDashboard() {
+  const semanas = getSemanasMesVigenteDashboard();
+
+  return {
+    primeira: semanas[0] || null,
+    ultima: semanas[semanas.length - 1] || null,
+    lista: semanas,
+    descricao: "mês vigente",
+  };
 }
 
 // ==========================
@@ -103,7 +219,11 @@ function getClasseDashboard(indicador, classeSelecionada = null) {
   return classeSelecionada || "Outros";
 }
 
-function getCampoDashboard(indicador, campoKey = "valor", classeSelecionada = null) {
+function getCampoDashboard(
+  indicador,
+  campoKey = "valor",
+  classeSelecionada = null,
+) {
   if (typeof getCampoConfig === "function") {
     return getCampoConfig(indicador, campoKey, classeSelecionada);
   }
@@ -111,11 +231,15 @@ function getCampoDashboard(indicador, campoKey = "valor", classeSelecionada = nu
   return {
     key: campoKey,
     label: campoKey === "valor2" ? "Valor 2" : "Resultado",
-    tipo: "numero"
+    tipo: "numero",
   };
 }
 
-function getTipoCampoDashboard(indicador, campoKey = "valor", classeSelecionada = null) {
+function getTipoCampoDashboard(
+  indicador,
+  campoKey = "valor",
+  classeSelecionada = null,
+) {
   const campo = getCampoDashboard(indicador, campoKey, classeSelecionada);
   return campo?.tipo || "numero";
 }
@@ -155,7 +279,13 @@ function getClassesDashboardDisponiveis() {
     return Object.keys(classesIndicadores);
   }
 
-  return ["Auditoria", "Frente de Caixa", "Operações", "Prevenção", "RH / Operacional"];
+  return [
+    "Auditoria",
+    "Frente de Caixa",
+    "Operações",
+    "Prevenção",
+    "RH / Operacional",
+  ];
 }
 
 // ==========================
@@ -170,7 +300,7 @@ function getIndicadoresDashboardPorClasse(classe) {
         lista.push({
           nome: item.nome || item,
           valor: item.valor || item,
-          classe: nomeClasse
+          classe: nomeClasse,
         });
       });
     });
@@ -183,7 +313,7 @@ function getIndicadoresDashboardPorClasse(classe) {
   return itens.map((item) => ({
     nome: item.nome || item,
     valor: item.valor || item,
-    classe
+    classe,
   }));
 }
 
@@ -219,9 +349,38 @@ function destruirGraficosDashboard() {
 function chartJsDisponivel() {
   const ok = typeof Chart !== "undefined";
   if (!ok) {
-    console.error("❌ Chart.js não encontrado. Adicione o script no index.html");
+    console.error(
+      "❌ Chart.js não encontrado. Adicione o script no index.html",
+    );
   }
   return ok;
+}
+
+// ==========================
+// 📏 AJUSTAR ALTURA DO CHART BOX
+// ==========================
+function ajustarAlturaChartBox(
+  canvasId,
+  quantidade,
+  { minimo = 220, maximo = 420, pxPorItem = 28 } = {},
+) {
+  try {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !canvas.parentElement) return;
+
+    const alturaCalculada = Math.max(
+      minimo,
+      Math.min(maximo, quantidade * pxPorItem),
+    );
+
+    canvas.parentElement.style.height = `${alturaCalculada}px`;
+  } catch (erro) {
+    console.warn(
+      "⚠️ Não foi possível ajustar altura do gráfico:",
+      canvasId,
+      erro,
+    );
+  }
 }
 
 // ==========================
@@ -255,13 +414,14 @@ async function telaDashboard() {
 
   console.log("🧠 Contexto recebido no dashboard:", contexto);
 
+  // ✅ sem botão de troca de visão: segue o contexto do usuário
   DASHBOARD_STATE.visao = contexto.visao || "regional";
 
-  if (contexto.escopo?.regional && DASHBOARD_STATE.regional === "TODAS") {
+  if (contexto.escopo?.regional) {
     DASHBOARD_STATE.regional = contexto.escopo.regional;
   }
 
-  if (contexto.escopo?.loja && DASHBOARD_STATE.loja === "TODAS") {
+  if (contexto.escopo?.loja) {
     DASHBOARD_STATE.loja = contexto.escopo.loja;
   }
 
@@ -293,21 +453,6 @@ async function telaDashboard() {
             ${gerarOptionsSemanas()}
           </select>
 
-          ${
-            contexto.podeTrocarVisao
-              ? `
-                <select id="dashVisao" onchange="dashboardAlterarVisao(this.value)">
-                  <option value="gerencial" ${DASHBOARD_STATE.visao === "gerencial" ? "selected" : ""}>
-                    Visão Gerencial
-                  </option>
-                  <option value="regional" ${DASHBOARD_STATE.visao === "regional" ? "selected" : ""}>
-                    Visão Regional
-                  </option>
-                </select>
-              `
-              : ""
-          }
-
           <select id="dashClasse" onchange="dashboardAlterarClasse(this.value)">
             ${gerarOptionsClassesDashboard()}
           </select>
@@ -317,19 +462,23 @@ async function telaDashboard() {
           </select>
 
           ${
-            DASHBOARD_STATE.visao === "regional" || contexto.podeTrocarVisao
+            DASHBOARD_STATE.visao === "regional"
               ? `
                 <select id="dashRegional" onchange="dashboardAlterarRegional(this.value)">
                   <option value="TODAS">Todas regionais</option>
-                  <option value="NE1" ${DASHBOARD_STATE.regional === "NE1" ? "selected" : ""}>NE1</option>
-                  <option value="NE2" ${DASHBOARD_STATE.regional === "NE2" ? "selected" : ""}>NE2</option>
+                  <option value="NE1" ${
+                    DASHBOARD_STATE.regional === "NE1" ? "selected" : ""
+                  }>NE1</option>
+                  <option value="NE2" ${
+                    DASHBOARD_STATE.regional === "NE2" ? "selected" : ""
+                  }>NE2</option>
                 </select>
               `
               : ""
           }
 
           ${
-            DASHBOARD_STATE.visao === "gerencial" && contexto.podeTrocarVisao
+            DASHBOARD_STATE.visao === "gerencial"
               ? `
                 <select id="dashLoja" onchange="dashboardAlterarLoja(this.value)">
                   <option value="TODAS">Todas as lojas</option>
@@ -374,7 +523,9 @@ function gerarOptionsClassesDashboard() {
   let html = `<option value="TODAS">Todas as classes</option>`;
 
   classes.forEach((classe) => {
-    html += `<option value="${classe}" ${DASHBOARD_STATE.classe === classe ? "selected" : ""}>${classe}</option>`;
+    html += `<option value="${classe}" ${
+      DASHBOARD_STATE.classe === classe ? "selected" : ""
+    }>${classe}</option>`;
   });
 
   return html;
@@ -389,7 +540,9 @@ function gerarOptionsIndicadoresDashboard() {
   let html = `<option value="TODOS">Todos os indicadores</option>`;
 
   lista.forEach((item) => {
-    html += `<option value="${item.valor}" ${DASHBOARD_STATE.indicador === item.valor ? "selected" : ""}>${item.nome}</option>`;
+    html += `<option value="${item.valor}" ${
+      DASHBOARD_STATE.indicador === item.valor ? "selected" : ""
+    }>${item.nome}</option>`;
   });
 
   return html;
@@ -456,18 +609,120 @@ async function dashboardAlterarLoja(loja) {
   await carregarDadosDashboard(contexto);
 }
 
+// ==========================
+// 🔁 Compatibilidade: botão removido da UI
+// ==========================
 async function dashboardAlterarVisao(visao) {
-  console.log("🔄 Dashboard visão alterada:", visao);
+  console.log(
+    "ℹ️ dashboardAlterarVisao chamado, mas seletor foi removido:",
+    visao,
+  );
+  DASHBOARD_STATE.visao = visao || DASHBOARD_STATE.visao;
+  await telaDashboard();
+}
 
-  destruirGraficosDashboard();
+// ==========================
+// 🎯 ESCOPO BASE
+// ==========================
+function aplicarEscopoBaseLojasDashboard(lojas, contexto) {
+  let lista = [...(lojas || [])];
 
-  if (typeof trocarVisaoDashboard === "function") {
-    trocarVisaoDashboard(visao);
-    return;
+  if (!contexto) return lista;
+
+  if (DASHBOARD_STATE.visao === "regional") {
+    if (contexto.escopo?.regional) {
+      lista = lista.filter(
+        (l) =>
+          normalizarTextoDashboardUpper(l.regional) ===
+          normalizarTextoDashboardUpper(contexto.escopo.regional),
+      );
+    }
+
+    return lista;
   }
 
-  DASHBOARD_STATE.visao = visao;
-  await telaDashboard();
+  if (contexto.escopo?.loja) {
+    return lista.filter(
+      (l) => getChaveLojaDashboard(l) === contexto.escopo.loja,
+    );
+  }
+
+  return lista;
+}
+
+// ==========================
+// 🎛 APLICAR FILTROS VISUAIS
+// ==========================
+function aplicarFiltrosVisuaisLojasDashboard(lojas) {
+  let lista = [...(lojas || [])];
+
+  if (DASHBOARD_STATE.visao === "regional") {
+    if (DASHBOARD_STATE.regional !== "TODAS") {
+      lista = lista.filter(
+        (l) =>
+          normalizarTextoDashboardUpper(l.regional) ===
+          normalizarTextoDashboardUpper(DASHBOARD_STATE.regional),
+      );
+    }
+
+    return lista;
+  }
+
+  if (DASHBOARD_STATE.loja && DASHBOARD_STATE.loja !== "TODAS") {
+    return lista.filter(
+      (l) => getChaveLojaDashboard(l) === DASHBOARD_STATE.loja,
+    );
+  }
+
+  return lista;
+}
+
+// ==========================
+// 🧠 BUSCAR RESULTADOS COM FALLBACK
+// ==========================
+async function buscarResultadosDashboard(queryBaseBuilder, lojasBaseSet) {
+  let semanasInfo = getPrimeiraEUltimaSemanaMesVigenteDashboard();
+  let semanasConsulta = semanasInfo.lista;
+
+  const queryMes = queryBaseBuilder().in("semana", semanasConsulta);
+  const { data: resultadosMes, error: erroMes } = await queryMes;
+  if (erroMes) throw erroMes;
+
+  let resultadosEscopoBase = (resultadosMes || []).filter((r) =>
+    lojasBaseSet.has(r.loja),
+  );
+
+  if (resultadosEscopoBase.length) {
+    return {
+      semanasInfo,
+      semanasConsulta,
+      resultadosEscopoBase,
+      usandoFallback: false,
+    };
+  }
+
+  semanasConsulta = gerarJanelaSemanasDashboard(DASHBOARD_STATE.semana);
+  semanasInfo = {
+    primeira: semanasConsulta[0] || null,
+    ultima: semanasConsulta[semanasConsulta.length - 1] || null,
+    lista: semanasConsulta,
+    descricao: "últimas 4 semanas",
+  };
+
+  const queryFallback = queryBaseBuilder().in("semana", semanasConsulta);
+  const { data: resultadosFallback, error: erroFallback } = await queryFallback;
+  if (erroFallback) throw erroFallback;
+
+  resultadosEscopoBase = (resultadosFallback || []).filter((r) =>
+    lojasBaseSet.has(r.loja),
+  );
+
+  return {
+    semanasInfo,
+    semanasConsulta,
+    resultadosEscopoBase,
+    usandoFallback: true,
+  };
 }
 
 // ==========================
@@ -476,7 +731,7 @@ async function dashboardAlterarVisao(visao) {
 async function carregarDadosDashboard(contexto) {
   console.log("🚀 Carregando dados do dashboard...", {
     estado: DASHBOARD_STATE,
-    contexto
+    contexto,
   });
 
   const alvo = document.getElementById("dashboardConteudo");
@@ -489,8 +744,6 @@ async function carregarDadosDashboard(contexto) {
   `;
 
   try {
-    const semanasJanela = gerarJanelaSemanasDashboard(DASHBOARD_STATE.semana);
-
     const { data: lojasData, error: lojasError } = await window.db
       .from("lojas")
       .select("*")
@@ -498,50 +751,76 @@ async function carregarDadosDashboard(contexto) {
 
     if (lojasError) throw lojasError;
 
-    let lojas = lojasData || [];
-    lojas = aplicarEscopoLojasDashboard(lojas, contexto);
+    const lojasEscopoBase = aplicarEscopoBaseLojasDashboard(
+      lojasData || [],
+      contexto,
+    );
+    const lojasVisuais = aplicarFiltrosVisuaisLojasDashboard(lojasEscopoBase);
 
-    const lojasSet = new Set(lojas.map((l) => getChaveLojaDashboard(l)));
+    const lojasBaseSet = new Set(
+      lojasEscopoBase.map((l) => getChaveLojaDashboard(l)),
+    );
+    const lojasVisuaisSet = new Set(
+      lojasVisuais.map((l) => getChaveLojaDashboard(l)),
+    );
 
-    let query = window.db
-      .from("resultados")
-      .select("*")
-      .in("semana", semanasJanela);
+    const montarQueryBase = () => {
+      let query = window.db.from("resultados").select("*");
 
-    if (DASHBOARD_STATE.classe !== "TODAS") {
-      query = query.eq("classe", DASHBOARD_STATE.classe);
-    }
+      if (DASHBOARD_STATE.classe !== "TODAS") {
+        query = query.eq("classe", DASHBOARD_STATE.classe);
+      }
 
-    if (DASHBOARD_STATE.indicador !== "TODOS") {
-      const indicadorBanco = getIndicadorBancoDashboard(
-        DASHBOARD_STATE.indicador,
-        DASHBOARD_STATE.classe === "TODAS" ? null : DASHBOARD_STATE.classe
-      );
+      if (DASHBOARD_STATE.indicador !== "TODOS") {
+        const indicadorBanco = getIndicadorBancoDashboard(
+          DASHBOARD_STATE.indicador,
+          DASHBOARD_STATE.classe === "TODAS" ? null : DASHBOARD_STATE.classe,
+        );
 
-      query = query.eq("indicador", indicadorBanco);
-    }
+        query = query.eq("indicador", indicadorBanco);
+      }
 
-    const { data: resultadosData, error: resultadosError } = await query;
-    if (resultadosError) throw resultadosError;
+      return query;
+    };
 
-    let resultados = (resultadosData || []).filter((r) => lojasSet.has(r.loja));
+    const {
+      semanasInfo,
+      semanasConsulta,
+      resultadosEscopoBase,
+      usandoFallback,
+    } = await buscarResultadosDashboard(montarQueryBase, lojasBaseSet);
 
-    console.log("🏬 Lojas finais:", lojas.length);
-    console.log("📊 Resultados finais:", resultados.length);
+    const resultadosVisuais = resultadosEscopoBase.filter((r) =>
+      lojasVisuaisSet.has(r.loja),
+    );
+
+    console.log("🏬 Lojas escopo base:", lojasEscopoBase.length);
+    console.log("🏬 Lojas visuais:", lojasVisuais.length);
+    console.log("📊 Resultados escopo base:", resultadosEscopoBase.length);
+    console.log("📊 Resultados visuais:", resultadosVisuais.length);
+    console.log("📆 Período usado:", semanasInfo);
 
     if (DASHBOARD_STATE.visao === "gerencial") {
       await renderDashboardGerencial({
         contexto,
-        lojas,
-        resultados,
-        semanasJanela
+        lojas: lojasVisuais,
+        lojasEscopoBase,
+        resultados: resultadosVisuais,
+        resultadosEscopoBase,
+        semanasJanela: semanasConsulta,
+        semanasMesInfo: semanasInfo,
+        usandoFallback,
       });
     } else {
       await renderDashboardRegional({
         contexto,
-        lojas,
-        resultados,
-        semanasJanela
+        lojas: lojasVisuais,
+        lojasEscopoBase,
+        resultados: resultadosVisuais,
+        resultadosEscopoBase,
+        semanasJanela: semanasConsulta,
+        semanasMesInfo: semanasInfo,
+        usandoFallback,
       });
     }
   } catch (erro) {
@@ -558,94 +837,147 @@ async function carregarDadosDashboard(contexto) {
 }
 
 // ==========================
-// 🎯 APLICAR ESCOPO DAS LOJAS
+// 📦 AGRUPADORES BI
 // ==========================
-function aplicarEscopoLojasDashboard(lojas, contexto) {
-  let lista = [...(lojas || [])];
-
-  if (!contexto) return lista;
-
-  if (DASHBOARD_STATE.visao === "regional") {
-    if (!contexto.podeTrocarVisao && contexto.escopo?.regional) {
-      lista = lista.filter(
-        (l) =>
-          normalizarTextoDashboardUpper(l.regional) ===
-          normalizarTextoDashboardUpper(contexto.escopo.regional)
-      );
-    }
-
-    if (DASHBOARD_STATE.regional !== "TODAS") {
-      lista = lista.filter(
-        (l) =>
-          normalizarTextoDashboardUpper(l.regional) ===
-          normalizarTextoDashboardUpper(DASHBOARD_STATE.regional)
-      );
-    }
-
-    return lista;
-  }
-
-  if (!contexto.podeTrocarVisao && contexto.escopo?.loja) {
-    return lista.filter(
-      (l) => getChaveLojaDashboard(l) === contexto.escopo.loja
-    );
-  }
-
-  if (DASHBOARD_STATE.loja && DASHBOARD_STATE.loja !== "TODAS") {
-    return lista.filter(
-      (l) => getChaveLojaDashboard(l) === DASHBOARD_STATE.loja
-    );
-  }
-
-  return lista;
-}
-
-// ==========================
-// 📦 AGRUPADORES
-// ==========================
-function agruparIndicadoresPorQtdDashboard(resultadosSemana) {
+function agruparIndicadoresPorMediaDashboard(resultadosMes) {
   const mapa = {};
 
-  resultadosSemana.forEach((r) => {
+  resultadosMes.forEach((r) => {
     if (!mapa[r.indicador]) {
-      mapa[r.indicador] = 0;
-    }
-    mapa[r.indicador] += 1;
-  });
-
-  return Object.entries(mapa)
-    .map(([indicador, qtd]) => ({ indicador, qtd }))
-    .sort((a, b) => b.qtd - a.qtd)
-    .slice(0, 10);
-}
-
-function agruparLojasRankingDashboard(resultadosSemana) {
-  const mapa = {};
-
-  resultadosSemana.forEach((r) => {
-    if (!mapa[r.loja]) {
-      mapa[r.loja] = {
-        loja: r.loja,
+      mapa[r.indicador] = {
+        indicador: r.indicador,
         valores: [],
-        valores2: []
+        valores2: [],
       };
     }
 
-    mapa[r.loja].valores.push(Number(r.valor));
-    mapa[r.loja].valores2.push(Number(r.valor2));
+    mapa[r.indicador].valores.push(Number(r.valor));
+    mapa[r.indicador].valores2.push(Number(r.valor2));
   });
 
-  const lista = Object.values(mapa).map((item) => ({
-    loja: item.loja,
-    mediaValor: calcularMediaDashboard(item.valores),
-    mediaValor2: calcularMediaDashboard(item.valores2)
+  return Object.values(mapa)
+    .map((item) => ({
+      indicador: item.indicador,
+      mediaValor: calcularMediaDashboard(item.valores),
+      mediaValor2: calcularMediaDashboard(item.valores2),
+    }))
+    .sort((a, b) => b.mediaValor - a.mediaValor)
+    .slice(0, LIMITE_RANKING_DASHBOARD);
+}
+
+// ==========================
+// 🧩 RESUMO POR CLASSE
+// ==========================
+// ==========================
+// 🧩 RESUMO POR CLASSE
+// força todas as classes mesmo sem dado
+// ==========================
+function agruparClassesDashboard(resultadosMes) {
+  const classesBase = getClassesDashboardDisponiveis();
+
+  const mapa = {};
+
+  classesBase.forEach((classe) => {
+    mapa[classe] = {
+      classe,
+      valores: [],
+      qtd: 0,
+    };
+  });
+
+  resultadosMes.forEach((r) => {
+    if (!mapa[r.classe]) {
+      mapa[r.classe] = {
+        classe: r.classe,
+        valores: [],
+        qtd: 0,
+      };
+    }
+
+    mapa[r.classe].valores.push(Number(r.valor));
+    mapa[r.classe].qtd += 1;
+  });
+
+  return Object.values(mapa).map((item) => ({
+    classe: item.classe,
+    qtd: item.qtd,
+    mediaValor: item.qtd ? calcularMediaDashboard(item.valores) : 0,
   }));
+}
+
+// ==========================
+// 🏆 AGRUPAR RANKING DE LOJAS
+// média = (primeira semana + última semana) / 2
+// ==========================
+function agruparLojasRankingDashboard(resultadosMes, semanasMesInfo) {
+  const mapa = {};
+
+  resultadosMes.forEach((r) => {
+    if (!mapa[r.loja]) {
+      mapa[r.loja] = {
+        loja: r.loja,
+        primeiraSemanaValores: [],
+        ultimaSemanaValores: [],
+        primeiraSemanaValores2: [],
+        ultimaSemanaValores2: [],
+      };
+    }
+
+    if (String(r.semana) === String(semanasMesInfo.primeira)) {
+      mapa[r.loja].primeiraSemanaValores.push(Number(r.valor));
+      mapa[r.loja].primeiraSemanaValores2.push(Number(r.valor2));
+    }
+
+    if (String(r.semana) === String(semanasMesInfo.ultima)) {
+      mapa[r.loja].ultimaSemanaValores.push(Number(r.valor));
+      mapa[r.loja].ultimaSemanaValores2.push(Number(r.valor2));
+    }
+  });
+
+  const lista = Object.values(mapa).map((item) => {
+    const mediaPrimeira = calcularMediaDashboard(item.primeiraSemanaValores);
+    const mediaUltima = calcularMediaDashboard(item.ultimaSemanaValores);
+
+    const mediaPrimeira2 = calcularMediaDashboard(item.primeiraSemanaValores2);
+    const mediaUltima2 = calcularMediaDashboard(item.ultimaSemanaValores2);
+
+    let mediaValor = 0;
+    let mediaValor2 = 0;
+
+    const temPrimeira = item.primeiraSemanaValores.length > 0;
+    const temUltima = item.ultimaSemanaValores.length > 0;
+
+    const temPrimeira2 = item.primeiraSemanaValores2.length > 0;
+    const temUltima2 = item.ultimaSemanaValores2.length > 0;
+
+    if (temPrimeira && temUltima) {
+      mediaValor = (mediaPrimeira + mediaUltima) / 2;
+    } else if (temPrimeira) {
+      mediaValor = mediaPrimeira;
+    } else if (temUltima) {
+      mediaValor = mediaUltima;
+    }
+
+    if (temPrimeira2 && temUltima2) {
+      mediaValor2 = (mediaPrimeira2 + mediaUltima2) / 2;
+    } else if (temPrimeira2) {
+      mediaValor2 = mediaPrimeira2;
+    } else if (temUltima2) {
+      mediaValor2 = mediaUltima2;
+    }
+
+    return {
+      loja: item.loja,
+      mediaValor,
+      mediaValor2,
+    };
+  });
 
   const ordem =
     DASHBOARD_STATE.indicador !== "TODOS"
       ? getOrdemRankingDashboard(
           DASHBOARD_STATE.indicador,
-          DASHBOARD_STATE.classe === "TODAS" ? null : DASHBOARD_STATE.classe
+          DASHBOARD_STATE.classe === "TODAS" ? null : DASHBOARD_STATE.classe,
         )
       : "desc";
 
@@ -654,72 +986,157 @@ function agruparLojasRankingDashboard(resultadosSemana) {
     return b.mediaValor - a.mediaValor;
   });
 
-  return lista.slice(0, 10);
+  return lista
+    .filter((item) => !isNaN(item.mediaValor))
+    .slice(0, LIMITE_RANKING_DASHBOARD);
 }
 
-function agruparClassesDashboard(resultadosSemana) {
+// ==========================
+// 🏆 MELHOR E PIOR LOJA DO ESCOPO
+// respeita regra de % = menor melhor
+// ==========================
+function calcularMelhorEPiorLojaDashboard(resultadosMes, tipoValorPrincipal) {
   const mapa = {};
 
-  resultadosSemana.forEach((r) => {
-    if (!mapa[r.classe]) {
-      mapa[r.classe] = 0;
+  resultadosMes.forEach((r) => {
+    if (!mapa[r.loja]) {
+      mapa[r.loja] = [];
     }
-    mapa[r.classe] += 1;
+    mapa[r.loja].push(Number(r.valor));
   });
 
-  return Object.entries(mapa)
-    .map(([classe, qtd]) => ({ classe, qtd }))
-    .sort((a, b) => b.qtd - a.qtd);
+  const lista = Object.entries(mapa).map(([loja, valores]) => ({
+    loja,
+    media: calcularMediaDashboard(valores),
+  }));
+
+  if (!lista.length) {
+    return {
+      melhor: null,
+      pior: null,
+    };
+  }
+
+  const menorMelhor = menorEhMelhorDashboard(tipoValorPrincipal);
+
+  const ordenado = [...lista].sort((a, b) => {
+    if (menorMelhor) return a.media - b.media;
+    return b.media - a.media;
+  });
+
+  return {
+    melhor: ordenado[0] || null,
+    pior: ordenado[ordenado.length - 1] || null,
+  };
+}
+
+// ==========================
+// 🌍 MÉDIA POR REGIONAL
+// ==========================
+function calcularMediaPorRegionalDashboard(
+  resultadosMes,
+  lojasEscopoBase,
+  regional,
+) {
+  const lojasRegional = new Set(
+    (lojasEscopoBase || [])
+      .filter(
+        (l) =>
+          normalizarTextoDashboardUpper(l.regional) ===
+          normalizarTextoDashboardUpper(regional),
+      )
+      .map((l) => getChaveLojaDashboard(l)),
+  );
+
+  const dadosRegional = (resultadosMes || []).filter((r) =>
+    lojasRegional.has(r.loja),
+  );
+
+  return calcularMediaDashboard(dadosRegional.map((r) => r.valor));
+}
+
+// ==========================
+// 🌍 MÉDIA PRIMEIRA/ÚLTIMA/MENSAL
+// ==========================
+function calcularMediasMensaisDashboard(resultadosMes, semanasMesInfo) {
+  const primeiraSemana = resultadosMes.filter(
+    (r) => String(r.semana) === String(semanasMesInfo.primeira),
+  );
+
+  const ultimaSemana = resultadosMes.filter(
+    (r) => String(r.semana) === String(semanasMesInfo.ultima),
+  );
+
+  const mediaPrimeira = calcularMediaDashboard(
+    primeiraSemana.map((r) => r.valor),
+  );
+  const mediaUltima = calcularMediaDashboard(ultimaSemana.map((r) => r.valor));
+
+  let mediaMensal = 0;
+
+  if (primeiraSemana.length && ultimaSemana.length) {
+    mediaMensal = (mediaPrimeira + mediaUltima) / 2;
+  } else if (primeiraSemana.length) {
+    mediaMensal = mediaPrimeira;
+  } else if (ultimaSemana.length) {
+    mediaMensal = mediaUltima;
+  }
+
+  return {
+    mediaPrimeira,
+    mediaUltima,
+    mediaMensal,
+  };
 }
 
 // ==========================
 // 📊 VISÃO GERENCIAL
 // ==========================
-async function renderDashboardGerencial({ contexto, lojas, resultados, semanasJanela }) {
+async function renderDashboardGerencial({
+  contexto,
+  lojas,
+  lojasEscopoBase,
+  resultados,
+  semanasJanela,
+  semanasMesInfo,
+  usandoFallback,
+}) {
   console.log("🏪 Renderizando visão gerencial...");
 
   const alvo = document.getElementById("dashboardConteudo");
   if (!alvo) return;
 
-  if (contexto?.podeTrocarVisao) {
-    popularSelectLojasDashboard(lojas);
-  }
+  popularSelectLojasDashboard(lojasEscopoBase);
 
-  const semanaAtual = DASHBOARD_STATE.semana;
-  const resultadosSemana = resultados.filter((r) => String(r.semana) === String(semanaAtual));
-
-  const totalLojas = lojas.length;
-  const lojasComDados = new Set(resultadosSemana.map((r) => r.loja)).size;
-  const cobertura = totalLojas > 0 ? (lojasComDados / totalLojas) * 100 : 0;
-
-  const mediaValorSemana = calcularMediaDashboard(resultadosSemana.map((r) => r.valor));
-  const mediaValor2Semana = calcularMediaDashboard(resultadosSemana.map((r) => r.valor2));
+  const resultadosMes = resultados;
 
   const evolucao = semanasJanela.map((semana) => {
-    const dadosSemana = resultados.filter((r) => String(r.semana) === String(semana));
+    const dadosSemana = resultadosMes.filter(
+      (r) => String(r.semana) === String(semana),
+    );
 
     return {
       semana,
       registros: dadosSemana.length,
       mediaValor: calcularMediaDashboard(dadosSemana.map((r) => r.valor)),
-      mediaValor2: calcularMediaDashboard(dadosSemana.map((r) => r.valor2))
+      mediaValor2: calcularMediaDashboard(dadosSemana.map((r) => r.valor2)),
     };
   });
 
-  const rankingIndicadores = agruparIndicadoresPorQtdDashboard(resultadosSemana);
-  const resumoClasses = agruparClassesDashboard(resultadosSemana);
+  const rankingIndicadores = agruparIndicadoresPorMediaDashboard(resultadosMes);
+  const resumoClasses = agruparClassesDashboard(resultadosMes);
 
-  const tituloLoja =
-    lojas.length === 1
-      ? getChaveLojaDashboard(lojas[0])
-      : contexto?.escopo?.loja || "Visão Gerencial";
+  const mediasMensais = calcularMediasMensaisDashboard(
+    resultadosMes,
+    semanasMesInfo,
+  );
 
   const tipoValorPrincipal =
     DASHBOARD_STATE.indicador !== "TODOS"
       ? getTipoCampoDashboard(
           DASHBOARD_STATE.indicador,
           "valor",
-          DASHBOARD_STATE.classe === "TODAS" ? null : DASHBOARD_STATE.classe
+          DASHBOARD_STATE.classe === "TODAS" ? null : DASHBOARD_STATE.classe,
         )
       : "numero";
 
@@ -728,26 +1145,34 @@ async function renderDashboardGerencial({ contexto, lojas, resultados, semanasJa
       ? getTipoCampoDashboard(
           DASHBOARD_STATE.indicador,
           "valor2",
-          DASHBOARD_STATE.classe === "TODAS" ? null : DASHBOARD_STATE.classe
+          DASHBOARD_STATE.classe === "TODAS" ? null : DASHBOARD_STATE.classe,
         )
       : "numero";
+
+  const tituloLoja =
+    lojas.length === 1
+      ? getChaveLojaDashboard(lojas[0])
+      : contexto?.escopo?.loja || "Visão Gerencial";
 
   alvo.innerHTML = `
     ${renderKPIsGerenciais({
       tituloLoja,
-      totalLojas,
-      lojasComDados,
-      cobertura,
-      mediaValorSemana,
-      mediaValor2Semana,
+      totalLojas: lojas.length,
+      mediaPrimeira: mediasMensais.mediaPrimeira,
+      mediaUltima: mediasMensais.mediaUltima,
+      mediaMensal: mediasMensais.mediaMensal,
       tipoValorPrincipal,
-      tipoValorSecundario
+      descricaoPeriodo: semanasMesInfo.descricao,
     })}
 
     <div class="dashboard-card dashboard-grafico span-6">
       <div class="dashboard-card-header">
         <span class="dashboard-card-titulo">Evolução semanal</span>
-        <span class="dashboard-card-subtitulo">Últimas 4 semanas</span>
+        <span class="dashboard-card-subtitulo">${
+          usandoFallback
+            ? "Últimas 4 semanas com dados"
+            : "Evolução do período selecionado"
+        }</span>
       </div>
       <div class="dashboard-chart-box">
         <canvas id="graficoEvolucao"></canvas>
@@ -757,19 +1182,25 @@ async function renderDashboardGerencial({ contexto, lojas, resultados, semanasJa
     <div class="dashboard-card dashboard-grafico span-6">
       <div class="dashboard-card-header">
         <span class="dashboard-card-titulo">Ranking por indicador</span>
-        <span class="dashboard-card-subtitulo">Top 10 por quantidade de registros</span>
+        <span class="dashboard-card-subtitulo">Top ${LIMITE_RANKING_DASHBOARD} indicadores pela média do valor principal</span>
       </div>
       <div class="dashboard-chart-box">
         <canvas id="graficoRanking"></canvas>
       </div>
     </div>
 
-    <div class="dashboard-card dashboard-grafico span-12">
+    <div class="dashboard-card dashboard-grafico dashboard-grafico-resumo span-12">
       <div class="dashboard-card-header">
         <span class="dashboard-card-titulo">Resumo por classe</span>
-        <span class="dashboard-card-subtitulo">Distribuição dos registros na semana</span>
+        <span class="dashboard-card-subtitulo dashboard-card-subtitulo-info">
+          Média do valor principal por classe
+          <span
+            class="dashboard-info-tip"
+            title="Este gráfico mostra a média consolidada do valor principal em cada classe, considerando o filtro e o período selecionados. Ele ajuda a identificar quais áreas estão performando melhor ou pior no conjunto dos indicadores."
+          >ⓘ</span>
+        </span>
       </div>
-      <div class="dashboard-chart-box dashboard-chart-box-pequeno">
+      <div class="dashboard-chart-box dashboard-chart-box-pequeno dashboard-chart-box-resumo">
         <canvas id="graficoClasses"></canvas>
       </div>
     </div>
@@ -781,49 +1212,54 @@ async function renderDashboardGerencial({ contexto, lojas, resultados, semanasJa
     resumoClasses,
     tipoRanking: "indicadores",
     tipoValorPrincipal,
-    tipoValorSecundario
+    tipoValorSecundario,
   });
 }
 
 // ==========================
 // 🌍 VISÃO REGIONAL
 // ==========================
-async function renderDashboardRegional({ contexto, lojas, resultados, semanasJanela }) {
+async function renderDashboardRegional({
+  lojasEscopoBase,
+  resultados,
+  resultadosEscopoBase,
+  semanasJanela,
+  semanasMesInfo,
+  usandoFallback,
+}) {
   console.log("🌍 Renderizando visão regional...");
 
   const alvo = document.getElementById("dashboardConteudo");
   if (!alvo) return;
 
-  const semanaAtual = DASHBOARD_STATE.semana;
-  const resultadosSemana = resultados.filter((r) => String(r.semana) === String(semanaAtual));
-
-  const totalLojas = lojas.length;
-  const lojasComDados = new Set(resultadosSemana.map((r) => r.loja)).size;
-  const cobertura = totalLojas > 0 ? (lojasComDados / totalLojas) * 100 : 0;
-
-  const mediaValorSemana = calcularMediaDashboard(resultadosSemana.map((r) => r.valor));
-  const mediaValor2Semana = calcularMediaDashboard(resultadosSemana.map((r) => r.valor2));
+  const resultadosMes = resultados;
+  const resultadosEscopoCompleto = resultadosEscopoBase;
 
   const evolucao = semanasJanela.map((semana) => {
-    const dadosSemana = resultados.filter((r) => String(r.semana) === String(semana));
+    const dadosSemana = resultadosMes.filter(
+      (r) => String(r.semana) === String(semana),
+    );
 
     return {
       semana,
       registros: dadosSemana.length,
       mediaValor: calcularMediaDashboard(dadosSemana.map((r) => r.valor)),
-      mediaValor2: calcularMediaDashboard(dadosSemana.map((r) => r.valor2))
+      mediaValor2: calcularMediaDashboard(dadosSemana.map((r) => r.valor2)),
     };
   });
 
-  const rankingLojas = agruparLojasRankingDashboard(resultadosSemana);
-  const resumoClasses = agruparClassesDashboard(resultadosSemana);
+  const rankingLojas = agruparLojasRankingDashboard(
+    resultadosMes,
+    semanasMesInfo,
+  );
+  const resumoClasses = agruparClassesDashboard(resultadosMes);
 
   const tipoValorPrincipal =
     DASHBOARD_STATE.indicador !== "TODOS"
       ? getTipoCampoDashboard(
           DASHBOARD_STATE.indicador,
           "valor",
-          DASHBOARD_STATE.classe === "TODAS" ? null : DASHBOARD_STATE.classe
+          DASHBOARD_STATE.classe === "TODAS" ? null : DASHBOARD_STATE.classe,
         )
       : "numero";
 
@@ -832,26 +1268,43 @@ async function renderDashboardRegional({ contexto, lojas, resultados, semanasJan
       ? getTipoCampoDashboard(
           DASHBOARD_STATE.indicador,
           "valor2",
-          DASHBOARD_STATE.classe === "TODAS" ? null : DASHBOARD_STATE.classe
+          DASHBOARD_STATE.classe === "TODAS" ? null : DASHBOARD_STATE.classe,
         )
       : "numero";
 
+  const melhorPior = calcularMelhorEPiorLojaDashboard(
+    resultadosEscopoCompleto,
+    tipoValorPrincipal,
+  );
+
+  const mediaNE1 = calcularMediaPorRegionalDashboard(
+    resultadosEscopoCompleto,
+    lojasEscopoBase,
+    "NE1",
+  );
+  const mediaNE2 = calcularMediaPorRegionalDashboard(
+    resultadosEscopoCompleto,
+    lojasEscopoBase,
+    "NE2",
+  );
+
   alvo.innerHTML = `
     ${renderKPIsRegionais({
-      totalLojas,
-      lojasComDados,
-      cobertura,
-      mediaValorSemana,
-      mediaValor2Semana,
-      regional: DASHBOARD_STATE.regional,
+      melhor: melhorPior.melhor,
+      pior: melhorPior.pior,
+      mediaNE1,
+      mediaNE2,
       tipoValorPrincipal,
-      tipoValorSecundario
     })}
 
     <div class="dashboard-card dashboard-grafico span-6">
       <div class="dashboard-card-header">
         <span class="dashboard-card-titulo">Evolução semanal</span>
-        <span class="dashboard-card-subtitulo">Consolidado regional</span>
+        <span class="dashboard-card-subtitulo">${
+          usandoFallback
+            ? "Últimas 4 semanas com dados"
+            : "Evolução do período selecionado"
+        }</span>
       </div>
       <div class="dashboard-chart-box">
         <canvas id="graficoEvolucao"></canvas>
@@ -861,19 +1314,25 @@ async function renderDashboardRegional({ contexto, lojas, resultados, semanasJan
     <div class="dashboard-card dashboard-grafico span-6">
       <div class="dashboard-card-header">
         <span class="dashboard-card-titulo">Ranking de lojas</span>
-        <span class="dashboard-card-subtitulo">Top 10 pela média do indicador</span>
+        <span class="dashboard-card-subtitulo">Média = 1ª semana + última semana do período / 2</span>
       </div>
       <div class="dashboard-chart-box">
         <canvas id="graficoRanking"></canvas>
       </div>
     </div>
 
-    <div class="dashboard-card dashboard-grafico span-12">
+    <div class="dashboard-card dashboard-grafico dashboard-grafico-resumo span-12">
       <div class="dashboard-card-header">
         <span class="dashboard-card-titulo">Resumo por classe</span>
-        <span class="dashboard-card-subtitulo">Distribuição dos registros na semana</span>
+        <span class="dashboard-card-subtitulo dashboard-card-subtitulo-info">
+          Média do valor principal por classe
+          <span
+            class="dashboard-info-tip"
+            title="Este gráfico mostra a média consolidada do valor principal em cada classe, considerando o filtro e o período selecionados. Ele ajuda a identificar quais áreas estão performando melhor ou pior no conjunto dos indicadores."
+          >ⓘ</span>
+        </span>
       </div>
-      <div class="dashboard-chart-box dashboard-chart-box-pequeno">
+      <div class="dashboard-chart-box dashboard-chart-box-pequeno dashboard-chart-box-resumo">
         <canvas id="graficoClasses"></canvas>
       </div>
     </div>
@@ -885,7 +1344,7 @@ async function renderDashboardRegional({ contexto, lojas, resultados, semanasJan
     resumoClasses,
     tipoRanking: "lojas",
     tipoValorPrincipal,
-    tipoValorSecundario
+    tipoValorSecundario,
   });
 }
 
@@ -898,9 +1357,11 @@ function popularSelectLojasDashboard(lojas) {
 
   let html = `<option value="TODAS">Todas as lojas</option>`;
 
-  lojas.forEach((loja) => {
+  (lojas || []).forEach((loja) => {
     const chave = getChaveLojaDashboard(loja);
-    html += `<option value="${chave}" ${DASHBOARD_STATE.loja === chave ? "selected" : ""}>${chave}</option>`;
+    html += `<option value="${chave}" ${
+      DASHBOARD_STATE.loja === chave ? "selected" : ""
+    }>${chave}</option>`;
   });
 
   select.innerHTML = html;
@@ -912,42 +1373,43 @@ function popularSelectLojasDashboard(lojas) {
 function renderKPIsGerenciais({
   tituloLoja,
   totalLojas,
-  lojasComDados,
-  cobertura,
-  mediaValorSemana,
-  mediaValor2Semana,
+  mediaPrimeira,
+  mediaUltima,
+  mediaMensal,
   tipoValorPrincipal,
-  tipoValorSecundario
+  descricaoPeriodo,
 }) {
+  const isPercentual = tipoPercentualDashboard(tipoValorPrincipal);
+
   return `
     <div class="dashboard-card dashboard-kpi azul span-3">
-      <span class="dashboard-kpi-label">Loja / escopo</span>
+      <span class="dashboard-kpi-label">Loja / Escopo</span>
       <div class="dashboard-kpi-valor">${totalLojas}</div>
       <div class="dashboard-kpi-rodape">${tituloLoja}</div>
     </div>
 
     <div class="dashboard-card dashboard-kpi verde span-3">
-      <span class="dashboard-kpi-label">Registros na semana</span>
-      <div class="dashboard-kpi-valor">${lojasComDados}</div>
-      <div class="dashboard-kpi-rodape">Lojas com dados na semana ativa</div>
+      <span class="dashboard-kpi-label">Média 1ª semana</span>
+      <div class="dashboard-kpi-valor">
+        ${formatarKpiDashboard(mediaPrimeira, { percentual: isPercentual, casas: 2 })}
+      </div>
+      <div class="dashboard-kpi-rodape">Primeira semana do ${descricaoPeriodo}</div>
     </div>
 
     <div class="dashboard-card dashboard-kpi laranja span-3">
-      <span class="dashboard-kpi-label">Cobertura</span>
-      <div class="dashboard-kpi-valor">${formatarNumeroDashboard(cobertura, 1)}%</div>
-      <div class="dashboard-kpi-rodape">Percentual de preenchimento</div>
+      <span class="dashboard-kpi-label">Média última semana</span>
+      <div class="dashboard-kpi-valor">
+        ${formatarKpiDashboard(mediaUltima, { percentual: isPercentual, casas: 2 })}
+      </div>
+      <div class="dashboard-kpi-rodape">Última semana do ${descricaoPeriodo}</div>
     </div>
 
     <div class="dashboard-card dashboard-kpi roxo span-3">
-      <span class="dashboard-kpi-label">Média da semana</span>
-      <div class="dashboard-kpi-valor">${formatarValorDashboard(mediaValorSemana, tipoValorPrincipal)}</div>
-      <div class="dashboard-kpi-rodape">
-        ${
-          mediaValor2Semana
-            ? `2º valor: ${formatarValorDashboard(mediaValor2Semana, tipoValorSecundario)}`
-            : "Valor principal consolidado"
-        }
+      <span class="dashboard-kpi-label">Média mensal</span>
+      <div class="dashboard-kpi-valor">
+        ${formatarKpiDashboard(mediaMensal, { percentual: isPercentual, casas: 2 })}
       </div>
+      <div class="dashboard-kpi-rodape">(1ª semana + última semana) / 2</div>
     </div>
   `;
 }
@@ -956,44 +1418,74 @@ function renderKPIsGerenciais({
 // 🔢 RENDER KPIs REGIONAIS
 // ==========================
 function renderKPIsRegionais({
-  totalLojas,
-  lojasComDados,
-  cobertura,
-  mediaValorSemana,
-  mediaValor2Semana,
-  regional,
+  melhor,
+  pior,
+  mediaNE1,
+  mediaNE2,
   tipoValorPrincipal,
-  tipoValorSecundario
 }) {
+  const isPercentual = tipoPercentualDashboard(tipoValorPrincipal);
+
+  const melhorLoja = quebrarNomeLojaDashboard(melhor?.loja || "");
+  const piorLoja = quebrarNomeLojaDashboard(pior?.loja || "");
+
   return `
     <div class="dashboard-card dashboard-kpi azul span-3">
-      <span class="dashboard-kpi-label">Regional</span>
-      <div class="dashboard-kpi-valor">${regional === "TODAS" ? "GERAL" : regional}</div>
-      <div class="dashboard-kpi-rodape">Escopo regional ativo</div>
+      <span class="dashboard-kpi-label">Top Melhor Loja Regional</span>
+
+      <div class="dashboard-kpi-loja">
+        <span class="dashboard-kpi-loja-codigo">${melhorLoja.codigo || "--"}</span>
+        <span class="dashboard-kpi-loja-separador">—</span>
+        <span class="dashboard-kpi-loja-nome">${melhorLoja.nome || "-"}</span>
+      </div>
+
+      <div class="dashboard-kpi-rodape dashboard-kpi-rodape-destaque positivo">
+        ${
+          melhor
+            ? `Resultado: ${formatarKpiDashboard(melhor.media, {
+                percentual: isPercentual,
+                casas: 2,
+              })}`
+            : "Sem dados suficientes"
+        }
+      </div>
     </div>
 
     <div class="dashboard-card dashboard-kpi verde span-3">
-      <span class="dashboard-kpi-label">Lojas no escopo</span>
-      <div class="dashboard-kpi-valor">${totalLojas}</div>
-      <div class="dashboard-kpi-rodape">Quantidade de lojas filtradas</div>
+      <span class="dashboard-kpi-label">Pior Loja</span>
+
+      <div class="dashboard-kpi-loja">
+        <span class="dashboard-kpi-loja-codigo">${piorLoja.codigo || "--"}</span>
+        <span class="dashboard-kpi-loja-separador">—</span>
+        <span class="dashboard-kpi-loja-nome">${piorLoja.nome || "-"}</span>
+      </div>
+
+      <div class="dashboard-kpi-rodape dashboard-kpi-rodape-destaque negativo">
+        ${
+          pior
+            ? `Resultado: ${formatarKpiDashboard(pior.media, {
+                percentual: isPercentual,
+                casas: 2,
+              })}`
+            : "Sem dados suficientes"
+        }
+      </div>
     </div>
 
     <div class="dashboard-card dashboard-kpi laranja span-3">
-      <span class="dashboard-kpi-label">Cobertura</span>
-      <div class="dashboard-kpi-valor">${formatarNumeroDashboard(cobertura, 1)}%</div>
-      <div class="dashboard-kpi-rodape">Lojas com preenchimento na semana</div>
+      <span class="dashboard-kpi-label">Média NE1</span>
+      <div class="dashboard-kpi-valor">
+        ${formatarKpiDashboard(mediaNE1, { percentual: true, casas: 2 })}
+      </div>
+      <div class="dashboard-kpi-rodape">Consolidado da regional NE1</div>
     </div>
 
     <div class="dashboard-card dashboard-kpi roxo span-3">
-      <span class="dashboard-kpi-label">Média regional</span>
-      <div class="dashboard-kpi-valor">${formatarValorDashboard(mediaValorSemana, tipoValorPrincipal)}</div>
-      <div class="dashboard-kpi-rodape">
-        ${
-          mediaValor2Semana
-            ? `2º valor: ${formatarValorDashboard(mediaValor2Semana, tipoValorSecundario)}`
-            : "Valor principal consolidado"
-        }
+      <span class="dashboard-kpi-label">Média NE2</span>
+      <div class="dashboard-kpi-valor">
+        ${formatarKpiDashboard(mediaNE2, { percentual: true, casas: 2 })}
       </div>
+      <div class="dashboard-kpi-rodape">Consolidado da regional NE2</div>
     </div>
   `;
 }
@@ -1007,21 +1499,30 @@ function renderGraficosDashboard({
   resumoClasses,
   tipoRanking,
   tipoValorPrincipal,
-  tipoValorSecundario
+  tipoValorSecundario,
 }) {
   console.log("📈 Renderizando gráficos do dashboard...", {
     tipoRanking,
     evolucaoQtd: evolucao?.length,
     rankingQtd: ranking?.length,
-    classesQtd: resumoClasses?.length
+    classesQtd: resumoClasses?.length,
   });
 
   if (!chartJsDisponivel()) return;
 
   requestAnimationFrame(() => {
     try {
-      renderGraficoEvolucaoDashboard(evolucao, tipoValorPrincipal, tipoValorSecundario);
-      renderGraficoRankingDashboard(ranking, tipoRanking, tipoValorPrincipal, tipoValorSecundario);
+      renderGraficoEvolucaoDashboard(
+        evolucao,
+        tipoValorPrincipal,
+        tipoValorSecundario,
+      );
+      renderGraficoRankingDashboard(
+        ranking,
+        tipoRanking,
+        tipoValorPrincipal,
+        tipoValorSecundario,
+      );
       renderGraficoClassesDashboard(resumoClasses);
     } catch (erro) {
       console.error("❌ Erro ao renderizar gráficos do dashboard:", erro);
@@ -1032,7 +1533,11 @@ function renderGraficosDashboard({
 // ==========================
 // 📈 GRÁFICO DE EVOLUÇÃO
 // ==========================
-function renderGraficoEvolucaoDashboard(evolucao, tipoValorPrincipal, tipoValorSecundario) {
+function renderGraficoEvolucaoDashboard(
+  evolucao,
+  tipoValorPrincipal,
+  tipoValorSecundario,
+) {
   const canvas = document.getElementById("graficoEvolucao");
   if (!canvas) {
     console.warn("⚠️ Canvas graficoEvolucao não encontrado");
@@ -1044,13 +1549,6 @@ function renderGraficoEvolucaoDashboard(evolucao, tipoValorPrincipal, tipoValorS
   const dadosValor2 = evolucao.map((item) => Number(item.mediaValor2 || 0));
 
   const temValor2 = dadosValor2.some((v) => v !== 0);
-
-  console.log("📈 Dados gráfico evolução:", {
-    labels,
-    dadosValor,
-    dadosValor2,
-    temValor2
-  });
 
   if (window.dashboardCharts.evolucao) {
     window.dashboardCharts.evolucao.destroy();
@@ -1066,8 +1564,8 @@ function renderGraficoEvolucaoDashboard(evolucao, tipoValorPrincipal, tipoValorS
       tension: 0.35,
       fill: true,
       pointRadius: 4,
-      pointHoverRadius: 5
-    }
+      pointHoverRadius: 5,
+    },
   ];
 
   if (temValor2) {
@@ -1080,7 +1578,7 @@ function renderGraficoEvolucaoDashboard(evolucao, tipoValorPrincipal, tipoValorS
       tension: 0.35,
       fill: false,
       pointRadius: 3,
-      pointHoverRadius: 4
+      pointHoverRadius: 4,
     });
   }
 
@@ -1088,51 +1586,67 @@ function renderGraficoEvolucaoDashboard(evolucao, tipoValorPrincipal, tipoValorS
     type: "line",
     data: {
       labels,
-      datasets
+      datasets,
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          display: true
+          display: true,
+          labels: {
+            font: {
+              size: 11,
+            },
+          },
         },
         tooltip: {
           mode: "index",
-          intersect: false
-        }
+          intersect: false,
+        },
       },
       interaction: {
         mode: "nearest",
-        intersect: false
+        intersect: false,
       },
       scales: {
         x: {
           ticks: {
-            color: "#5a6872"
+            color: "#5a6872",
+            font: {
+              size: 11,
+            },
           },
           grid: {
-            color: "rgba(10, 61, 98, 0.06)"
-          }
+            color: "rgba(10, 61, 98, 0.06)",
+          },
         },
         y: {
           beginAtZero: true,
           ticks: {
-            color: "#5a6872"
+            color: "#5a6872",
+            font: {
+              size: 11,
+            },
           },
           grid: {
-            color: "rgba(10, 61, 98, 0.06)"
-          }
-        }
-      }
-    }
+            color: "rgba(10, 61, 98, 0.06)",
+          },
+        },
+      },
+    },
   });
 }
 
 // ==========================
 // 🏆 GRÁFICO DE RANKING
 // ==========================
-function renderGraficoRankingDashboard(ranking, tipoRanking, tipoValorPrincipal, tipoValorSecundario) {
+function renderGraficoRankingDashboard(
+  ranking,
+  tipoRanking,
+  tipoValorPrincipal,
+  tipoValorSecundario,
+) {
   const canvas = document.getElementById("graficoRanking");
   if (!canvas) {
     console.warn("⚠️ Canvas graficoRanking não encontrado");
@@ -1142,6 +1656,12 @@ function renderGraficoRankingDashboard(ranking, tipoRanking, tipoValorPrincipal,
   if (window.dashboardCharts.ranking) {
     window.dashboardCharts.ranking.destroy();
   }
+
+  ajustarAlturaChartBox("graficoRanking", ranking?.length || 0, {
+    minimo: 220,
+    maximo: 360,
+    pxPorItem: 20,
+  });
 
   let labels = [];
   let datasets = [];
@@ -1153,60 +1673,73 @@ function renderGraficoRankingDashboard(ranking, tipoRanking, tipoValorPrincipal,
     const dadosValor2 = ranking.map((item) => Number(item.mediaValor2 || 0));
     const temValor2 = dadosValor2.some((v) => v !== 0);
 
-    console.log("🏆 Dados gráfico ranking lojas:", {
-      labels,
-      dadosValor,
-      dadosValor2,
-      temValor2
-    });
-
     datasets = [
       {
         label: `Média valor (${tipoValorPrincipal})`,
         data: dadosValor,
-        backgroundColor: "rgba(30, 96, 145, 0.75)",
+        backgroundColor: "rgba(30, 96, 145, 0.78)",
         borderColor: "#1e6091",
         borderWidth: 1,
-        borderRadius: 8
-      }
+        borderRadius: 6,
+        maxBarThickness: 14,
+        categoryPercentage: 0.82,
+        barPercentage: 0.76,
+      },
     ];
 
     if (temValor2) {
       datasets.push({
         label: `Média valor 2 (${tipoValorSecundario})`,
         data: dadosValor2,
-        backgroundColor: "rgba(76, 175, 80, 0.75)",
+        backgroundColor: "rgba(76, 175, 80, 0.78)",
         borderColor: "#4CAF50",
         borderWidth: 1,
-        borderRadius: 8
+        borderRadius: 6,
+        maxBarThickness: 14,
+        categoryPercentage: 0.82,
+        barPercentage: 0.76,
       });
     }
   } else {
     labels = ranking.map((item) => item.indicador);
-    const dados = ranking.map((item) => Number(item.qtd || 0));
-
-    console.log("🏆 Dados gráfico ranking indicadores:", {
-      labels,
-      dados
-    });
+    const dados = ranking.map((item) => Number(item.mediaValor || 0));
+    const dados2 = ranking.map((item) => Number(item.mediaValor2 || 0));
+    const temValor2 = dados2.some((v) => v !== 0);
 
     datasets = [
       {
-        label: "Quantidade de registros",
+        label: `Média valor (${tipoValorPrincipal})`,
         data: dados,
-        backgroundColor: "rgba(156, 39, 176, 0.75)",
+        backgroundColor: "rgba(156, 39, 176, 0.78)",
         borderColor: "#9C27B0",
         borderWidth: 1,
-        borderRadius: 8
-      }
+        borderRadius: 6,
+        maxBarThickness: 14,
+        categoryPercentage: 0.82,
+        barPercentage: 0.76,
+      },
     ];
+
+    if (temValor2) {
+      datasets.push({
+        label: `Média valor 2 (${tipoValorSecundario})`,
+        data: dados2,
+        backgroundColor: "rgba(76, 175, 80, 0.78)",
+        borderColor: "#4CAF50",
+        borderWidth: 1,
+        borderRadius: 6,
+        maxBarThickness: 14,
+        categoryPercentage: 0.82,
+        barPercentage: 0.76,
+      });
+    }
   }
 
   window.dashboardCharts.ranking = new Chart(canvas, {
     type: "bar",
     data: {
       labels,
-      datasets
+      datasets,
     },
     options: {
       indexAxis: "y",
@@ -1214,34 +1747,49 @@ function renderGraficoRankingDashboard(ranking, tipoRanking, tipoValorPrincipal,
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          display: true
-        }
+          display: true,
+          labels: {
+            font: {
+              size: 10,
+            },
+            boxWidth: 14,
+            boxHeight: 8,
+          },
+        },
       },
       scales: {
         x: {
           beginAtZero: true,
           ticks: {
-            color: "#5a6872"
+            color: "#5a6872",
+            font: {
+              size: 10,
+            },
           },
           grid: {
-            color: "rgba(10, 61, 98, 0.06)"
-          }
+            color: "rgba(10, 61, 98, 0.06)",
+          },
         },
         y: {
           ticks: {
-            color: "#5a6872"
+            color: "#5a6872",
+            font: {
+              size: 10,
+            },
           },
           grid: {
-            display: false
-          }
-        }
-      }
-    }
+            display: false,
+          },
+        },
+      },
+    },
   });
 }
 
+
 // ==========================
 // 🧩 GRÁFICO RESUMO POR CLASSE
+// compacto, próximo e legível
 // ==========================
 function renderGraficoClassesDashboard(resumoClasses) {
   const canvas = document.getElementById("graficoClasses");
@@ -1254,20 +1802,23 @@ function renderGraficoClassesDashboard(resumoClasses) {
     window.dashboardCharts.classes.destroy();
   }
 
-  const labels = resumoClasses.map((item) => item.classe);
-  const dados = resumoClasses.map((item) => Number(item.qtd || 0));
-
-  console.log("🧩 Dados gráfico classes:", {
-    labels,
-    dados
+  // altura um pouco maior para não ficar miúdo
+  ajustarAlturaChartBox("graficoClasses", resumoClasses?.length || 0, {
+    minimo: 145,
+    maximo: 210,
+    pxPorItem: 22,
   });
 
+  const labels = resumoClasses.map((item) => item.classe);
+  const dados = resumoClasses.map((item) => Number(item.mediaValor || 0));
+
   window.dashboardCharts.classes = new Chart(canvas, {
-    type: "doughnut",
+    type: "bar",
     data: {
       labels,
       datasets: [
         {
+          label: "Média por classe",
           data: dados,
           backgroundColor: [
             "#1e6091",
@@ -1275,22 +1826,67 @@ function renderGraficoClassesDashboard(resumoClasses) {
             "#FF9800",
             "#9C27B0",
             "#F44336",
-            "#00BCD4"
+            "#00BCD4",
           ],
-          borderWidth: 0
-        }
-      ]
+          borderRadius: 6,
+          maxBarThickness: 14,
+          categoryPercentage: 1.0,
+          barPercentage: 0.96,
+        },
+      ],
     },
     options: {
+      indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
-      cutout: "62%",
+      layout: {
+        padding: {
+          top: 0,
+          bottom: 0,
+          left: 0,
+          right: 0,
+        },
+      },
       plugins: {
         legend: {
-          position: "bottom"
-        }
-      }
-    }
+          display: false,
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` Média: ${formatarNumeroDashboard(ctx.raw, 2)}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          ticks: {
+            color: "#5a6872",
+            font: {
+              size: 12,
+              weight: "600",
+            },
+          },
+          grid: {
+            color: "rgba(10, 61, 98, 0.06)",
+          },
+        },
+        y: {
+          offset: false,
+          ticks: {
+            color: "#5a6872",
+            font: {
+              size: 12,
+              weight: "600",
+            },
+            padding: 4,
+          },
+          grid: {
+            display: false,
+          },
+        },
+      },
+    },
   });
 }
 

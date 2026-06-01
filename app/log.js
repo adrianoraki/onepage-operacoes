@@ -14,7 +14,7 @@ const filtrosLogs = {
   texto: "",
   tipo: "TODOS",
   dataInicio: "",
-  dataFim: ""
+  dataFim: "",
 };
 
 // ==========================
@@ -31,7 +31,7 @@ function getUsuarioLogadoLogs() {
 
     return {
       ...user,
-      perfil: (user.perfil || "").toString().trim().toLowerCase()
+      perfil: (user.perfil || "").toString().trim().toLowerCase(),
     };
   } catch (erro) {
     console.error("❌ Erro ao obter usuário logado nos logs:", erro);
@@ -155,8 +155,8 @@ async function registrarLog(dados) {
         loja: dados.loja || null,
         indicador: dados.indicador || null,
         semana: dados.semana || null,
-        campo: dados.campo || "valor"
-      }
+        campo: dados.campo || "valor",
+      },
     };
 
     const { error } = await window.db.from("auditoria").insert([payload]);
@@ -172,32 +172,40 @@ async function registrarLog(dados) {
 // ==========================
 // 📋 REGISTRAR EVENTO DO SISTEMA
 // ==========================
+// ==========================
+// 📋 LOGGER CENTRAL DO SISTEMA
+// registra em auditoria / rastreabilidade
+// ==========================
 async function registrarEventoSistema({
   tipo_evento = "sistema",
-  modulo = "Sistema",
+  modulo = "",
   acao = "",
   usuario_alvo = null,
   perfil_alvo = null,
   autenticacao = "sessao_propria",
   status = "sucesso",
   observacao = "",
-  contexto = {}
-}) {
+  contexto = {},
+  loja = null,
+  indicador = null,
+  semana = null,
+  valor_antigo = null,
+  valor_novo = null,
+} = {}) {
   try {
     if (!window.db) {
-      console.warn("⚠️ window.db não disponível para registrarEventoSistema");
-      return;
+      console.warn("⚠️ window.db não disponível para registrar evento");
+      return null;
     }
 
-    const user = getUsuarioLogadoLogs();
-    if (!user) {
-      console.warn("⚠️ Usuário não encontrado para registrarEventoSistema");
-      return;
-    }
+    const user =
+      typeof getUsuarioLogado === "function"
+        ? getUsuarioLogado()
+        : JSON.parse(localStorage.getItem("usuario") || "null");
 
     const payload = {
-      usuario: user.nome,
-      perfil: user.perfil,
+      usuario: user?.nome || user?.email || "sistema",
+      perfil: user?.perfil || "desconhecido",
 
       tipo_evento,
       modulo,
@@ -207,23 +215,30 @@ async function registrarEventoSistema({
       autenticacao,
       status,
       observacao,
-      contexto,
+      contexto: contexto || {},
 
-      // mantém compatibilidade com colunas antigas
-      loja: contexto?.loja || null,
-      indicador: contexto?.indicador || null,
-      semana: contexto?.semana || null,
-      valor_antigo: contexto?.valor_antigo ?? null,
-      valor_novo: contexto?.valor_novo ?? null
+      loja,
+      indicador,
+      semana,
+      valor_antigo,
+      valor_novo,
     };
 
-    const { error } = await window.db.from("auditoria").insert([payload]);
+    console.log("📤 Registrando evento do sistema:", payload);
+
+    const { data, error } = await window.db
+      .from("auditoria")
+      .insert([payload])
+      .select("*")
+      .single();
 
     if (error) throw error;
 
-    console.log("📋 Evento do sistema registrado:", payload);
+    console.log("✅ Evento registrado em auditoria:", data);
+    return data;
   } catch (erro) {
-    console.error("❌ Erro ao registrar evento do sistema:", erro);
+    console.error("❌ Falha ao registrar evento do sistema:", erro);
+    return null;
   }
 }
 
@@ -375,7 +390,7 @@ async function buscarRenderizarLogs() {
           item.observacao,
           item.indicador,
           item.loja,
-          item.semana
+          item.semana,
         ]
           .filter(Boolean)
           .join(" ")
@@ -456,7 +471,7 @@ async function buscarRenderizarLogs() {
       pagina: paginaLogsAtual,
       totalPaginas,
       quantidadeNaTela: logs.length,
-      totalRegistros: count || 0
+      totalRegistros: count || 0,
     });
   } catch (erro) {
     console.error("❌ Erro ao carregar logs:", erro);
@@ -477,7 +492,9 @@ function ativarFiltrosLogsSistema() {
   const inputTexto = document.getElementById("filtroLogTexto");
   const inputDataInicio = document.getElementById("filtroLogDataInicio");
   const inputDataFim = document.getElementById("filtroLogDataFim");
-  const botoes = document.querySelectorAll(".grupo-filtro-logs .btn-filtro-regional");
+  const botoes = document.querySelectorAll(
+    ".grupo-filtro-logs .btn-filtro-regional",
+  );
 
   if (!inputTexto || !inputDataInicio || !inputDataFim || !botoes.length) {
     console.warn("⚠️ Filtros dos logs não encontrados");

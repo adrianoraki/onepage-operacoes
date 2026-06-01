@@ -264,11 +264,7 @@ function prepararInputRH(input) {
 
   // fallback simples
   let valor = (input.value || "").toString().trim();
-  valor = valor
-    .replace("R$", "")
-    .replace("%", "")
-    .replace(/\s/g, "")
-    .trim();
+  valor = valor.replace("R$", "").replace("%", "").replace(/\s/g, "").trim();
 
   input.value = valor;
 }
@@ -291,20 +287,21 @@ function ativarFiltroRH() {
     const termo = input.value.toLowerCase().trim();
 
     document.querySelectorAll("#tbody-rh tr").forEach((row) => {
+      const dentroDoEscopo = row.dataset.escopoPermitido !== "false";
+
       const codigo = row.children[0]?.textContent.toLowerCase() || "";
       const loja = row.children[1]?.textContent.toLowerCase() || "";
       const regional = row.children[2]?.textContent.toLowerCase() || "";
 
       const matchBusca =
-        !termo ||
-        codigo.includes(termo) ||
-        loja.includes(termo);
+        !termo || codigo.includes(termo) || loja.includes(termo);
 
       const matchRegional =
         regionalSelecionada === "TODAS" ||
         regional === regionalSelecionada.toLowerCase();
 
-      row.style.display = matchBusca && matchRegional ? "" : "none";
+      row.style.display =
+        dentroDoEscopo && matchBusca && matchRegional ? "" : "none";
     });
   };
 
@@ -348,7 +345,7 @@ async function autoSalvarRH(input) {
       semana,
       campo,
       valorDigitado: input.value,
-      tipo
+      tipo,
     });
     return;
   }
@@ -366,7 +363,7 @@ async function autoSalvarRH(input) {
       loja,
       semana,
       campo,
-      valor: comparacao
+      valor: comparacao,
     });
     return;
   }
@@ -402,7 +399,7 @@ async function autoSalvarRH(input) {
     campo,
     valorLimpo,
     indicadorNormalizado,
-    classe
+    classe,
   );
 
   if (salvou) {
@@ -422,7 +419,7 @@ async function salvarValorRH(
   campo,
   valor,
   indicadorNormalizado,
-  classe
+  classe,
 ) {
   const numero = Number(valor);
   if (isNaN(numero)) {
@@ -432,7 +429,10 @@ async function salvarValorRH(
 
   const indicadorBanco =
     typeof getIndicadorBanco === "function"
-      ? getIndicadorBanco(indicadorNormalizado, localStorage.getItem("classeSelecionada") || "")
+      ? getIndicadorBanco(
+          indicadorNormalizado,
+          localStorage.getItem("classeSelecionada") || "",
+        )
       : indicadorNormalizado;
 
   const chaveSalvar = getChaveRegistroRH(
@@ -440,7 +440,7 @@ async function salvarValorRH(
     semana,
     indicadorBanco,
     classe,
-    campo
+    campo,
   );
 
   if (TABELA_RH_STATE.salvando.has(chaveSalvar)) {

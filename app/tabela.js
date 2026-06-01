@@ -111,7 +111,7 @@ function gerarSemanas() {
   const atual = parseInt(semanaSelecionada || getSemanaAtual(), 10);
 
   const lista = [atual - 3, atual - 2, atual - 1, atual].map((s) =>
-    s <= 0 ? 52 + s : s
+    s <= 0 ? 52 + s : s,
   );
 
   const semanas = lista.map((s) => s.toString().padStart(2, "0"));
@@ -221,8 +221,12 @@ async function carregarTabela() {
 
     const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
 
-    const indicadorNormalizado = normalizarTextoTabelaUpper(indicadorSelecionado);
-    const indicadorBanco = obterIndicadorBanco(indicadorNormalizado, classeSelecionada);
+    const indicadorNormalizado =
+      normalizarTextoTabelaUpper(indicadorSelecionado);
+    const indicadorBanco = obterIndicadorBanco(
+      indicadorNormalizado,
+      classeSelecionada,
+    );
     const classeAtual = obterClasse(indicadorNormalizado, classeSelecionada);
 
     const isEspecial =
@@ -298,7 +302,7 @@ async function carregarTabela() {
         lojas,
         mapa,
         semanas,
-        classeSelecionada
+        classeSelecionada,
       );
     }
 
@@ -487,20 +491,21 @@ function ativarFiltros() {
       const tds = row.querySelectorAll("td");
       if (tds.length < 3) return;
 
+      const dentroDoEscopo = row.dataset.escopoPermitido !== "false";
+
       const codigo = tds[0].textContent.toLowerCase();
       const loja = tds[1].textContent.toLowerCase();
       const regional = tds[2].textContent.toLowerCase();
 
       const matchBusca =
-        !termo ||
-        codigo.includes(termo) ||
-        loja.includes(termo);
+        !termo || codigo.includes(termo) || loja.includes(termo);
 
       const matchRegional =
         regionalSelecionada === "TODAS" ||
         regional === regionalSelecionada.toLowerCase();
 
-      row.style.display = matchBusca && matchRegional ? "" : "none";
+      row.style.display =
+        dentroDoEscopo && matchBusca && matchRegional ? "" : "none";
     });
   };
 
@@ -538,7 +543,7 @@ async function autoSalvar(input) {
       loja,
       semana,
       valorDigitado: input.value,
-      tipo
+      tipo,
     });
 
     return;
@@ -551,7 +556,7 @@ async function autoSalvar(input) {
     console.log("ℹ️ Valor não alterado, salvamento ignorado", {
       loja,
       semana,
-      valor: valorComparacao
+      valor: valorComparacao,
     });
 
     // reaplica formatação se necessário
@@ -571,7 +576,7 @@ async function autoSalvar(input) {
     loja,
     semana,
     valor: valorLimpo,
-    tipo
+    tipo,
   });
 
   aplicarStatusInput(input, "salvando");
@@ -598,13 +603,24 @@ async function salvarValor(loja, semana, valor) {
 
   const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
   const indicadorNormalizado = normalizarTextoTabelaUpper(indicadorSelecionado);
-  const indicadorBanco = obterIndicadorBanco(indicadorNormalizado, classeSelecionada);
+  const indicadorBanco = obterIndicadorBanco(
+    indicadorNormalizado,
+    classeSelecionada,
+  );
   const classe = obterClasse(indicadorNormalizado, classeSelecionada);
 
-  const chaveSalvar = getChaveRegistroTabela(loja, semana, indicadorBanco, classe);
+  const chaveSalvar = getChaveRegistroTabela(
+    loja,
+    semana,
+    indicadorBanco,
+    classe,
+  );
 
   if (TABELA_STATE.salvando.has(chaveSalvar)) {
-    console.warn("⚠️ Já existe um salvamento em andamento para este registro:", chaveSalvar);
+    console.warn(
+      "⚠️ Já existe um salvamento em andamento para este registro:",
+      chaveSalvar,
+    );
     return false;
   }
 

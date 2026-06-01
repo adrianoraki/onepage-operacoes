@@ -1,52 +1,59 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>OnePage Expert | Central de Indicadores Operacionais</title>
-  <link rel="icon" type="image/jpeg" href="assets/fave.png" />
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OnePage Expert | Central de Indicadores Operacionais</title>
+    <link rel="icon" type="image/jpeg" href="assets/fave.png" />
 
+    <!-- CSS -->
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/tabela.css" />
+    <link rel="stylesheet" href="/css/config.css" />
+    <link rel="stylesheet" href="/css/dashboard.css" />
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="/css/style.css" />
-  <link rel="stylesheet" href="/css/tabela.css" />
-  <link rel="stylesheet" href="/css/config.css" />
-  <link rel="stylesheet" href="/css/dashboard.css" />
+    <!-- Ícones -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/js/all.min.jsscript>"
+    />
+  </head>
 
-  <!-- Ícones -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css"/>
-</head>
+  <body>
+    <div class="main_box">
+      <!-- ✅ SIDEBAR DINÂMICO -->
+      <div id="sidebar"></div>
 
-<body>
+      <!-- ✅ CONTEÚDO -->
+      <main id="conteudo" class="conteudo">
+        <h2>Carregando...</h2>
+      </main>
+    </div>
 
-<div class="main_box">
+    <!-- ✅ SUPABASE -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.jsscript"></script>
 
-  <!-- ✅ SIDEBAR DINÂMICO -->
-  <div id="sidebar"></div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <!-- ✅ CONTEÚDO -->
-  <main id="conteudo" class="conteudo">
-    <h2>Carregando...</h2>
-  </main>
+    <!-- ✅ JS -->
 
-</div>
+    <script src="app/indicadores-config.js" defer></script>
+    <script src="app/tabela.js" defer></script>
+    <script src="app/tabela2.js" defer></script>
+    <script src="app/tabela-rh.js" defer></script>
+    <script src="app/regras-perfil.js" defer></script>
+    <script src="app/log.js" defer></script>
+    <script src="app/idle.js" defer></script>
+    <script src="app/dashboard-acesso.js" defer></script>
 
-<!-- ✅ SUPABASE -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.jsscript"></script>
+    <script src="app/dashboard.js" defer></script>
+    <script src="app/analise.js" defer></script>
+    <script src="app/comparativos.js" defer></script>
 
-<!-- ✅ JS -->
-<script src="app/app.js"></script>
-<script src="app/indicadores-config.js"></script>
-<script src="app/tabela.js"></script>
-<script src="app/tabela2.js"></script>
-<script src="app/tabela-rh.js"></script>
-<script src="app/regras-perfil.js"></script>
-<script src="app/log.js"></script>
-<script src="app/idle.js"></script>"
-<script src="app/dashboard-acesso.js"></script>
-<script src="app/dashboard.js"></script>
-
-
-</body>
+    <script src="app/app.js" defer></script>
+  </body>
 </html>

@@ -5,37 +5,125 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OnePage Expert | Acesso ao Sistema</title>
 
+    <link rel="icon" type="image/x-icon" href="/assets/fave.png" />
+
     <link rel="stylesheet" href="/css/login.css" />
   </head>
   <body>
     <div class="login-container">
       <div class="login-box">
-        <h2>🔐 Acesso ao Sistema</h2>
+        <!-- ==========================
+             🔷 MARCA / TOPO
+        =========================== -->
+        <div class="login-brand">
+          <div class="login-brand-logo">
+            <img src="/assets/fave.png" alt="Logo da Marca" />
+          </div>
 
-        <form onsubmit="event.preventDefault(); fazerLogin();">
-          <input
-            type="email"
-            id="email"
-            placeholder="Digite seu e-mail"
-            autocomplete="username"
-          />
+          <div class="login-brand-texto">
+            <h1>OnePage Expert</h1>
+            <p>Central de Indicadores Operacionais</p>
+          </div>
+        </div>
 
-          <input
-            type="password"
-            id="senha"
-            placeholder="Digite sua senha"
-            autocomplete="current-password"
-          />
+        <!-- ==========================
+             🔐 TÍTULO
+        =========================== -->
+        <div class="login-header">
+          <h2>🔐 Acesso ao Sistema</h2>
+          <span>Entre com seu e-mail e senha para continuar</span>
+        </div>
 
-          <button id="btnLogin" type="submit">Entrar</button>
+        <!-- ==========================
+             🧾 FORMULÁRIO
+        =========================== -->
+        <form
+          class="login-form"
+          onsubmit="
+            event.preventDefault();
+            fazerLogin();
+          "
+        >
+          <!-- E-MAIL -->
+          <div class="campo-login">
+            <label for="email">E-mail</label>
 
-          <p id="erro" aria-live="polite"></p>
+            <div class="input-wrapper">
+              <span class="input-icon">✉️</span>
+
+              <input
+                type="email"
+                id="email"
+                placeholder="Digite seu e-mail"
+                autocomplete="username"
+              />
+            </div>
+          </div>
+
+          <!-- SENHA -->
+          <div class="campo-login">
+            <label for="senha">Senha</label>
+
+            <div class="input-wrapper input-wrapper-senha">
+              <span class="input-icon">🔒</span>
+
+              <input
+                type="password"
+                id="senha"
+                placeholder="Digite sua senha"
+                autocomplete="current-password"
+              />
+
+              <button
+                type="button"
+                class="btn-toggle-senha"
+                onclick="toggleSenhaLogin()"
+                aria-label="Mostrar ou ocultar senha"
+                title="Mostrar / ocultar senha"
+              >
+                <span id="iconToggleSenha">👁️</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- BOTÃO -->
+          <button id="btnLogin" class="btn-login" type="submit">
+            <span class="btn-login-texto">Entrar</span>
+          </button>
+
+          <!-- MENSAGEM DE ERRO -->
+          <p id="erro" class="login-erro" aria-live="polite"></p>
         </form>
+
+        <!-- ==========================
+             🔒 RODAPÉ
+        =========================== -->
+        <div class="login-footer">
+          <span>Ambiente seguro para acesso operacional e gerencial</span>
+        </div>
       </div>
     </div>
 
+    <!-- Toggle da senha -->
+    <script>
+      function toggleSenhaLogin() {
+        const input = document.getElementById("senha");
+        const icon = document.getElementById("iconToggleSenha");
+
+        if (!input || !icon) return;
+
+        const visivel = input.type === "text";
+
+        input.type = visivel ? "password" : "text";
+        icon.textContent = visivel ? "👁️" : "🙈";
+      }
+    </script>
+
     <!-- Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js" defer></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"
+      defer
+    ></script>
     <script src="app/login.js" defer></script>
   </body>
 </html>

@@ -28,9 +28,7 @@ function normalizarListaRegionais(valor) {
   if (!valor) return [];
 
   if (Array.isArray(valor)) {
-    return valor
-      .map((v) => normalizarTexto(v))
-      .filter(Boolean);
+    return valor.map((v) => normalizarTexto(v)).filter(Boolean);
   }
 
   if (typeof valor === "string") {
@@ -45,7 +43,10 @@ function normalizarListaRegionais(valor) {
 
 function listaRegionaisParaTexto(lista) {
   if (!Array.isArray(lista) || !lista.length) return "";
-  return lista.map((v) => normalizarTexto(v)).filter(Boolean).join(", ");
+  return lista
+    .map((v) => normalizarTexto(v))
+    .filter(Boolean)
+    .join(", ");
 }
 
 // ==========================
@@ -153,7 +154,9 @@ function getEscopoUsuarioSistema(user = null) {
     loja_vinculada: usuario.loja_vinculada || null,
     regional_vinculada: usuario.regional_vinculada || null,
     subregional_vinculada: usuario.subregional_vinculada || null,
-    regionais_vinculadas: normalizarListaRegionais(usuario.regionais_vinculadas),
+    regionais_vinculadas: normalizarListaRegionais(
+      usuario.regionais_vinculadas,
+    ),
   };
 }
 
@@ -383,6 +386,7 @@ function aplicarEscopoVisualTabela() {
         );
       }
 
+      row.dataset.escopoPermitido = visivel ? "true" : "false";
       row.style.display = visivel ? "" : "none";
 
       totalLinhas++;
@@ -1377,9 +1381,8 @@ function coletarCamposEdicaoUsuario() {
       document.getElementById("edit_perm_regional_vinculada")?.value.trim() ||
       "",
     regionais_vinculadas:
-      document
-        .getElementById("edit_perm_regionais_vinculadas")
-        ?.value.trim() || "",
+      document.getElementById("edit_perm_regionais_vinculadas")?.value.trim() ||
+      "",
     subregional_vinculada:
       document
         .getElementById("edit_perm_subregional_vinculada")
@@ -1759,14 +1762,16 @@ async function editarPermissoes(id) {
 
 // ==========================
 // 💾 SALVAR PERMISSÕES
-// mantém compatibilidade com botão manual
+// robusto + valida retorno real do banco
 // ==========================
 async function salvarPermissoes(id) {
   const checks = document.querySelectorAll(
-    "#config-conteudo input[type=checkbox]:checked",
+    "#config-conteudo .grupo-permissao input[type=checkbox]:checked",
   );
 
-  const selecionados = [...checks].map((c) => c.value);
+  const selecionados = [...checks]
+    .map((c) => normalizarTexto(c.value))
+    .filter(Boolean);
 
   const dados = coletarCamposEdicaoUsuario();
   const user = getUsuarioLogado();
@@ -1813,14 +1818,30 @@ async function salvarPermissoes(id) {
       payload.perfil = dados.perfil;
     }
 
-    const { error } = await window.db
+    const { data, error } = await window.db
       .from("usuarios")
       .update(payload)
-      .eq("id", id);
+      .eq("id", id)
+      .select("id, nome, permissoes")
+      .single();
 
     if (error) throw error;
 
-    alert("✅ Permissões / vínculo atualizados!");
+    if (!data) {
+      throw new Error(
+        "Nenhuma linha foi atualizada. Verifique a policy de RLS da tabela usuarios.",
+      );
+    }
+
+    console.log("✅ Permissões/vínculo salvos no banco:", data);
+
+    // sincroniza local se for o próprio usuário
+    if (String(id) === String(user?.id)) {
+      console.log(
+        "🔄 Usuário editado é o próprio logado. Sincronizando localStorage...",
+      );
+      await sincronizarUsuarioLocalDoBanco();
+    }
 
     if (typeof registrarEventoSistema === "function") {
       await registrarEventoSistema({
@@ -1845,10 +1866,12 @@ async function salvarPermissoes(id) {
       });
     }
 
+    alert("✅ Permissões / vínculo atualizados!");
+
     abrirTelaPermissoes();
   } catch (erro) {
     console.error("❌ Erro ao salvar permissões:", erro);
-    alert("❌ Erro ao salvar permissões / vínculo.");
+    alert(`❌ ${erro.message || "Erro ao salvar permissões / vínculo."}`);
   }
 }
 
@@ -1881,8 +1904,12 @@ async function registrarLog(dados) {
 // 📊 AUDITORIA LEGADA
 // (mantida por compatibilidade)
 // ==========================
+// ==========================
+// 📊 AUDITORIA / RASTREABILIDADE
+// versão moderna
+// ==========================
 async function abrirAuditoria() {
-  console.log("📊 abrirAuditoria legado chamado");
+  console.log("📊 abrirAuditoria");
 
   if (typeof abrirLogsSistema === "function") {
     abrirLogsSistema();
@@ -1891,9 +1918,11 @@ async function abrirAuditoria() {
 
   const container = document.getElementById("config-conteudo");
 
+  if (!container) return;
+
   container.innerHTML = `
     <div class="card-conteudo">
-      <h2>📊 Histórico de Alterações</h2>
+      <h2>📊 Auditoria e Rastreabilidade</h2>
       <p>Carregando registros...</p>
     </div>
   `;
@@ -1902,39 +1931,70 @@ async function abrirAuditoria() {
     const { data, error } = await window.db
       .from("auditoria")
       .select("*")
-      .order("id", { ascending: false })
-      .limit(50);
+      .order("created_at", { ascending: false })
+      .limit(100);
 
     if (error) throw error;
 
     let html = `
       <div class="card-conteudo">
-        <h2>📊 Histórico de Alterações</h2>
+        <h2>📊 Auditoria e Rastreabilidade</h2>
 
         <div class="tabela-container">
           <table class="tabela">
             <thead>
               <tr>
+                <th>Data/Hora</th>
                 <th>Usuário</th>
-                <th>Indicador</th>
-                <th>Loja</th>
-                <th>Semana</th>
-                <th>Antes</th>
-                <th>Depois</th>
+                <th>Módulo</th>
+                <th>Ação</th>
+                <th>Alvo</th>
+                <th>Status</th>
+                <th>Detalhes</th>
               </tr>
             </thead>
             <tbody>
     `;
 
-    data.forEach((d) => {
+    (data || []).forEach((d) => {
+      const dataHora = d.created_at
+        ? new Date(d.created_at).toLocaleString("pt-BR")
+        : "-";
+
+      const alvo = d.usuario_alvo || d.loja || "-";
+
+      const detalhes = {
+        tipo_evento: d.tipo_evento || null,
+        perfil: d.perfil || null,
+        perfil_alvo: d.perfil_alvo || null,
+        autenticacao: d.autenticacao || null,
+        observacao: d.observacao || null,
+        indicador: d.indicador || null,
+        loja: d.loja || null,
+        semana: d.semana || null,
+        valor_antigo: d.valor_antigo ?? null,
+        valor_novo: d.valor_novo ?? null,
+        contexto: d.contexto || {},
+      };
+
       html += `
         <tr>
-          <td>${d.usuario}</td>
-          <td>${d.indicador}</td>
-          <td>${d.loja}</td>
-          <td>${d.semana}</td>
-          <td>${d.valor_antigo ?? "-"}</td>
-          <td>${d.valor_novo ?? "-"}</td>
+          <td>${dataHora}</td>
+          <td>${d.usuario || "-"}</td>
+          <td>${d.modulo || "-"}</td>
+          <td>${d.acao || "-"}</td>
+          <td>${alvo}</td>
+          <td>${d.status || "-"}</td>
+          <td>
+            <details>
+              <summary>Ver</summary>
+              <pre style="white-space: pre-wrap; font-size:12px;">${JSON.stringify(
+                detalhes,
+                null,
+                2,
+              )}</pre>
+            </details>
+          </td>
         </tr>
       `;
     });
@@ -1953,7 +2013,7 @@ async function abrirAuditoria() {
     container.innerHTML = `
       <div class="card-conteudo">
         <h2>❌ Erro</h2>
-        <p>Falha ao carregar auditoria</p>
+        <p>Falha ao carregar auditoria / rastreabilidade</p>
       </div>
     `;
   }

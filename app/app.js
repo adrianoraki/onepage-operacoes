@@ -3,9 +3,23 @@
 // ==========================
 const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co";
 const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY"; // mantenha sua anon key atual aqui
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY";
 
 let supabaseClient = null;
+
+// ==========================
+// 🧠 ESTADO GLOBAL DO APP
+// ==========================
+const APP_STATE = {
+  telaAtiva: "dashboard",
+  indicadorAtivo: null,
+  classeAtiva: null,
+
+  silentRefreshMs: 15000,
+  silentRefreshTimer: null,
+  silentRefreshRunning: false,
+  ultimoSilentRefresh: null,
+};
 
 // ==========================
 // 🗂️ HELPERS STORAGE
@@ -89,9 +103,49 @@ function montarUsuarioLocalAPartirDoPerfil(data) {
     regional_vinculada: data.regional_vinculada || null,
     subregional_vinculada: data.subregional_vinculada || null,
 
-    // ✅ já prepara para cenário de múltiplas regionais
+    // ✅ cenário de múltiplas regionais
     regionais_vinculadas: normalizarListaRegionais(data.regionais_vinculadas),
   };
+}
+
+// ==========================
+// 🆘 PERFIL FALLBACK PELO AUTH (APP)
+// usado quando existe sessão no Auth
+// mas não existe linha em usuarios
+// ==========================
+function montarPerfilFallbackApp(authUser) {
+  const email = (authUser?.email || "").toString().trim().toLowerCase();
+  const nomeBase = email.split("@")[0] || "usuario";
+
+  const perfilFallback = {
+    id: null,
+    auth_user_id: authUser?.id || null,
+    nome: nomeBase,
+    sobrenome: "",
+    email,
+    matricula: "",
+    perfil: "usuario",
+    funcao: "Usuário",
+    permissoes: {
+      indicadores: [],
+      classes: [],
+      acesso_total: false,
+    },
+
+    tipo_visao: "regional",
+    loja_codigo: null,
+    loja_vinculada: null,
+    regional_vinculada: null,
+    subregional_vinculada: null,
+    regionais_vinculadas: [],
+  };
+
+  console.warn(
+    "⚠️ [APP] Perfil não encontrado em usuarios. Usando fallback local:",
+    perfilFallback,
+  );
+
+  return perfilFallback;
 }
 
 // ==========================
@@ -119,7 +173,6 @@ function initSupabase() {
       },
     });
 
-    // ✅ client global do app
     window.db = supabaseClient;
 
     console.log("✅ Supabase inicializado");
@@ -295,13 +348,12 @@ async function vincularAuthUserIdAoPerfilApp(perfil, authUser) {
 
 // ==========================
 // 👤 GARANTIR PERFIL LOCAL
-// agora com fallback por e-mail + vínculo automático
+// com fallback por e-mail + vínculo automático
 // ==========================
 async function garantirPerfilLocal(authUser) {
   try {
     const usuarioLocal = getUsuarioLocal();
 
-    // ✅ se já existe e bate com a sessão atual, mantém como fallback
     if (
       usuarioLocal &&
       usuarioLocal.auth_user_id &&
@@ -313,10 +365,8 @@ async function garantirPerfilLocal(authUser) {
 
     console.log("🔄 [APP] Resolvendo perfil do usuário no banco...");
 
-    // 1) tenta por auth_user_id
     let perfil = await buscarPerfilPorAuthIdApp(authUser.id);
 
-    // 2) se não achou, tenta por email
     if (!perfil) {
       const emailAuth = normalizarTextoAppLower(authUser.email);
 
@@ -340,7 +390,6 @@ async function garantirPerfilLocal(authUser) {
         return usuarioFallback;
       }
 
-      // se achou por email e auth_user_id está vazio, vincula agora
       if (!perfilPorEmail.auth_user_id) {
         perfil = await vincularAuthUserIdAoPerfilApp(perfilPorEmail, authUser);
 
@@ -353,7 +402,6 @@ async function garantirPerfilLocal(authUser) {
           return null;
         }
       } else {
-        // se já existe auth_user_id diferente, bloqueia
         if (String(perfilPorEmail.auth_user_id) !== String(authUser.id)) {
           console.error(
             "❌ [APP] Perfil por e-mail já está vinculado a outro auth_user_id",
@@ -393,6 +441,8 @@ async function garantirPerfilLocal(authUser) {
 async function logout() {
   try {
     console.log("🔒 Logout iniciado");
+
+    pararAtualizacaoSilenciosa();
 
     window.dashboardModoApresentacao = false;
 
@@ -436,16 +486,14 @@ const classesIndicadores = {
 // ==========================
 const iconesMenu = {
   dashboard: "fa-gauge-high",
-  ranking: "fa-trophy",
-  indicadores: "fa-chart-line",
+  analises: "fa-trophy",
   comparativos: "fa-chart-pie",
   configuracoes: "fa-gear",
 };
 
 const coresMenu = {
   dashboard: "#4CAF50",
-  ranking: "#FFC107",
-  indicadores: "#03A9F4",
+  analises: "#FFC107",
   comparativos: "#9C27B0",
   configuracoes: "#9E9E9E",
 };
@@ -498,9 +546,13 @@ async function carregarSidebar() {
     preencherUsuario();
     montarMenuIndicadores();
 
-    // ✅ garante logout funcionando sem duplicar bind
+    // ✅ só faz bind se não houver onclick inline
     const btnLogout = el.querySelector(".btn-logout");
-    if (btnLogout && !btnLogout.dataset.bound) {
+    if (
+      btnLogout &&
+      !btnLogout.dataset.bound &&
+      !btnLogout.getAttribute("onclick")
+    ) {
       btnLogout.addEventListener("click", logout);
       btnLogout.dataset.bound = "true";
     }
@@ -542,7 +594,6 @@ function preencherUsuario() {
 
 // ==========================
 // 🧹 LIMPAR ITENS DINÂMICOS DO MENU
-// sem apagar Dashboard / Ranking / Indicadores / Comparativos
 // ==========================
 function limparItensDinamicosMenu(menu) {
   if (!menu) return;
@@ -635,6 +686,9 @@ function selecionarIndicador(indicador) {
   console.log("✅ Indicador:", indicador);
 
   localStorage.setItem(STORAGE_KEYS.indicador, indicador);
+  APP_STATE.indicadorAtivo = indicador;
+  APP_STATE.classeAtiva = localStorage.getItem(STORAGE_KEYS.classeSelecionada);
+  APP_STATE.telaAtiva = "tabela";
 
   if (typeof carregarTabela === "function") {
     carregarTabela();
@@ -720,19 +774,48 @@ function logMenu(acao) {
 }
 
 // ==========================
-// 🧭 CONTROLE DE TELAS
+// 🧠 CONTROLE DE TELA ATIVA
 // ==========================
-function mostrar(tela) {
-  try {
-    console.log("🧭 Abrindo tela:", tela);
+function definirTelaAtiva(tela, extras = {}) {
+  APP_STATE.telaAtiva = tela || "dashboard";
 
-    if (!tela) {
+  if (extras.indicador !== undefined) {
+    APP_STATE.indicadorAtivo = extras.indicador;
+  }
+
+  if (extras.classe !== undefined) {
+    APP_STATE.classeAtiva = extras.classe;
+  }
+
+  console.log("🧠 Tela ativa atualizada:", {
+    telaAtiva: APP_STATE.telaAtiva,
+    indicadorAtivo: APP_STATE.indicadorAtivo,
+    classeAtiva: APP_STATE.classeAtiva,
+  });
+}
+
+// ==========================
+// 🔄 ABRIR TELA INTERNA
+// ==========================
+async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
+  try {
+    if (!nomeTela) {
       console.warn("⚠️ Tela não informada");
       return;
     }
 
-    const nomeTela = tela.toString().trim().toLowerCase();
-    console.log("🎯 Tela normalizada:", nomeTela);
+    let telaNormalizada = nomeTela.toString().trim().toLowerCase();
+
+    // ======================
+    // 🔁 COMPATIBILIDADE
+    // ======================
+    if (telaNormalizada === "ranking") {
+      telaNormalizada = "analises";
+    }
+
+    if (telaNormalizada === "analise") {
+      telaNormalizada = "analises";
+    }
 
     const container = document.getElementById("conteudo");
 
@@ -741,27 +824,29 @@ function mostrar(tela) {
       return;
     }
 
+    console.log("🧭 Abrindo tela:", telaNormalizada, "| silent:", silent);
+
     // ======================
     // ⚙️ CONFIGURAÇÕES
     // ======================
-    if (nomeTela === "configuracoes") {
-      console.log("⚙️ Abrindo Configurações");
+    if (telaNormalizada === "configuracoes") {
+      definirTelaAtiva("configuracoes");
 
-      container.innerHTML = `
-        <div class="card-conteudo" style="text-align:center; padding:40px;">
-          <h2>⚙️ Configurações</h2>
-          <p>Carregando...</p>
-        </div>
-      `;
+      if (!silent) {
+        container.innerHTML = `
+          <div class="card-conteudo" style="text-align:center; padding:40px;">
+            <h2>⚙️ Configurações</h2>
+            <p>Carregando...</p>
+          </div>
+        `;
+      }
 
-      setTimeout(() => {
-        if (typeof abrirConfiguracoes === "function") {
-          abrirConfiguracoes();
-        } else {
-          console.error("❌ abrirConfiguracoes não encontrada");
-          mostrarErro("Função abrirConfiguracoes não encontrada");
-        }
-      }, 120);
+      if (typeof abrirConfiguracoes === "function") {
+        abrirConfiguracoes();
+      } else {
+        console.error("❌ abrirConfiguracoes não encontrada");
+        mostrarErro("Função abrirConfiguracoes não encontrada");
+      }
 
       return;
     }
@@ -769,11 +854,11 @@ function mostrar(tela) {
     // ======================
     // 📊 DASHBOARD
     // ======================
-    if (nomeTela === "dashboard") {
-      console.log("📊 Abrindo Dashboard");
+    if (telaNormalizada === "dashboard") {
+      definirTelaAtiva("dashboard");
 
       if (typeof telaDashboard === "function") {
-        telaDashboard();
+        await telaDashboard();
       } else {
         telaInicial();
       }
@@ -782,18 +867,18 @@ function mostrar(tela) {
     }
 
     // ======================
-    // 🏆 RANKING
+    // 📈 ANÁLISES
     // ======================
-    if (nomeTela === "ranking") {
-      console.log("🏆 Abrindo Ranking");
+    if (telaNormalizada === "analises") {
+      definirTelaAtiva("analises");
 
-      if (typeof telaRanking === "function") {
-        telaRanking();
+      if (typeof telaAnalises === "function") {
+        await telaAnalises();
       } else {
         container.innerHTML = `
           <div class="card-conteudo">
-            <h2>🏆 Ranking</h2>
-            <p>Em desenvolvimento</p>
+            <h2>📈 Análises</h2>
+            <p>Módulo de análises não carregado.</p>
           </div>
         `;
       }
@@ -802,13 +887,42 @@ function mostrar(tela) {
     }
 
     // ======================
-    // 📊 INDICADORES
+    // 🔀 COMPARATIVOS
     // ======================
-    if (nomeTela === "indicadores") {
-      console.log("📊 Indicadores");
+    if (telaNormalizada === "comparativos") {
+      definirTelaAtiva("comparativos");
+
+      if (typeof telaComparativos === "function") {
+        await telaComparativos();
+      } else {
+        container.innerHTML = `
+          <div class="card-conteudo">
+            <h2>🔀 Comparativos</h2>
+            <p>Módulo de comparativos não carregado.</p>
+          </div>
+        `;
+      }
+
+      return;
+    }
+
+    // ======================
+    // 📊 INDICADORES (compatibilidade)
+    // agora funciona como atalho para a tabela atual
+    // ======================
+    if (telaNormalizada === "indicadores") {
+      console.log("📊 Indicadores (compatibilidade)");
+
+      const indicadorAtual = localStorage.getItem(STORAGE_KEYS.indicador);
+      const classeAtual = localStorage.getItem(STORAGE_KEYS.classeSelecionada);
+
+      definirTelaAtiva("tabela", {
+        indicador: indicadorAtual,
+        classe: classeAtual,
+      });
 
       if (typeof carregarTabela === "function") {
-        carregarTabela();
+        await carregarTabela();
       } else {
         console.error("❌ carregarTabela não encontrada");
         mostrarErro("Função carregarTabela não encontrada");
@@ -818,29 +932,13 @@ function mostrar(tela) {
     }
 
     // ======================
-    // 📊 COMPARATIVOS
-    // ======================
-    if (nomeTela === "comparativos") {
-      console.log("📊 Comparativos");
-
-      container.innerHTML = `
-        <div class="card-conteudo">
-          <h2>📊 Comparativos</h2>
-          <p>Em desenvolvimento</p>
-        </div>
-      `;
-
-      return;
-    }
-
-    // ======================
     // 🧱 FALLBACK
     // ======================
-    console.warn("⚠️ Tela não mapeada:", nomeTela);
+    console.warn("⚠️ Tela não mapeada:", telaNormalizada);
 
     container.innerHTML = `
       <div class="card-conteudo">
-        <h2>🚧 ${nomeTela}</h2>
+        <h2>🚧 ${telaNormalizada}</h2>
         <p>Em desenvolvimento</p>
       </div>
     `;
@@ -860,6 +958,13 @@ function mostrar(tela) {
 }
 
 // ==========================
+// 🧭 CONTROLE DE TELAS
+// ==========================
+function mostrar(tela) {
+  abrirTelaInterna(tela, { silent: false });
+}
+
+// ==========================
 // ⚙️ ABRIR MENU CONFIG
 // ==========================
 function abrirConfiguracoesMenu() {
@@ -873,6 +978,163 @@ function abrirConfiguracoesMenu() {
   console.log("⚙️ Acesso ao menu de configurações");
   mostrar("configuracoes");
 }
+
+// ==========================
+// 🔄 ATUALIZAÇÃO SILENCIOSA
+// ==========================
+function existeEdicaoAtivaNoConteudo() {
+  try {
+    const active = document.activeElement;
+    if (!active) return false;
+
+    const tag = (active.tagName || "").toLowerCase();
+    const ehCampo =
+      tag === "input" ||
+      tag === "textarea" ||
+      tag === "select" ||
+      active.isContentEditable === true;
+
+    if (!ehCampo) return false;
+
+    const dentroDoConteudo =
+      !!active.closest("#conteudo") || !!active.closest("#config-conteudo");
+
+    if (!dentroDoConteudo) return false;
+
+    return true;
+  } catch (erro) {
+    console.warn("⚠️ Falha ao avaliar edição ativa:", erro);
+    return false;
+  }
+}
+
+async function sincronizarPerfilSilenciosamente() {
+  try {
+    if (typeof sincronizarUsuarioLocalDoBanco === "function") {
+      console.log("🔄 Sincronizando perfil local silenciosamente...");
+      await sincronizarUsuarioLocalDoBanco();
+      preencherUsuario();
+    }
+  } catch (erro) {
+    console.warn("⚠️ Falha ao sincronizar perfil local silenciosamente:", erro);
+  }
+}
+
+async function atualizarTelaSilenciosamente() {
+  if (APP_STATE.silentRefreshRunning) {
+    console.log("⏳ Atualização silenciosa já em andamento - ignorando ciclo");
+    return;
+  }
+
+  if (window.dashboardModoApresentacao) {
+    console.log("🖥️ Modo apresentação ativo - refresh silencioso bloqueado");
+    return;
+  }
+
+  if (existeEdicaoAtivaNoConteudo()) {
+    console.log(
+      "⌨️ Usuário está interagindo com um campo - refresh silencioso adiado",
+    );
+    return;
+  }
+
+  APP_STATE.silentRefreshRunning = true;
+
+  try {
+    console.log("🔄 Iniciando atualização silenciosa:", {
+      telaAtiva: APP_STATE.telaAtiva,
+      horario: new Date().toLocaleTimeString("pt-BR"),
+    });
+
+    await sincronizarPerfilSilenciosamente();
+
+    switch (APP_STATE.telaAtiva) {
+      case "dashboard":
+        console.log(
+          "📊 Dashboard ativo - atualização silenciosa desabilitada para não atrapalhar apresentação",
+        );
+        break;
+
+      case "analises":
+        console.log(
+          "📈 Análises ativa - atualização silenciosa desabilitada para não atrapalhar uso e apresentação",
+        );
+        break;
+
+      case "comparativos":
+        console.log(
+          "📊 Comparativos ativo - atualização silenciosa desabilitada para não atrapalhar uso e apresentação",
+        );
+        break;
+
+      case "tabela":
+        if (typeof carregarTabela === "function") {
+          await carregarTabela();
+        }
+        break;
+
+      case "configuracoes":
+        console.log("⚙️ Configurações ativa - refresh silencioso ignorado");
+        break;
+
+      default:
+        console.log(
+          "ℹ️ Nenhuma tela compatível com refresh silencioso:",
+          APP_STATE.telaAtiva,
+        );
+        break;
+    }
+
+    APP_STATE.ultimoSilentRefresh = new Date().toISOString();
+
+    console.log("✅ Atualização silenciosa concluída");
+  } catch (erro) {
+    console.error("❌ Erro na atualização silenciosa:", erro);
+  } finally {
+    APP_STATE.silentRefreshRunning = false;
+  }
+}
+
+function iniciarAtualizacaoSilenciosa() {
+  try {
+    pararAtualizacaoSilenciosa();
+
+    console.log(
+      `🔄 Iniciando atualização silenciosa automática a cada ${APP_STATE.silentRefreshMs / 1000}s`,
+    );
+
+    APP_STATE.silentRefreshTimer = setInterval(async () => {
+      await atualizarTelaSilenciosamente();
+    }, APP_STATE.silentRefreshMs);
+  } catch (erro) {
+    console.error("❌ Falha ao iniciar atualização silenciosa:", erro);
+  }
+}
+
+function pararAtualizacaoSilenciosa() {
+  if (APP_STATE.silentRefreshTimer) {
+    clearInterval(APP_STATE.silentRefreshTimer);
+    APP_STATE.silentRefreshTimer = null;
+    console.log("⏹️ Atualização silenciosa parada");
+  }
+}
+
+// ==========================
+// 👀 VISIBILIDADE DA ABA
+// ==========================
+document.addEventListener("visibilitychange", async () => {
+  try {
+    if (document.hidden) {
+      console.log("🙈 Aba oculta - mantendo timer, mas sem refresh imediato");
+      return;
+    }
+
+    console.log("👀 Aba voltou ao foco - disparando refresh silencioso");
+    await atualizarTelaSilenciosamente();
+  } catch (erro) {
+    console.error("❌ Erro no visibilitychange do app:", erro);
+  }
+});
 
 // ==========================
 // 🚀 INIT APP
@@ -894,9 +1156,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   const perfilLocal = await garantirPerfilLocal(authUser);
   if (!perfilLocal) return;
 
-  // 4) limpa contexto de indicador, mas mantém semana
+  // 4) sempre iniciar na semana atual
+  const semanaAtual = getSemanaAtual().toString().padStart(2, "0");
+  localStorage.setItem(STORAGE_KEYS.semana, semanaAtual);
+
+  // limpa contexto do indicador/classe
   localStorage.removeItem(STORAGE_KEYS.indicador);
   localStorage.removeItem(STORAGE_KEYS.classeSelecionada);
+
+  APP_STATE.indicadorAtivo = null;
+  APP_STATE.classeAtiva = null;
+
+  console.log("📅 Semana inicial forçada para a semana atual:", semanaAtual);
 
   // 5) carrega sidebar
   await carregarSidebar();
@@ -909,46 +1180,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     iniciarMonitoramentoInatividade();
   }
 
-  // 8) abre dashboard
-  mostrar("dashboard");
+  // 8) inicia atualização silenciosa
+  iniciarAtualizacaoSilenciosa();
+
+  // 9) abre dashboard
+  await abrirTelaInterna("dashboard", { silent: false });
 });
-
-// ==========================
-// 🆘 PERFIL FALLBACK PELO AUTH (APP)
-// usado quando existe sessão no Auth
-// mas não existe linha em usuarios
-// ==========================
-function montarPerfilFallbackApp(authUser) {
-  const email = (authUser?.email || "").toString().trim().toLowerCase();
-  const nomeBase = email.split("@")[0] || "usuario";
-
-  const perfilFallback = {
-    id: null,
-    auth_user_id: authUser?.id || null,
-    nome: nomeBase,
-    sobrenome: "",
-    email,
-    matricula: "",
-    perfil: "usuario",
-    funcao: "Usuário",
-    permissoes: {
-      indicadores: [],
-      classes: [],
-      acesso_total: false,
-    },
-
-    tipo_visao: "regional",
-    loja_codigo: null,
-    loja_vinculada: null,
-    regional_vinculada: null,
-    subregional_vinculada: null,
-    regionais_vinculadas: [],
-  };
-
-  console.warn(
-    "⚠️ [APP] Perfil não encontrado em usuarios. Usando fallback local:",
-    perfilFallback,
-  );
-
-  return perfilFallback;
-}

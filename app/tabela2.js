@@ -112,7 +112,10 @@ function getConfigTabelaEspecial(indicador, classeSelecionada = null) {
 // ==========================
 function montarTabelaEspecial(lojas, mapa, semanas) {
   const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
-  const config = getConfigTabelaEspecial(indicadorSelecionado, classeSelecionada);
+  const config = getConfigTabelaEspecial(
+    indicadorSelecionado,
+    classeSelecionada,
+  );
   const semanaAtualReal = getSemanaAtual().toString().padStart(2, "0");
 
   let html = `
@@ -281,11 +284,7 @@ function prepararInputEspecial(input) {
 
   // fallback simples
   let valor = (input.value || "").toString().trim();
-  valor = valor
-    .replace("R$", "")
-    .replace("%", "")
-    .replace(/\s/g, "")
-    .trim();
+  valor = valor.replace("R$", "").replace("%", "").replace(/\s/g, "").trim();
 
   input.value = valor;
 }
@@ -308,23 +307,23 @@ function ativarFiltroEspecial() {
     const termo = input.value.toLowerCase().trim();
 
     document.querySelectorAll("#tbody-especial tr").forEach((row) => {
+      const dentroDoEscopo = row.dataset.escopoPermitido !== "false";
+
       const codigo = row.children[0]?.textContent.toLowerCase() || "";
       const loja = row.children[1]?.textContent.toLowerCase() || "";
       const regional = row.children[2]?.textContent.toLowerCase() || "";
 
       const matchBusca =
-        !termo ||
-        codigo.includes(termo) ||
-        loja.includes(termo);
+        !termo || codigo.includes(termo) || loja.includes(termo);
 
       const matchRegional =
         regionalSelecionada === "TODAS" ||
         regional === regionalSelecionada.toLowerCase();
 
-      row.style.display = matchBusca && matchRegional ? "" : "none";
+      row.style.display =
+        dentroDoEscopo && matchBusca && matchRegional ? "" : "none";
     });
   };
-
   input.addEventListener("input", aplicar);
 
   botoesRegional.forEach((btn) => {
@@ -365,7 +364,7 @@ async function autoSalvarEspecial(input) {
       semana,
       campo,
       valorDigitado: input.value,
-      tipo
+      tipo,
     });
     return;
   }
@@ -378,7 +377,7 @@ async function autoSalvarEspecial(input) {
       loja,
       semana,
       campo,
-      valor: comparacao
+      valor: comparacao,
     });
 
     if (typeof formatarValorParaInput === "function") {
@@ -445,7 +444,7 @@ async function salvarValorEspecial(loja, semana, campo, valor) {
     semana,
     indicadorBanco,
     classe,
-    campo
+    campo,
   );
 
   if (TABELA_ESPECIAL_STATE.salvando.has(chaveSalvar)) {
