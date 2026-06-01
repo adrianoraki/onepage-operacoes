@@ -28,9 +28,9 @@
 ========================== */
 .tabela {
   width: 100%;
-  min-width: 820px;
+  min-width: 900px;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 /* ==========================
@@ -39,8 +39,8 @@
 .tabela th {
   background: linear-gradient(90deg, #0a3d62, #1e6091);
   color: #ffffff;
-  padding: 10px 8px;
-  font-size: 13px;
+  padding: 12px 10px;
+  font-size: 14px;
   font-weight: 600;
   text-transform: uppercase;
   position: sticky;
@@ -53,45 +53,12 @@
    📋 CÉLULAS
 ========================== */
 .tabela td {
-  padding: 6px 5px;
+  padding: 10px 8px;
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
   border-bottom: 1px solid #e5e5e5;
   background: rgba(255, 255, 255, 0.95);
   vertical-align: middle;
-  white-space: nowrap;
-}
-
-/* ==========================
-   📐 LARGURA DAS COLUNAS
-   TABELA NORMAL
-========================== */
-.tabela th:nth-child(1),
-.tabela td:nth-child(1) {
-  width: 58px;
-  min-width: 58px;
-  max-width: 58px;
-}
-
-.tabela th:nth-child(2),
-.tabela td:nth-child(2) {
-  width: 150px;
-  min-width: 150px;
-  max-width: 150px;
-}
-
-.tabela th:nth-child(3),
-.tabela td:nth-child(3) {
-  width: 70px;
-  min-width: 70px;
-  max-width: 70px;
-}
-
-.tabela th:nth-child(n + 4),
-.tabela td:nth-child(n + 4) {
-  width: 72px;
-  min-width: 72px;
-  max-width: 72px;
 }
 
 /* ==========================
@@ -101,9 +68,6 @@
   text-align: left;
   font-weight: 600;
   background: rgba(240, 240, 240, 0.95);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* ==========================
@@ -125,73 +89,165 @@
 ========================== */
 .tabela input,
 .input-tabela {
-  width: 52px;
-  height: 22px;
-  border-radius: 4px;
-  border: 1px solid #cfcfcf;
+  width: 80px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
   text-align: center;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 500;
   transition: 0.2s;
   background: #fff;
-  padding: 0 4px;
-  box-sizing: border-box;
+  padding: 0 6px;
 }
 
 .tabela input:focus,
 .input-tabela:focus {
-  border: 1px solid #4CAF50;
+  border: 2px solid #4CAF50;
   background: #eefaf0;
   outline: none;
 }
 
 /* ==========================
-   🧩 CAMPO COM JUSTIFICATIVA
-   PADRÃO VISUAL UNIFICADO
+   📝 CAMPO COM JUSTIFICATIVA
+   input + botão lado a lado
+   sem quebrar posição
 ========================== */
 .campo-tabela-com-justificativa {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 2px !important;
-  width: 100%;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+  white-space: nowrap;
+  width: max-content;
+  min-width: max-content;
+  margin: 0 auto;
+  vertical-align: middle;
 }
 
-.campo-tabela-com-justificativa input,
-.campo-tabela-com-justificativa select {
-  width: 34px !important;
-  min-width: 34px !important;
-  max-width: 34px !important;
-  height: 16px !important;
-  border-radius: 4px !important;
-  border: 1px solid #cfcfcf !important;
-  text-align: center !important;
-  font-size: 7px !important;
-  font-weight: 500 !important;
-  padding: 0 2px !important;
-  box-sizing: border-box !important;
-  background: #fff !important;
-  line-height: 1 !important;
+.campo-tabela-com-justificativa .input-valor-tabela,
+.campo-tabela-com-justificativa input[data-campo="valor"] {
+  width: 58px;
+  min-width: 58px;
+  max-width: 58px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: #fff;
+  padding: 0 6px;
+  box-sizing: border-box;
+  transition: 0.2s;
+  flex: 0 0 58px;
 }
 
-/* select fica igual ao input */
-.campo-tabela-com-justificativa select {
-  appearance: auto;
+.campo-tabela-com-justificativa .input-valor-tabela:focus,
+.campo-tabela-com-justificativa input[data-campo="valor"]:focus {
+  border: 2px solid #4CAF50;
+  background: #eefaf0;
+  outline: none;
+}
+
+.btn-justificativa-celula {
+  width: 26px;
+  min-width: 26px;
+  max-width: 26px;
+  height: 26px;
+  font-size: 14px;
+}
+
+
+/* ==========================
+   🔴 BOTÃO DE JUSTIFICATIVA
+========================== */
+.btn-justificativa-celula {
+  width: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid #c62828;
+  background: linear-gradient(180deg, #ef5350 0%, #d32f2f 100%);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0;
+  margin: 0;
   cursor: pointer;
+  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(211, 47, 47, 0.22);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease;
+  flex: 0 0 28px;
 }
 
-/* foco padronizado */
-.campo-tabela-com-justificativa input:focus,
-.campo-tabela-com-justificativa select:focus {
-  border: 1px solid #4CAF50 !important;
-  background: #eefaf0 !important;
-  outline: none !important;
+.btn-justificativa-celula:hover {
+  background: linear-gradient(180deg, #ff6b6b 0%, #c62828 100%);
+  border-color: #a91d1d;
+  color: #fff;
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 6px 16px rgba(198, 40, 40, 0.32);
 }
 
-/* opção aberta continua legível */
-.campo-tabela-com-justificativa select option {
-  font-size: 11px;
+.btn-justificativa-celula:active {
+  transform: translateY(0) scale(0.96);
+  box-shadow: 0 2px 6px rgba(198, 40, 40, 0.22);
+}
+
+.btn-justificativa-celula:focus {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(244, 67, 54, 0.18),
+    0 6px 16px rgba(198, 40, 40, 0.24);
+}
+
+.btn-justificativa-celula.ativo {
+  background: linear-gradient(180deg, #d32f2f 0%, #8e0000 100%);
+  border-color: #7f0000;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(142, 0, 0, 0.32);
+}
+
+.btn-justificativa-celula.pendente {
+  background: linear-gradient(180deg, #ff8a80 0%, #e53935 100%);
+  border-color: #c62828;
+  color: #fff;
+  animation: pulseJustificativa 1s ease-in-out infinite;
+}
+
+.btn-justificativa-celula.bloqueado,
+.btn-justificativa-celula:disabled {
+  background: linear-gradient(180deg, #ef9a9a 0%, #e0e0e0 100%);
+  border-color: #d0d0d0;
+  color: #ffffff;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.75;
+}
+
+@keyframes pulseJustificativa {
+  0% {
+    box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.3);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(229, 57, 53, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(229, 57, 53, 0);
+  }
 }
 
 /* ==========================
@@ -330,8 +386,8 @@
 ========================== */
 .coluna-atual {
   background-color: #e8f5e9 !important;
-  border-left: 1px solid #4CAF50;
-  border-right: 1px solid #4CAF50;
+  border-left: 2px solid #4CAF50;
+  border-right: 2px solid #4CAF50;
 }
 
 th.coluna-atual {
@@ -574,51 +630,12 @@ th.coluna-atual {
    📱 RESPONSIVIDADE
 ========================== */
 @media (max-width: 1366px) {
-  .tabela {
-    min-width: 760px;
-  }
-
-  .tabela th,
-  .tabela td {
-    font-size: 12px;
-    padding: 5px 4px;
-  }
-
-  .tabela th:nth-child(1),
-  .tabela td:nth-child(1) {
-    width: 54px;
-    min-width: 54px;
-    max-width: 54px;
-  }
-
-  .tabela th:nth-child(2),
-  .tabela td:nth-child(2) {
-    width: 132px;
-    min-width: 132px;
-    max-width: 132px;
-  }
-
-  .tabela th:nth-child(3),
-  .tabela td:nth-child(3) {
-    width: 62px;
-    min-width: 62px;
-    max-width: 62px;
-  }
-
-  .tabela th:nth-child(n + 4),
-  .tabela td:nth-child(n + 4) {
-    width: 64px;
-    min-width: 64px;
-    max-width: 64px;
-  }
-
-  .campo-tabela-com-justificativa input,
-  .campo-tabela-com-justificativa select {
-    width: 32px !important;
-    min-width: 32px !important;
-    max-width: 32px !important;
-    height: 15px !important;
-    font-size: 6px !important;
+  .btn-justificativa-celula {
+    width: 22px;
+    min-width: 22px;
+    max-width: 22px;
+    height: 22px;
+    font-size: 14px;
   }
 
   .col-loja {
@@ -673,30 +690,16 @@ th.coluna-atual {
 
 @media (max-width: 1024px) {
   .tabela {
-    min-width: 680px;
+    min-width: 750px;
   }
 
-  .tabela th:nth-child(2),
-  .tabela td:nth-child(2) {
-    width: 118px;
-    min-width: 118px;
-    max-width: 118px;
-  }
-
-  .tabela th:nth-child(n + 4),
-  .tabela td:nth-child(n + 4) {
-    width: 60px;
-    min-width: 60px;
-    max-width: 60px;
-  }
-
-  .campo-tabela-com-justificativa input,
-  .campo-tabela-com-justificativa select {
-    width: 30px !important;
-    min-width: 30px !important;
-    max-width: 30px !important;
-    height: 15px !important;
-    font-size: 6px !important;
+  .btn-justificativa-celula {
+    width: 21px;
+    min-width: 21px;
+    max-width: 21px;
+    height: 21px;
+    font-size: 13px;
+    border-radius: 6px;
   }
 
   .tabela-especial-compacta,
@@ -753,56 +756,29 @@ th.coluna-atual {
     min-width: 70px;
   }
 
+  .btn-justificativa-celula {
+    width: 20px;
+    min-width: 20px;
+    max-width: 20px;
+    height: 20px;
+    font-size: 12px;
+    border-radius: 5px;
+  }
+
   .tabela {
-    min-width: 560px;
+    min-width: 600px;
   }
 
   .tabela th,
   .tabela td {
-    font-size: 11px;
-    padding: 5px 4px;
+    font-size: 12px;
+    padding: 6px;
   }
 
-  .tabela th:nth-child(1),
-  .tabela td:nth-child(1) {
-    width: 48px;
-    min-width: 48px;
-    max-width: 48px;
-  }
-
-  .tabela th:nth-child(2),
-  .tabela td:nth-child(2) {
-    width: 108px;
-    min-width: 108px;
-    max-width: 108px;
-  }
-
-  .tabela th:nth-child(3),
-  .tabela td:nth-child(3) {
-    width: 54px;
-    min-width: 54px;
-    max-width: 54px;
-  }
-
-  .tabela th:nth-child(n + 4),
-  .tabela td:nth-child(n + 4) {
-    width: 54px;
-    min-width: 54px;
-    max-width: 54px;
-  }
-
-  .campo-tabela-com-justificativa {
-    gap: 2px !important;
-  }
-
-  .campo-tabela-com-justificativa input,
-  .campo-tabela-com-justificativa select {
-    width: 28px !important;
-    min-width: 28px !important;
-    max-width: 28px !important;
-    height: 14px !important;
-    font-size: 6px !important;
-    padding: 0 1px !important;
+  .tabela input,
+  .input-tabela {
+    width: 55px;
+    font-size: 12px;
   }
 
   /* especiais / RH mantêm compactação forte */
@@ -852,37 +828,26 @@ th.coluna-atual {
 }
 
 @media (min-width: 1600px) {
-  .tabela {
-    min-width: 940px;
-  }
-
   .tabela th,
   .tabela td {
-    font-size: 14px;
-    padding: 8px 6px;
+    font-size: 16px;
+    padding: 14px;
   }
 
-  .tabela th:nth-child(2),
-  .tabela td:nth-child(2) {
-    width: 170px;
-    min-width: 170px;
-    max-width: 170px;
+  .tabela input,
+  .input-tabela {
+    width: 100px;
+    font-size: 15px;
+    height: 36px;
   }
 
-  .tabela th:nth-child(n + 4),
-  .tabela td:nth-child(n + 4) {
-    width: 78px;
-    min-width: 78px;
-    max-width: 78px;
-  }
-
-  .campo-tabela-com-justificativa input,
-  .campo-tabela-com-justificativa select {
-    width: 36px !important;
-    min-width: 36px !important;
-    max-width: 36px !important;
-    height: 17px !important;
-    font-size: 8px !important;
+  .btn-justificativa-celula {
+    width: 26px;
+    min-width: 26px;
+    max-width: 26px;
+    height: 26px;
+    font-size: 16px;
+    border-radius: 8px;
   }
 
   .header-tabela h2 {

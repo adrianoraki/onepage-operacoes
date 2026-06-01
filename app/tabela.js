@@ -82,6 +82,12 @@ const JUSTIFICATIVAS_SEM_RESPOSTA = [
   "Alinhado com Gerente Operações",
 ];
 
+const JUSTIFICATIVA_UI_STATE = {
+  botaoAtivo: null,
+  clicandoBotao: false,
+  timeoutClique: null,
+};
+
 function escapeHtmlTabela(valor) {
   return (valor || "")
     .toString()
@@ -92,139 +98,298 @@ function escapeHtmlTabela(valor) {
     .replace(/'/g, "&#039;");
 }
 
-function gerarOptionsJustificativa(selecionada = "") {
-  const selecionadaNorm = normalizarTextoTabela(selecionada);
+function prepararCliqueJustificativa(event = null) {
+  JUSTIFICATIVA_UI_STATE.clicandoBotao = true;
 
-  let html = `<option value="">Just.</option>`;
+  if (JUSTIFICATIVA_UI_STATE.timeoutClique) {
+    clearTimeout(JUSTIFICATIVA_UI_STATE.timeoutClique);
+  }
 
-  JUSTIFICATIVAS_SEM_RESPOSTA.forEach((motivo) => {
-    const selected =
-      normalizarTextoTabela(motivo) === selecionadaNorm ? "selected" : "";
-
-    html += `<option value="${escapeHtmlTabela(motivo)}" ${selected}>${motivo}</option>`;
-  });
-
-  return html;
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
 }
 
-function getStyleJustificativaCompacta(mostrar = true) {
-  return `
-    display:${mostrar ? "inline-block" : "none"};
-    width:62px;
-    min-width:62px;
-    max-width:62px;
-    height:22px;
-    border-radius:4px;
-    padding:0 3px;
-    border:1px solid #ccc;
-    font-size:10px;
-    line-height:1;
-    background:#fff;
-    vertical-align:middle;
-    box-sizing:border-box;
-  `;
+function finalizarCliqueJustificativa() {
+  if (JUSTIFICATIVA_UI_STATE.timeoutClique) {
+    clearTimeout(JUSTIFICATIVA_UI_STATE.timeoutClique);
+  }
+
+  JUSTIFICATIVA_UI_STATE.timeoutClique = setTimeout(() => {
+    JUSTIFICATIVA_UI_STATE.clicandoBotao = false;
+  }, 180);
 }
 
 function valorCampoEstaVazioTabela(valor) {
   return (valor || "").toString().trim() === "";
 }
 
-function getSeletorJustificativa(loja, semana) {
+function getBotaoJustificativa(loja, semana) {
   return document.querySelector(
-    `select[data-loja="${CSS.escape(loja)}"][data-semana="${CSS.escape(
-      semana
-    )}"][data-campo="justificativa"]`
+    `button[data-loja="${CSS.escape(loja)}"][data-semana="${CSS.escape(
+      semana,
+    )}"][data-campo="justificativa"]`,
   );
 }
 
 function getInputValorTabela(loja, semana) {
   return document.querySelector(
     `input[data-loja="${CSS.escape(loja)}"][data-semana="${CSS.escape(
-      semana
-    )}"][data-campo="valor"]`
+      semana,
+    )}"][data-campo="valor"]`,
   );
 }
 
-function getSelectJustificativaDoInput(input) {
+function getBotaoJustificativaDoInput(input) {
   if (!input) return null;
-  return getSeletorJustificativa(input.dataset.loja, input.dataset.semana);
+  return getBotaoJustificativa(input.dataset.loja, input.dataset.semana);
 }
 
-function getInputDoSelectJustificativa(select) {
-  if (!select) return null;
-  return getInputValorTabela(select.dataset.loja, select.dataset.semana);
+function getInputDoBotaoJustificativa(botao) {
+  if (!botao) return null;
+  return getInputValorTabela(botao.dataset.loja, botao.dataset.semana);
+}
+
+function atualizarEstadoVisualBotaoJustificativa(botao) {
+  if (!botao) return;
+
+  const justificativaAtual = normalizarTextoTabela(
+    botao.dataset.justificativaAtual || "",
+  );
+
+  botao.classList.toggle("ativo", !!justificativaAtual);
+  botao.title = justificativaAtual || "Selecionar justificativa";
 }
 
 function atualizarVisibilidadeJustificativa(input, limparSeTiverValor = true) {
   if (!input) return;
 
-  const select = getSelectJustificativaDoInput(input);
-  if (!select) return;
+  const botao = getBotaoJustificativaDoInput(input);
+  if (!botao) return;
 
   const temValor = !valorCampoEstaVazioTabela(input.value);
   const bloqueado =
     input.disabled || input.readOnly || input.dataset.bloqueado === "true";
 
-  select.style.width = "62px";
-  select.style.minWidth = "62px";
-  select.style.maxWidth = "62px";
-  select.style.height = "22px";
-  select.style.fontSize = "10px";
-  select.style.padding = "0 3px";
-  select.style.borderRadius = "4px";
-  select.style.boxSizing = "border-box";
-
   if (temValor) {
     if (limparSeTiverValor) {
-      select.value = "";
-      select.title = "Selecione uma justificativa";
+      botao.dataset.justificativaAtual = "";
+      botao.dataset.original = "";
+      atualizarEstadoVisualBotaoJustificativa(botao);
     }
 
-    select.style.display = "none";
-    select.disabled = true;
+    botao.style.display = "none";
+    botao.disabled = true;
+    botao.classList.remove("pendente");
     return;
   }
 
-  select.style.display = "inline-block";
-  select.disabled = bloqueado;
-  select.title = select.value || "Selecione uma justificativa";
+  botao.style.display = "inline-flex";
+  botao.disabled = bloqueado;
+  botao.classList.toggle("bloqueado", bloqueado);
+  atualizarEstadoVisualBotaoJustificativa(botao);
 }
 
 function sincronizarJustificativasComPermissoesTabela() {
   const inputs = document.querySelectorAll(
-    '#conteudo input[data-loja][data-semana][data-campo="valor"]'
+    '#conteudo input[data-loja][data-semana][data-campo="valor"]',
   );
 
   inputs.forEach((input) => {
-    const select = getSelectJustificativaDoInput(input);
-    if (!select) return;
+    const botao = getBotaoJustificativaDoInput(input);
+    if (!botao) return;
 
     const bloqueado =
       input.disabled || input.readOnly || input.dataset.bloqueado === "true";
 
-    select.style.width = "62px";
-    select.style.minWidth = "62px";
-    select.style.maxWidth = "62px";
-    select.style.height = "22px";
-    select.style.fontSize = "10px";
-    select.style.padding = "0 3px";
-    select.style.borderRadius = "4px";
-    select.style.boxSizing = "border-box";
-
     if (bloqueado) {
-      select.disabled = true;
-      select.style.cursor = "not-allowed";
-      select.style.background = "#f1f1f1";
-      select.style.color = "#777";
-      select.title = input.dataset.motivo || input.title || "Campo bloqueado";
+      botao.disabled = true;
+      botao.classList.add("bloqueado");
+      botao.title = input.dataset.motivo || input.title || "Campo bloqueado";
     } else {
-      select.style.cursor = "pointer";
-      select.style.background = "#fff";
-      select.style.color = "#000";
-      select.title = select.value || "Selecione uma justificativa";
+      botao.disabled = false;
+      botao.classList.remove("bloqueado");
       atualizarVisibilidadeJustificativa(input, false);
     }
   });
+}
+
+function garantirPainelJustificativa() {
+  let painel = document.getElementById("painel-justificativa-flutuante");
+  if (painel) return painel;
+
+  painel = document.createElement("div");
+  painel.id = "painel-justificativa-flutuante";
+  painel.className = "painel-justificativa-flutuante";
+
+  painel.innerHTML = `
+    <div class="painel-justificativa-box">
+      <div class="painel-justificativa-header">
+        <strong>Selecionar justificativa</strong>
+        <button
+          type="button"
+          class="btn-fechar-painel-justificativa"
+          id="btn-fechar-painel-justificativa"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div class="painel-justificativa-lista" id="painel-justificativa-lista"></div>
+    </div>
+  `;
+
+  document.body.appendChild(painel);
+
+  const lista = painel.querySelector("#painel-justificativa-lista");
+  JUSTIFICATIVAS_SEM_RESPOSTA.forEach((motivo) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "item-justificativa-painel";
+    btn.dataset.motivo = motivo;
+    btn.textContent = motivo;
+
+    btn.addEventListener("click", async () => {
+      await selecionarJustificativaPainel(motivo);
+    });
+
+    lista.appendChild(btn);
+  });
+
+  const btnFechar = painel.querySelector("#btn-fechar-painel-justificativa");
+  if (btnFechar) {
+    btnFechar.addEventListener("click", fecharPainelJustificativa);
+  }
+
+  document.addEventListener("click", (event) => {
+    const painelAberto = document.getElementById(
+      "painel-justificativa-flutuante",
+    );
+
+    if (!painelAberto || !painelAberto.classList.contains("ativo")) return;
+
+    const clicouNoPainel = painelAberto.contains(event.target);
+    const clicouNoBotaoJustificativa = event.target.closest(
+      ".btn-justificativa-celula",
+    );
+
+    if (!clicouNoPainel && !clicouNoBotaoJustificativa) {
+      fecharPainelJustificativa();
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (JUSTIFICATIVA_UI_STATE.botaoAtivo) {
+      posicionarPainelJustificativa(JUSTIFICATIVA_UI_STATE.botaoAtivo);
+    }
+  });
+
+  window.addEventListener("scroll", () => {
+    if (JUSTIFICATIVA_UI_STATE.botaoAtivo) {
+      posicionarPainelJustificativa(JUSTIFICATIVA_UI_STATE.botaoAtivo);
+    }
+  });
+
+  return painel;
+}
+
+function posicionarPainelJustificativa(botao) {
+  const painel = garantirPainelJustificativa();
+  const caixa = painel.querySelector(".painel-justificativa-box");
+  if (!caixa || !botao) return;
+
+  const rect = botao.getBoundingClientRect();
+  const larguraPainel = 280;
+  const margem = 12;
+
+  let left = rect.left;
+  let top = rect.bottom + 8;
+
+  if (left + larguraPainel > window.innerWidth - margem) {
+    left = window.innerWidth - larguraPainel - margem;
+  }
+
+  if (left < margem) {
+    left = margem;
+  }
+
+  const alturaAproximada = 320;
+  if (top + alturaAproximada > window.innerHeight - margem) {
+    top = rect.top - alturaAproximada - 8;
+  }
+
+  if (top < margem) {
+    top = margem;
+  }
+
+  caixa.style.left = `${left}px`;
+  caixa.style.top = `${top}px`;
+}
+
+function marcarJustificativaSelecionadaNoPainel(botao) {
+  const painel = garantirPainelJustificativa();
+  const atual = normalizarTextoTabela(botao?.dataset.justificativaAtual || "");
+
+  painel.querySelectorAll(".item-justificativa-painel").forEach((item) => {
+    const motivo = normalizarTextoTabela(item.dataset.motivo || "");
+    item.classList.toggle("ativo", motivo === atual);
+  });
+}
+
+function abrirPainelJustificativa(botao, event = null) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  if (!botao || botao.disabled) {
+    finalizarCliqueJustificativa();
+    return;
+  }
+
+  JUSTIFICATIVA_UI_STATE.botaoAtivo = botao;
+
+  const painel = garantirPainelJustificativa();
+  painel.classList.add("ativo");
+
+  posicionarPainelJustificativa(botao);
+  marcarJustificativaSelecionadaNoPainel(botao);
+
+  finalizarCliqueJustificativa();
+}
+
+function fecharPainelJustificativa() {
+  const painel = document.getElementById("painel-justificativa-flutuante");
+  if (painel) {
+    painel.classList.remove("ativo");
+  }
+
+  JUSTIFICATIVA_UI_STATE.botaoAtivo = null;
+  JUSTIFICATIVA_UI_STATE.clicandoBotao = false;
+
+  if (JUSTIFICATIVA_UI_STATE.timeoutClique) {
+    clearTimeout(JUSTIFICATIVA_UI_STATE.timeoutClique);
+    JUSTIFICATIVA_UI_STATE.timeoutClique = null;
+  }
+}
+
+async function selecionarJustificativaPainel(motivo) {
+  const botao = JUSTIFICATIVA_UI_STATE.botaoAtivo;
+  if (!botao) return;
+
+  const input = getInputDoBotaoJustificativa(botao);
+  if (!input) return;
+
+  botao.dataset.justificativaAtual = normalizarTextoTabela(motivo || "");
+  botao.classList.remove("pendente");
+  atualizarEstadoVisualBotaoJustificativa(botao);
+
+  const salvou = await processarAutoSalvarCampoTabela(input, botao);
+
+  if (salvou) {
+    fecharPainelJustificativa();
+  }
 }
 
 // ==========================
@@ -275,7 +440,7 @@ function gerarSemanas() {
   const atual = parseInt(semanaSelecionada || getSemanaAtual(), 10);
 
   const lista = [atual - 3, atual - 2, atual - 1, atual].map((s) =>
-    s <= 0 ? 52 + s : s
+    s <= 0 ? 52 + s : s,
   );
 
   const semanas = lista.map((s) => s.toString().padStart(2, "0"));
@@ -389,7 +554,7 @@ async function carregarTabela() {
       normalizarTextoTabelaUpper(indicadorSelecionado);
     const indicadorBanco = obterIndicadorBanco(
       indicadorNormalizado,
-      classeSelecionada
+      classeSelecionada,
     );
     const classeAtual = obterClasse(indicadorNormalizado, classeSelecionada);
 
@@ -466,7 +631,7 @@ async function carregarTabela() {
         lojas,
         mapa,
         semanas,
-        classeSelecionada
+        classeSelecionada,
       );
     }
 
@@ -475,6 +640,7 @@ async function carregarTabela() {
       aplicarPermissoesTabela(indicadorNormalizado, classeAtual);
     }
 
+    garantirPainelJustificativa();
     sincronizarJustificativasComPermissoesTabela();
     ativarFiltros();
   } catch (erro) {
@@ -591,21 +757,12 @@ function montarLinha(loja, mapa, semanas, classeSelecionada = null) {
         ? ""
         : String(valor);
 
-    const mostrarJustificativa =
+    const mostrarBotaoJustificativa =
       valor === null || valor === undefined || valor === "";
 
     html += `
       <td class="${destaque}">
-        <div
-          class="campo-tabela-com-justificativa"
-          style="
-            display:flex;
-            flex-direction:column;
-            align-items:center;
-            justify-content:center;
-            gap:3px;
-          "
-        >
+        <div class="campo-tabela-com-justificativa">
           <input
             type="text"
             inputmode="decimal"
@@ -619,31 +776,24 @@ function montarLinha(loja, mapa, semanas, classeSelecionada = null) {
             onfocus="prepararInputFormatado(this)"
             oninput="atualizarVisibilidadeJustificativa(this)"
             onblur="autoSalvar(this)"
-            style="
-              width:48px;
-              min-width:48px;
-              max-width:48px;
-              height:22px;
-              border-radius:4px;
-              padding:0 4px;
-              text-align:center;
-              box-sizing:border-box;
-            "
+            class="input-valor-tabela"
           >
 
-          <select
-            data-loja="${escapeHtmlTabela(chaveLoja)}"
-            data-semana="${escapeHtmlTabela(semana)}"
-            data-campo="justificativa"
-            data-original="${escapeHtmlTabela(justificativa)}"
-            onchange="autoSalvarJustificativa(this)"
-            title="${escapeHtmlTabela(
-              justificativa || "Selecione uma justificativa"
-            )}"
-            style="${getStyleJustificativaCompacta(mostrarJustificativa)}"
-          >
-            ${gerarOptionsJustificativa(justificativa)}
-          </select>
+          <button
+  type="button"
+  class="btn-justificativa-celula ${justificativa ? "ativo" : ""}"
+  data-loja="${escapeHtmlTabela(chaveLoja)}"
+  data-semana="${escapeHtmlTabela(semana)}"
+  data-campo="justificativa"
+  data-original="${escapeHtmlTabela(justificativa)}"
+  data-justificativa-atual="${escapeHtmlTabela(justificativa)}"
+  onmousedown="prepararCliqueJustificativa(event)"
+  onclick="abrirPainelJustificativa(this, event)"
+  title="${escapeHtmlTabela(justificativa || "Selecionar justificativa")}"
+  style="display:${mostrarBotaoJustificativa ? "inline-flex" : "none"};"
+>
+  !
+</button>
         </div>
       </td>
     `;
@@ -728,32 +878,22 @@ function ativarFiltros() {
 }
 
 // ==========================
-// 📝 SALVAR JUSTIFICATIVA PELO SELECT
-// ==========================
-async function autoSalvarJustificativa(select) {
-  if (!select) return;
-
-  const input = getInputDoSelectJustificativa(select);
-  if (!input) return;
-
-  await processarAutoSalvarCampoTabela(input, select);
-}
-
-// ==========================
 // 💾 PROCESSAR AUTO SAVE COMPLETO DO CAMPO
 // valor + justificativa
 // ==========================
-async function processarAutoSalvarCampoTabela(input, select = null) {
+async function processarAutoSalvarCampoTabela(input, botao = null) {
   if (!input) return false;
 
   const loja = input.dataset.loja;
   const semana = input.dataset.semana;
   const tipo = input.dataset.tipo || "numero";
 
-  const seletor = select || getSelectJustificativaDoInput(input);
+  const botaoJustificativa = botao || getBotaoJustificativaDoInput(input);
 
   const valorDigitado = (input.value || "").toString().trim();
-  let justificativaSelecionada = normalizarTextoTabela(seletor?.value || "");
+  let justificativaSelecionada = normalizarTextoTabela(
+    botaoJustificativa?.dataset.justificativaAtual || "",
+  );
 
   const valorOriginal = input.dataset.original ?? "";
   const justificativaOriginal = input.dataset.originalJustificativa ?? "";
@@ -761,20 +901,22 @@ async function processarAutoSalvarCampoTabela(input, select = null) {
   // se tem valor preenchido, justificativa deixa de existir
   if (!valorCampoEstaVazioTabela(valorDigitado)) {
     justificativaSelecionada = "";
-    if (seletor) {
-      seletor.value = "";
-      seletor.style.display = "none";
-      seletor.disabled = true;
-      seletor.title = "Selecione uma justificativa";
+
+    if (botaoJustificativa) {
+      botaoJustificativa.dataset.justificativaAtual = "";
+      botaoJustificativa.dataset.original = "";
+      botaoJustificativa.style.display = "none";
+      botaoJustificativa.disabled = true;
+      botaoJustificativa.classList.remove("ativo", "pendente");
+      botaoJustificativa.title = "Selecionar justificativa";
     }
   } else {
-    if (seletor) {
-      seletor.style.display = "inline-block";
-      seletor.disabled =
-        input.disabled ||
-        input.readOnly ||
-        input.dataset.bloqueado === "true";
-      seletor.title = seletor.value || "Selecione uma justificativa";
+    if (botaoJustificativa) {
+      botaoJustificativa.style.display = "inline-flex";
+      botaoJustificativa.disabled =
+        input.disabled || input.readOnly || input.dataset.bloqueado === "true";
+
+      atualizarEstadoVisualBotaoJustificativa(botaoJustificativa);
     }
   }
 
@@ -814,10 +956,7 @@ async function processarAutoSalvarCampoTabela(input, select = null) {
       justificativa: justificativaSelecionada,
     });
 
-    if (
-      valorLimpo !== null &&
-      typeof formatarValorParaInput === "function"
-    ) {
+    if (valorLimpo !== null && typeof formatarValorParaInput === "function") {
       input.value = formatarValorParaInput(valorLimpo, tipo);
     }
 
@@ -826,14 +965,17 @@ async function processarAutoSalvarCampoTabela(input, select = null) {
 
   // se não tem valor, exige justificativa
   if (valorLimpo === null && !justificativaSelecionada) {
-    console.warn("⚠️ Campo sem valor e sem justificativa. Salvamento bloqueado.", {
-      loja,
-      semana,
-    });
+    console.warn(
+      "⚠️ Campo sem valor e sem justificativa. Salvamento bloqueado.",
+      {
+        loja,
+        semana,
+      },
+    );
 
-    if (seletor) {
-      seletor.style.border = "1px solid #e53935";
-      seletor.focus();
+    if (botaoJustificativa) {
+      botaoJustificativa.classList.add("pendente");
+      abrirPainelJustificativa(botaoJustificativa);
     }
 
     aplicarStatusInput(input, "erro");
@@ -859,17 +1001,18 @@ async function processarAutoSalvarCampoTabela(input, select = null) {
     loja,
     semana,
     valorLimpo,
-    justificativaSelecionada
+    justificativaSelecionada,
   );
 
   if (salvou) {
     input.dataset.original = valorComparacao;
     input.dataset.originalJustificativa = justificativaSelecionada;
 
-    if (seletor) {
-      seletor.dataset.original = justificativaSelecionada;
-      seletor.style.border = "1px solid #ccc";
-      seletor.title = justificativaSelecionada || "Selecione uma justificativa";
+    if (botaoJustificativa) {
+      botaoJustificativa.dataset.original = justificativaSelecionada;
+      botaoJustificativa.dataset.justificativaAtual = justificativaSelecionada;
+      botaoJustificativa.classList.remove("pendente");
+      atualizarEstadoVisualBotaoJustificativa(botaoJustificativa);
     }
 
     aplicarStatusInput(input, "sucesso");
@@ -886,6 +1029,13 @@ async function processarAutoSalvarCampoTabela(input, select = null) {
 // ==========================
 async function autoSalvar(input) {
   if (!input) return;
+
+  // se o usuário estiver clicando no botão de justificativa,
+  // ignora o blur do input para não impedir a abertura do painel
+  if (JUSTIFICATIVA_UI_STATE.clicandoBotao === true) {
+    return;
+  }
+
   await processarAutoSalvarCampoTabela(input);
 }
 
@@ -909,7 +1059,7 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
   const indicadorNormalizado = normalizarTextoTabelaUpper(indicadorSelecionado);
   const indicadorBanco = obterIndicadorBanco(
     indicadorNormalizado,
-    classeSelecionada
+    classeSelecionada,
   );
   const classe = obterClasse(indicadorNormalizado, classeSelecionada);
 
@@ -917,13 +1067,13 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
     loja,
     semana,
     indicadorBanco,
-    classe
+    classe,
   );
 
   if (TABELA_STATE.salvando.has(chaveSalvar)) {
     console.warn(
       "⚠️ Já existe um salvamento em andamento para este registro:",
-      chaveSalvar
+      chaveSalvar,
     );
     return false;
   }
