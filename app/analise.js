@@ -52,9 +52,7 @@ function formatarNumeroAnalise(valor, casas = 2) {
 }
 
 function calcularMediaAnalise(lista = []) {
-  const numeros = (lista || [])
-    .map((v) => Number(v))
-    .filter((v) => !isNaN(v));
+  const numeros = (lista || []).map((v) => Number(v)).filter((v) => !isNaN(v));
 
   if (!numeros.length) return 0;
   return numeros.reduce((a, b) => a + b, 0) / numeros.length;
@@ -97,18 +95,49 @@ function quebrarNomeLojaAnalise(loja) {
   };
 }
 
+function indicadorEhNumeroAnalise(indicador, classeSelecionada = null) {
+  const indicadorNorm = normalizarTextoAnaliseUpper(indicador);
+  const classeNorm = normalizarTextoAnalise(classeSelecionada);
+
+  // NPS deve sempre ser tratado como número
+  if (indicadorNorm === "NPS") return true;
+
+  // aqui você pode adicionar outros indicadores numéricos no futuro
+  return false;
+}
+
 function getTipoCampoAnalise(
   indicador,
   campoKey = "valor",
-  classeSelecionada = null
+  classeSelecionada = null,
 ) {
-  if (typeof getCampoConfig === "function") {
-    return (
-      getCampoConfig(indicador, campoKey, classeSelecionada)?.tipo || "numero"
-    );
+  try {
+    if (indicadorEhNumeroAnalise(indicador, classeSelecionada)) {
+      console.log("🔢 Indicador forçado como número na análise:", {
+        indicador,
+        classeSelecionada,
+        campoKey,
+      });
+      return "numero";
+    }
+
+    if (typeof getCampoConfig === "function") {
+      const tipo = getCampoConfig(indicador, campoKey, classeSelecionada)?.tipo;
+      return tipo || "numero";
+    }
+
+    return "numero";
+  } catch (erro) {
+    console.warn("⚠️ Falha ao obter tipo de campo na análise:", {
+      indicador,
+      campoKey,
+      classeSelecionada,
+      erro,
+    });
+    return "numero";
   }
-  return "numero";
 }
+``;
 
 function formatarValorAnalise(valor, tipo = "numero") {
   if (valor === null || valor === undefined || valor === "") return "-";
@@ -154,7 +183,7 @@ function destruirGraficosAnalise() {
 function ajustarAlturaChartAnalise(
   canvasId,
   quantidade,
-  { minimo = 220, maximo = 360, pxPorItem = 20 } = {}
+  { minimo = 220, maximo = 360, pxPorItem = 20 } = {},
 ) {
   try {
     const canvas = document.getElementById(canvasId);
@@ -166,6 +195,14 @@ function ajustarAlturaChartAnalise(
     console.warn("⚠️ Falha ao ajustar altura do chart de análise:", erro);
   }
 }
+function getCasasDecimaisAnalise(indicador, classeSelecionada = null) {
+  const indicadorNorm = normalizarTextoAnaliseUpper(indicador);
+
+  if (indicadorNorm === "NPS") return 0;
+
+  return 2;
+}
+
 
 // ==========================
 // 🏷️ HELPERS DE INDICADOR
@@ -198,7 +235,7 @@ function menorEhMelhorAnalise(tipoValorPrincipal) {
   if (ANALISE_STATE.indicador && ANALISE_STATE.indicador !== "TODOS") {
     const ordem = getOrdemRankingAnalise(
       ANALISE_STATE.indicador,
-      ANALISE_STATE.classe === "TODAS" ? null : ANALISE_STATE.classe
+      ANALISE_STATE.classe === "TODAS" ? null : ANALISE_STATE.classe,
     );
 
     return ordem === "asc";
@@ -273,7 +310,7 @@ function getSemanasMesVigenteAnalise() {
     d.setDate(d.getDate() + 1)
   ) {
     semanasSet.add(
-      getNumeroSemanaPorDataAnalise(d).toString().padStart(2, "0")
+      getNumeroSemanaPorDataAnalise(d).toString().padStart(2, "0"),
     );
   }
 
@@ -293,7 +330,7 @@ function getPrimeiraEUltimaSemanaMesVigenteAnalise() {
 function gerarJanelaSemanasAnalise(semanaBase) {
   const atual = parseInt(semanaBase || getSemanaAtual(), 10);
   const lista = [atual - 3, atual - 2, atual - 1, atual].map((s) =>
-    s <= 0 ? 52 + s : s
+    s <= 0 ? 52 + s : s,
   );
   return lista.map((s) => s.toString().padStart(2, "0"));
 }
@@ -311,7 +348,7 @@ function aplicarEscopoBaseLojasAnalise(lojas, contexto) {
       lista = lista.filter(
         (l) =>
           normalizarTextoAnaliseUpper(l.regional) ===
-          normalizarTextoAnaliseUpper(contexto.escopo.regional)
+          normalizarTextoAnaliseUpper(contexto.escopo.regional),
       );
     }
 
@@ -333,7 +370,7 @@ function aplicarFiltrosVisuaisLojasAnalise(lojas) {
       lista = lista.filter(
         (l) =>
           normalizarTextoAnaliseUpper(l.regional) ===
-          normalizarTextoAnaliseUpper(ANALISE_STATE.regional)
+          normalizarTextoAnaliseUpper(ANALISE_STATE.regional),
       );
     }
     return lista;
@@ -381,7 +418,11 @@ function calcularMelhorEPiorLojaAnalise(resultadosMes, tipoValorPrincipal) {
   };
 }
 
-function agruparTopLojasAnalise(resultadosMes, semanasInfo, tipoValorPrincipal) {
+function agruparTopLojasAnalise(
+  resultadosMes,
+  semanasInfo,
+  tipoValorPrincipal,
+) {
   const mapa = {};
 
   resultadosMes.forEach((r) => {
@@ -732,7 +773,7 @@ async function carregarDadosAnalise(contexto) {
 
     const lojasEscopoBase = aplicarEscopoBaseLojasAnalise(
       lojasData || [],
-      contexto
+      contexto,
     );
     const lojasVisuais = aplicarFiltrosVisuaisLojasAnalise(lojasEscopoBase);
 
@@ -741,10 +782,10 @@ async function carregarDadosAnalise(contexto) {
     }
 
     const lojasBaseSet = new Set(
-      lojasEscopoBase.map((l) => getChaveLojaAnalise(l))
+      lojasEscopoBase.map((l) => getChaveLojaAnalise(l)),
     );
     const lojasVisuaisSet = new Set(
-      lojasVisuais.map((l) => getChaveLojaAnalise(l))
+      lojasVisuais.map((l) => getChaveLojaAnalise(l)),
     );
 
     let query = window.db
@@ -759,7 +800,7 @@ async function carregarDadosAnalise(contexto) {
     if (ANALISE_STATE.indicador !== "TODOS") {
       const indicadorBanco = getIndicadorBancoAnalise(
         ANALISE_STATE.indicador,
-        ANALISE_STATE.classe === "TODAS" ? null : ANALISE_STATE.classe
+        ANALISE_STATE.classe === "TODAS" ? null : ANALISE_STATE.classe,
       );
 
       query = query.eq("indicador", indicadorBanco);
@@ -769,11 +810,11 @@ async function carregarDadosAnalise(contexto) {
     if (resultadosError) throw resultadosError;
 
     const resultadosEscopoBase = (resultadosData || []).filter((r) =>
-      lojasBaseSet.has(r.loja)
+      lojasBaseSet.has(r.loja),
     );
 
     const resultadosVisuais = resultadosEscopoBase.filter((r) =>
-      lojasVisuaisSet.has(r.loja)
+      lojasVisuaisSet.has(r.loja),
     );
 
     if (ANALISE_STATE.visao === "regional") {
@@ -812,24 +853,24 @@ function renderAnaliseRegional({ resultados, semanasInfo }) {
       ? getTipoCampoAnalise(
           ANALISE_STATE.indicador,
           "valor",
-          ANALISE_STATE.classe === "TODAS" ? null : ANALISE_STATE.classe
+          ANALISE_STATE.classe === "TODAS" ? null : ANALISE_STATE.classe,
         )
       : "numero";
 
   const ranking = agruparTopLojasAnalise(
     resultados,
     semanasInfo,
-    tipoValorPrincipal
+    tipoValorPrincipal,
   );
   const melhorPior = calcularMelhorEPiorLojaAnalise(
     resultados,
-    tipoValorPrincipal
+    tipoValorPrincipal,
   );
   const subclasses = agruparSubclassesAnalise(resultados);
 
   const amplitude = calcularAmplitudeAnalise(
     melhorPior.melhor,
-    melhorPior.pior
+    melhorPior.pior,
   );
 
   const mediaGeral = calcularMediaAnalise(resultados.map((r) => r.valor));
@@ -897,13 +938,13 @@ function renderAnaliseGerencial({ resultados }) {
       ? getTipoCampoAnalise(
           ANALISE_STATE.indicador,
           "valor",
-          ANALISE_STATE.classe === "TODAS" ? null : ANALISE_STATE.classe
+          ANALISE_STATE.classe === "TODAS" ? null : ANALISE_STATE.classe,
         )
       : "numero";
 
   const rankingIndicadores = agruparIndicadoresAnalise(
     resultados,
-    tipoValorPrincipal
+    tipoValorPrincipal,
   );
   const subclasses = agruparSubclassesAnalise(resultados);
 
@@ -912,7 +953,7 @@ function renderAnaliseGerencial({ resultados }) {
 
   const amplitude = calcularAmplitudeAnalise(
     { media: melhor?.media || 0 },
-    { media: pior?.media || 0 }
+    { media: pior?.media || 0 },
   );
 
   const mediaGeral = calcularMediaAnalise(resultados.map((r) => r.valor));
@@ -964,14 +1005,14 @@ function renderAnaliseGerencial({ resultados }) {
 
     ${renderTabelaRankingIndicadoresAnalise(
       rankingIndicadores,
-      tipoValorPrincipal
+      tipoValorPrincipal,
     )}
   `;
 
   renderGraficosAnaliseGerencial(
     rankingIndicadores,
     subclasses,
-    tipoValorPrincipal
+    tipoValorPrincipal,
   );
 }
 
@@ -1155,7 +1196,7 @@ function renderTabelaRankingLojasAnalise(lista, tipoValorPrincipal) {
                   casas: 2,
                 })}</td>
               </tr>
-            `
+            `,
               )
               .join("")}
           </tbody>
@@ -1196,7 +1237,7 @@ function renderTabelaRankingIndicadoresAnalise(lista, tipoValorPrincipal) {
                   casas: 2,
                 })}</td>
               </tr>
-            `
+            `,
               )
               .join("")}
           </tbody>
@@ -1209,7 +1250,11 @@ function renderTabelaRankingIndicadoresAnalise(lista, tipoValorPrincipal) {
 // ==========================
 // 📈 GRÁFICOS
 // ==========================
-function renderGraficosAnaliseRegional(ranking, subclasses, tipoValorPrincipal) {
+function renderGraficosAnaliseRegional(
+  ranking,
+  subclasses,
+  tipoValorPrincipal,
+) {
   if (!chartAnaliseDisponivel()) return;
 
   requestAnimationFrame(() => {
@@ -1221,19 +1266,22 @@ function renderGraficosAnaliseRegional(ranking, subclasses, tipoValorPrincipal) 
         top.map((i) => i.loja),
         top.map((i) => i.media),
         "Top 10 lojas",
-        "#1e6091"
+        "#1e6091",
       );
 
       renderGraficoSecundarioAnalise(
         bottom.map((i) => i.loja),
         bottom.map((i) => i.media),
         "Bottom 10 lojas",
-        "#F44336"
+        "#F44336",
       );
 
       renderGraficoSubclassesAnalise(subclasses, tipoValorPrincipal);
     } catch (erro) {
-      console.error("❌ Erro ao renderizar gráficos de análise regional:", erro);
+      console.error(
+        "❌ Erro ao renderizar gráficos de análise regional:",
+        erro,
+      );
     }
   });
 }
@@ -1241,7 +1289,7 @@ function renderGraficosAnaliseRegional(ranking, subclasses, tipoValorPrincipal) 
 function renderGraficosAnaliseGerencial(
   rankingIndicadores,
   subclasses,
-  tipoValorPrincipal
+  tipoValorPrincipal,
 ) {
   if (!chartAnaliseDisponivel()) return;
 
@@ -1256,19 +1304,22 @@ function renderGraficosAnaliseGerencial(
         top.map((i) => i.indicador),
         top.map((i) => i.media),
         "Top indicadores",
-        "#9C27B0"
+        "#9C27B0",
       );
 
       renderGraficoSecundarioAnalise(
         bottom.map((i) => i.indicador),
         bottom.map((i) => i.media),
         "Bottom indicadores",
-        "#FF9800"
+        "#FF9800",
       );
 
       renderGraficoSubclassesAnalise(subclasses, tipoValorPrincipal);
     } catch (erro) {
-      console.error("❌ Erro ao renderizar gráficos de análise gerencial:", erro);
+      console.error(
+        "❌ Erro ao renderizar gráficos de análise gerencial:",
+        erro,
+      );
     }
   });
 }

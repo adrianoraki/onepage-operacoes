@@ -115,11 +115,11 @@ const indicadoresConfig = {
     indicadorBanco: "NPS",
     classe: "Operações",
     subclasse: "GERAL",
-    tipo: "percentual",
+    tipo: "numero",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
     aliases: ["NPS"],
-    campos: [{ key: "valor", label: "Resultado", tipo: "percentual" }],
+    campos: [{ key: "valor", label: "Resultado", tipo: "numero" }],
     metas: {},
   },
 
