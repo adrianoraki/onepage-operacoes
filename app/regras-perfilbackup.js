@@ -69,6 +69,17 @@ function normalizarPermissaoVisualizacao(valor) {
   }
 
   if (
+    texto === "REGIONAL_CONFIGURADA" ||
+    texto === "REGIONAL VINCULADA" ||
+    texto === "REGIONAL_VINCULADA" ||
+    texto === "APENAS REGIONAL" ||
+    texto === "SOMENTE REGIONAL"
+  ) {
+    return "REGIONAL_CONFIGURADA";
+  }
+
+  // compatibilidade com registros antigos
+  if (
     texto === "NE1 E NE2" ||
     texto === "NE1/NE2" ||
     texto === "NE1_NE2" ||
@@ -78,14 +89,43 @@ function normalizarPermissaoVisualizacao(valor) {
     return "NE1_NE2";
   }
 
+  if (texto === "NE1") return "NE1";
+  if (texto === "NE2") return "NE2";
+
   return "TODOS";
 }
 
-function getRegionaisDaPermissaoVisualizacao(valor) {
+function getRegionaisDaPermissaoVisualizacao(valor, user = null) {
   const modo = normalizarPermissaoVisualizacao(valor);
+  const usuario = user || getUsuarioLogado();
 
   if (modo === "NE1_NE2") {
     return ["NE1", "NE2"];
+  }
+
+  if (modo === "NE1") {
+    return ["NE1"];
+  }
+
+  if (modo === "NE2") {
+    return ["NE2"];
+  }
+
+  if (modo === "REGIONAL_CONFIGURADA") {
+    const lista = [];
+
+    if (usuario?.regional_vinculada) {
+      lista.push(normalizarTexto(usuario.regional_vinculada));
+    }
+
+    if (Array.isArray(usuario?.regionais_vinculadas)) {
+      usuario.regionais_vinculadas.forEach((r) => {
+        const regionalNorm = normalizarTexto(r);
+        if (regionalNorm) lista.push(regionalNorm);
+      });
+    }
+
+    return [...new Set(lista)].filter(Boolean);
   }
 
   return [];
@@ -96,12 +136,12 @@ function getRestricaoVisualizacaoUsuario(user = null) {
   const permissoesSistema = getPermissoesSistemaUsuario(usuario);
 
   const modo = normalizarPermissaoVisualizacao(
-    permissoesSistema.permissao_visualizacao,
+    permissoesSistema.permissao_visualizacao
   );
 
   return {
     modo,
-    regionais: getRegionaisDaPermissaoVisualizacao(modo),
+    regionais: getRegionaisDaPermissaoVisualizacao(modo, usuario),
   };
 }
 
@@ -115,10 +155,6 @@ function regionalPermitidaPorVisualizacao(regionalLinha, user = null) {
   return restricao.regionais.includes(regionalNorm);
 }
 
-// ==========================
-// 🧠 PERMISSÕES BASE POR PERFIL
-// master > admin > usuario
-// ==========================
 // ==========================
 // 🧠 PERMISSÕES BASE POR PERFIL
 // master > admin > usuario
@@ -184,11 +220,6 @@ function getPermissoesBasePorPerfil(perfil) {
 
 // ==========================
 // 🔐 PERMISSÕES EFETIVAS DO USUÁRIO
-// mistura base do perfil + overrides salvos
-// ==========================
-// ==========================
-// 🔐 PERMISSÕES EFETIVAS DO USUÁRIO
-// mistura base do perfil + overrides salvos
 // ==========================
 function getPermissoesSistemaUsuario(user = null) {
   const usuario = user || getUsuarioLogado();
@@ -218,30 +249,22 @@ function getPermissoesSistemaUsuario(user = null) {
       perms.pode_gerenciar_funcoes ?? base.pode_gerenciar_funcoes,
 
     pode_ver_dashboard: perms.pode_ver_dashboard ?? base.pode_ver_dashboard,
-
     pode_ver_analises: perms.pode_ver_analises ?? base.pode_ver_analises,
-
     pode_ver_comparativos:
       perms.pode_ver_comparativos ?? base.pode_ver_comparativos,
-
     pode_ver_justificativas:
       perms.pode_ver_justificativas ?? base.pode_ver_justificativas,
-
     pode_aprovar_ajustes:
       perms.pode_aprovar_ajustes ?? base.pode_aprovar_ajustes,
-
     pode_atribuir_escopo:
       perms.pode_atribuir_escopo ?? base.pode_atribuir_escopo,
 
     permissao_visualizacao: normalizarPermissaoVisualizacao(
-      perms.permissao_visualizacao ?? base.permissao_visualizacao,
+      perms.permissao_visualizacao ?? base.permissao_visualizacao
     ),
   };
 }
 
-// ==========================
-// 🔄 USUÁRIO LOGADO
-// ==========================
 // ==========================
 // 🔄 USUÁRIO LOGADO
 // ==========================
@@ -287,15 +310,14 @@ function getUsuarioLogado() {
       permissao_visualizacao: permissoesSistema.permissao_visualizacao,
     };
 
-    // mantém regional principal apenas como referência cadastral
     if (
       usuarioLogado.regional_vinculada &&
       !usuarioLogado.regionais_vinculadas.includes(
-        normalizarTexto(usuarioLogado.regional_vinculada),
+        normalizarTexto(usuarioLogado.regional_vinculada)
       )
     ) {
       usuarioLogado.regionais_vinculadas.unshift(
-        normalizarTexto(usuarioLogado.regional_vinculada),
+        normalizarTexto(usuarioLogado.regional_vinculada)
       );
     }
 
@@ -313,7 +335,8 @@ function getUsuarioLogado() {
       permissao_visualizacao: usuarioLogado.permissao_visualizacao,
       pode_editar_semana_atual: usuarioLogado.pode_editar_semana_atual,
       pode_editar_semana_anterior: usuarioLogado.pode_editar_semana_anterior,
-      pode_editar_qualquer_semana: usuarioLogado.pode_editar_qualquer_semana,
+      pode_editar_qualquer_semana:
+        usuarioLogado.pode_editar_qualquer_semana,
     });
 
     return usuarioLogado;
@@ -323,9 +346,6 @@ function getUsuarioLogado() {
   }
 }
 
-// ==========================
-// 🧠 CONTEXTO DE ESCOPO DO USUÁRIO
-// ==========================
 // ==========================
 // 🧠 CONTEXTO DE ESCOPO DO USUÁRIO
 // ==========================
@@ -344,7 +364,6 @@ function getEscopoUsuarioSistema(user = null) {
     };
   }
 
-  // master vê tudo
   if (usuario.perfil === "master") {
     return {
       tipo: "global",
@@ -356,10 +375,11 @@ function getEscopoUsuarioSistema(user = null) {
     };
   }
 
-  // admin corporativo sem vínculos = global
+  const listaRegionais = normalizarListaRegionais(usuario.regionais_vinculadas);
+  const regionalPrincipal = normalizarTexto(usuario.regional_vinculada);
+
   const semLoja = !usuario.loja_vinculada && !usuario.loja_codigo;
-  const semRegionais =
-    !usuario.regionais_vinculadas || !usuario.regionais_vinculadas.length;
+  const semRegionais = !listaRegionais.length && !regionalPrincipal;
 
   if (usuario.perfil === "admin" && semLoja && semRegionais) {
     return {
@@ -372,29 +392,31 @@ function getEscopoUsuarioSistema(user = null) {
     };
   }
 
-  // loja vinculada continua sendo escopo forte
+  // Se houver loja preenchida, o escopo forte é a própria loja
   if (usuario.loja_vinculada || usuario.loja_codigo) {
     return {
       tipo: "loja",
       loja_vinculada: usuario.loja_vinculada || usuario.loja_codigo || null,
-      regional_vinculada: usuario.regional_vinculada || null,
-      regionais_vinculadas: normalizarListaRegionais(
-        usuario.regionais_vinculadas,
-      ),
+      regional_vinculada: regionalPrincipal || null,
+      regionais_vinculadas: listaRegionais,
       permissao_visualizacao: restricaoVisualizacao.modo,
       regionais_visuais: restricaoVisualizacao.regionais,
     };
   }
 
-  // escopo regional respeita principalmente a lista de regionais adicionais
-  if (usuario.regionais_vinculadas && usuario.regionais_vinculadas.length) {
+  // Sem loja, regional por lista ou principal
+  if (listaRegionais.length || regionalPrincipal) {
+    const listaFinal = [...listaRegionais];
+
+    if (regionalPrincipal && !listaFinal.includes(regionalPrincipal)) {
+      listaFinal.unshift(regionalPrincipal);
+    }
+
     return {
       tipo: "regional",
       loja_vinculada: null,
-      regional_vinculada: usuario.regional_vinculada || null,
-      regionais_vinculadas: normalizarListaRegionais(
-        usuario.regionais_vinculadas,
-      ),
+      regional_vinculada: regionalPrincipal || null,
+      regionais_vinculadas: [...new Set(listaFinal)],
       permissao_visualizacao: restricaoVisualizacao.modo,
       regionais_visuais: restricaoVisualizacao.regionais,
     };
@@ -403,7 +425,7 @@ function getEscopoUsuarioSistema(user = null) {
   return {
     tipo: "global",
     loja_vinculada: null,
-    regional_vinculada: usuario.regional_vinculada || null,
+    regional_vinculada: regionalPrincipal || null,
     regionais_vinculadas: [],
     permissao_visualizacao: restricaoVisualizacao.modo,
     regionais_visuais: restricaoVisualizacao.regionais,
@@ -434,18 +456,15 @@ function lojaDentroDoEscopoUsuario(codigo, nomeLoja, lojaVinculada) {
 function regionalDentroDoEscopoUsuario(
   regionalLinha,
   regionalVinculada,
-  regionaisVinculadas = [],
+  regionaisVinculadas = []
 ) {
   const regionalNorm = normalizarTexto(regionalLinha);
-
   const lista = normalizarListaRegionais(regionaisVinculadas);
 
   if (lista.length) {
     return lista.includes(regionalNorm);
   }
 
-  // regional principal isolada agora é mais informativa,
-  // mas mantemos compatibilidade com usuários antigos
   if (!regionalVinculada) return true;
 
   return regionalNorm === normalizarTexto(regionalVinculada);
@@ -456,7 +475,6 @@ function regionalDentroDoEscopoUsuario(
 // ==========================
 function getSemanaAnterior(semanaAtual) {
   const atual = Number(semanaAtual);
-
   if (atual <= 1) return 53;
   return atual - 1;
 }
@@ -491,9 +509,6 @@ function podeEditarNaJanela(user, semanaInformada, semanaAtual) {
 // ==========================
 // 🔍 MOTIVO DO BLOQUEIO
 // ==========================
-// ==========================
-// 🔍 MOTIVO DO BLOQUEIO
-// ==========================
 function getMotivoBloqueio(indicador, classe, semana) {
   const user = getUsuarioLogado();
   if (!user) return "Usuário não autenticado";
@@ -505,7 +520,7 @@ function getMotivoBloqueio(indicador, classe, semana) {
 
   const permissoesIndicadores = user.permissoes || {};
   const indicadores = (permissoesIndicadores.indicadores || []).map(
-    normalizarTexto,
+    normalizarTexto
   );
   const classes = (permissoesIndicadores.classes || []).map(normalizarTexto);
 
@@ -547,7 +562,7 @@ function getMotivoBloqueio(indicador, classe, semana) {
   const dentroDaJanela = podeEditarNaJanela(
     user,
     Number(semanaInformada),
-    Number(semanaAtual),
+    Number(semanaAtual)
   );
 
   if (!dentroDaJanela) {
@@ -580,6 +595,26 @@ function podeEditar(indicador, classe, semana) {
 // 🔒 APLICAR BLOQUEIO NO INPUT
 // ==========================
 function aplicarPermissaoInput(input, indicador, classe, semana) {
+  const row = input.closest("tr");
+  const dentroEscopo = !row || row.dataset.escopoPermitido !== "false";
+
+  if (!dentroEscopo) {
+    input.disabled = true;
+    input.readOnly = true;
+    input.removeAttribute("onblur");
+    input.onblur = null;
+
+    input.style.background = "#f1f1f1";
+    input.style.color = "#777";
+    input.style.cursor = "not-allowed";
+    input.style.border = "1px solid #ddd";
+
+    input.title = "Fora do escopo configurado para este usuário";
+    input.dataset.bloqueado = "true";
+    input.dataset.motivo = "Fora do escopo configurado para este usuário";
+    return;
+  }
+
   const motivo = getMotivoBloqueio(indicador, classe, semana);
   const allowed = motivo === null;
 
@@ -645,7 +680,7 @@ function aplicarEscopoVisualTabela() {
         visivel = lojaDentroDoEscopoUsuario(
           codigo,
           loja,
-          escopo.loja_vinculada,
+          escopo.loja_vinculada
         );
       }
 
@@ -653,16 +688,16 @@ function aplicarEscopoVisualTabela() {
         visivel = regionalDentroDoEscopoUsuario(
           regional,
           escopo.regional_vinculada,
-          escopo.regionais_vinculadas,
+          escopo.regionais_vinculadas
         );
       }
 
-      // regra adicional de visualização do sistema
+      // filtro adicional pela permissão_visualizacao
       if (visivel && escopo.regionais_visuais?.length) {
         visivel = regionalDentroDoEscopoUsuario(
           regional,
           null,
-          escopo.regionais_visuais,
+          escopo.regionais_visuais
         );
       }
 
@@ -687,8 +722,11 @@ function aplicarEscopoVisualTabela() {
 function aplicarPermissoesTabela(indicador, classe) {
   console.log("🛡️ Aplicando permissões na tabela...", { indicador, classe });
 
+  // ✅ primeiro aplica escopo
+  aplicarEscopoVisualTabela();
+
   const inputs = document.querySelectorAll(
-    "#conteudo input[data-loja][data-semana]",
+    "#conteudo input[data-loja][data-semana]"
   );
 
   if (!inputs.length) {
@@ -701,8 +739,6 @@ function aplicarPermissoesTabela(indicador, classe) {
 
     console.log("✅ Permissões aplicadas:", inputs.length);
   }
-
-  aplicarEscopoVisualTabela();
 }
 
 // ==========================
@@ -717,11 +753,8 @@ function gerarSenhaAleatoria(tamanho = 10) {
   const todos = letrasMaiusculas + letrasMinusculas + numeros + simbolos;
 
   let senha = "";
-
-  senha +=
-    letrasMaiusculas[Math.floor(Math.random() * letrasMaiusculas.length)];
-  senha +=
-    letrasMinusculas[Math.floor(Math.random() * letrasMinusculas.length)];
+  senha += letrasMaiusculas[Math.floor(Math.random() * letrasMaiusculas.length)];
+  senha += letrasMinusculas[Math.floor(Math.random() * letrasMinusculas.length)];
   senha += numeros[Math.floor(Math.random() * numeros.length)];
   senha += simbolos[Math.floor(Math.random() * simbolos.length)];
 
@@ -742,7 +775,6 @@ function gerarSenhaAleatoria(tamanho = 10) {
 // ==========================
 function copiarSenhaGerada() {
   const texto = document.getElementById("senhaGeradaTexto")?.textContent;
-
   if (!texto) return;
 
   navigator.clipboard
@@ -766,7 +798,6 @@ async function buscarLojasParaVinculo() {
       .order("codigo");
 
     if (error) throw error;
-
     return data || [];
   } catch (erro) {
     console.error("❌ Erro ao buscar lojas para vínculo:", erro);
@@ -1077,19 +1108,19 @@ function novoUsuario() {
         <div class="campo">
           <label>Número da loja</label>
           <input id="novo_loja_codigo" placeholder="Ex.: 305">
-          <small>Opcional. Se preencher a loja, a visão gerencial será aplicada automaticamente.</small>
+          <small>Preencha para restringir à própria loja.</small>
         </div>
 
         <div class="campo">
           <label>Regional principal</label>
           <input id="novo_regional_vinculada" placeholder="Ex.: NE1">
-          <small>Informativo. Não limita visualização.</small>
+          <small>Informativo / principal.</small>
         </div>
 
         <div class="campo">
           <label>Regionais adicionais</label>
           <input id="novo_regionais_vinculadas" placeholder="Ex.: NE1, NE2">
-          <small>Opcional. Separe por vírgula.</small>
+          <small>Se preencher NE1, NE2, o usuário verá / editará as duas regionais.</small>
         </div>
 
       </div>
@@ -1106,9 +1137,6 @@ function novoUsuario() {
   `;
 }
 
-// ==========================
-// 💾 SALVAR NOVO USUÁRIO (MANUAL)
-// ==========================
 // ==========================
 // 💾 SALVAR NOVO USUÁRIO (MANUAL)
 // ==========================
@@ -1246,7 +1274,8 @@ async function salvarNovoUsuario() {
         indicadores: [],
         classes: [],
         acesso_total: perfil === "master",
-        permissao_visualizacao: permissoesBase.permissao_visualizacao || "TODOS",
+        permissao_visualizacao:
+          permissoesBase.permissao_visualizacao || "TODOS",
         ...permissoesBase,
       },
     };
@@ -1400,8 +1429,22 @@ function resumoPermissoesUsuario(usuario) {
     tags.push(`<span class="perm-tag">Gerencia usuários</span>`);
   }
 
+  if (usuario.loja_vinculada) {
+    tags.push(`<span class="perm-tag perm-total">Escopo: ${usuario.loja_vinculada}</span>`);
+  } else if (usuario.regionais_vinculadas?.length) {
+    tags.push(`<span class="perm-tag">Escopo: ${usuario.regionais_vinculadas.join(", ")}</span>`);
+  }
+
   if (permissoesSistema.permissao_visualizacao === "NE1_NE2") {
     tags.push(`<span class="perm-tag">Visualização: NE1 e NE2</span>`);
+  } else if (permissoesSistema.permissao_visualizacao === "NE1") {
+    tags.push(`<span class="perm-tag">Visualização: NE1</span>`);
+  } else if (permissoesSistema.permissao_visualizacao === "NE2") {
+    tags.push(`<span class="perm-tag">Visualização: NE2</span>`);
+  } else if (
+    permissoesSistema.permissao_visualizacao === "REGIONAL_CONFIGURADA"
+  ) {
+    tags.push(`<span class="perm-tag">Visualização: Regional configurada</span>`);
   } else {
     tags.push(`<span class="perm-tag">Visualização: Todos</span>`);
   }
@@ -1592,6 +1635,7 @@ async function resolverVinculoAutomaticoUsuario({
   const regionalInfo = normalizarTexto(regional_vinculada || "");
   let regionais = normalizarListaRegionais(regionais_vinculadas || []);
 
+  // Loja preenchida = própria loja
   if (lojaCodigo) {
     const { data: loja, error } = await window.db
       .from("lojas")
@@ -1615,28 +1659,30 @@ async function resolverVinculoAutomaticoUsuario({
       tipo_visao: "gerencial",
       loja_codigo: String(loja.codigo),
       loja_vinculada: `${loja.codigo} - ${loja.nome}`,
-      regional_vinculada: regionalInfo || null,
+      regional_vinculada: regionalInfo || regionalDaLoja || null,
       regionais_vinculadas: regionais,
     };
   }
 
+  // Regionais preenchidas = regional completa / duas regionais
   if (regionais.length) {
     return {
       tipo_visao: "regional",
       loja_codigo: null,
       loja_vinculada: null,
-      regional_vinculada: regionalInfo || null,
+      regional_vinculada: regionalInfo || regionais[0] || null,
       regionais_vinculadas: [...new Set(regionais)],
     };
   }
 
+  // Apenas regional principal
   if (regionalInfo) {
     return {
       tipo_visao: "regional",
       loja_codigo: null,
       loja_vinculada: null,
       regional_vinculada: regionalInfo,
-      regionais_vinculadas: [],
+      regionais_vinculadas: [regionalInfo],
     };
   }
 
@@ -1651,7 +1697,7 @@ async function resolverVinculoAutomaticoUsuario({
   }
 
   throw new Error(
-    "Informe o número da loja ou pelo menos uma regional adicional para este usuário.",
+    "Informe o número da loja ou pelo menos uma regional para este usuário."
   );
 }
 
@@ -1722,7 +1768,7 @@ function coletarPermissoesSistemaTela(base = {}) {
 
   const selectVisualizacao = document.getElementById("perm_visualizacao");
   out.permissao_visualizacao = normalizarPermissaoVisualizacao(
-    selectVisualizacao?.value || out.permissao_visualizacao || "TODOS",
+    selectVisualizacao?.value || out.permissao_visualizacao || "TODOS"
   );
 
   return out;
@@ -1753,7 +1799,7 @@ async function autoSalvarUsuarioAcao(id, campoOrigem = "manual") {
         if (!dados.nome || !dados.matricula || !dados.email || !dados.funcao) {
           mostrarStatusAutosaveUsuario(
             "⚠️ Nome, matrícula, e-mail e função são obrigatórios.",
-            "erro",
+            "erro"
           );
           return;
         }
@@ -1828,7 +1874,7 @@ async function autoSalvarUsuarioAcao(id, campoOrigem = "manual") {
         console.error("❌ Erro no autosave do usuário:", erroInterno);
         mostrarStatusAutosaveUsuario(
           `❌ ${erroInterno.message || "Erro ao salvar automaticamente."}`,
-          "erro",
+          "erro"
         );
       }
     }, 250);
@@ -1872,7 +1918,6 @@ function ativarAutosaveEdicaoUsuario(id) {
   });
 }
 
-
 // ==========================
 // 🧩 INICIALIZAR CONTROLES DE PERMISSÃO POR INDICADOR
 // ==========================
@@ -1909,7 +1954,6 @@ function inicializarControlesPermissaoIndicador() {
     });
   });
 }
-
 
 // ==========================
 // ⚙️ EDITAR PERMISSÕES + AÇÃO + VÍNCULO
@@ -1974,7 +2018,9 @@ async function editarPermissoes(id) {
     const indicadoresAtuais = (permissoesUsuario.indicadores || []).map(
       normalizarTexto
     );
-    const classesAtuais = (permissoesUsuario.classes || []).map(normalizarTexto);
+    const classesAtuais = (permissoesUsuario.classes || []).map(
+      normalizarTexto
+    );
     const acessoTotalIndicadores =
       permissoesUsuario.acesso_total === true || data.perfil === "master";
 
@@ -2031,6 +2077,7 @@ async function editarPermissoes(id) {
           <div class="campo">
             <label>Número da loja</label>
             <input id="edit_perm_loja_codigo" value="${lojaCodigoAtual || ""}" placeholder="Ex.: 305">
+            <small>Se preencher, o usuário ficará restrito à própria loja.</small>
           </div>
 
           <div class="campo">
@@ -2039,12 +2086,13 @@ async function editarPermissoes(id) {
               <option value="">Selecione</option>
               ${optionsRegionais}
             </select>
-            <small>Campo informativo.</small>
+            <small>Campo principal / referência.</small>
           </div>
 
           <div class="campo">
             <label>Regionais adicionais</label>
             <input id="edit_perm_regionais_vinculadas" value="${regionaisTexto || ""}" placeholder="Ex.: NE1, NE2">
+            <small>Preencha uma regional inteira ou NE1, NE2 para duas regionais.</small>
           </div>
 
           <div class="campo">
@@ -2079,6 +2127,9 @@ async function editarPermissoes(id) {
             <label>Permissão de visualização</label>
             <select id="perm_visualizacao">
               <option value="TODOS" ${visualizacaoAtual === "TODOS" ? "selected" : ""}>Todos</option>
+              <option value="REGIONAL_CONFIGURADA" ${visualizacaoAtual === "REGIONAL_CONFIGURADA" ? "selected" : ""}>Regional configurada</option>
+              <option value="NE1" ${visualizacaoAtual === "NE1" ? "selected" : ""}>NE1</option>
+              <option value="NE2" ${visualizacaoAtual === "NE2" ? "selected" : ""}>NE2</option>
               <option value="NE1_NE2" ${visualizacaoAtual === "NE1_NE2" ? "selected" : ""}>NE1 e NE2</option>
             </select>
           </div>
@@ -2184,11 +2235,11 @@ function coletarPermissoesIndicadoresTela() {
     document.getElementById("perm_indicadores_total")?.checked === true;
 
   const checksClasses = document.querySelectorAll(
-    "#config-conteudo .check-classe-completa:checked",
+    "#config-conteudo .check-classe-completa:checked"
   );
 
   const checksIndicadores = document.querySelectorAll(
-    "#config-conteudo .check-indicador:checked",
+    "#config-conteudo .check-indicador:checked"
   );
 
   const classes = [...checksClasses]
@@ -2206,9 +2257,6 @@ function coletarPermissoesIndicadoresTela() {
   };
 }
 
-// ==========================
-// 💾 SALVAR PERMISSÕES
-// ==========================
 // ==========================
 // 💾 SALVAR PERMISSÕES
 // ==========================
@@ -2251,9 +2299,10 @@ async function salvarPermissoes(id) {
     if (isMaster) {
       permissoesSistema = coletarPermissoesSistemaTela(permissoesSistema);
     } else {
-      permissoesSistema.permissao_visualizacao = normalizarPermissaoVisualizacao(
-        permissoesSistema.permissao_visualizacao || "TODOS"
-      );
+      permissoesSistema.permissao_visualizacao =
+        normalizarPermissaoVisualizacao(
+          permissoesSistema.permissao_visualizacao || "TODOS"
+        );
     }
 
     const payload = {
@@ -2389,7 +2438,6 @@ async function abrirAuditoria() {
   }
 
   const container = document.getElementById("config-conteudo");
-
   if (!container) return;
 
   container.innerHTML = `
@@ -2463,7 +2511,7 @@ async function abrirAuditoria() {
               <pre style="white-space: pre-wrap; font-size:12px;">${JSON.stringify(
                 detalhes,
                 null,
-                2,
+                2
               )}</pre>
             </details>
           </td>

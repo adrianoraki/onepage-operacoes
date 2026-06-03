@@ -3,7 +3,7 @@
 // ==========================
 const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co";
 const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY"; // mantenha sua key atual
 
 let supabaseClient = null;
 
@@ -55,8 +55,9 @@ function limparSessaoLocal() {
 }
 
 // ==========================
-// 🔠 HELPERS DE NORMALIZAÇÃO
+// 🔠 HELPERS DE NORMALIZAÇÃO (APP)
 // ==========================
+// ✅ Renomeados para não colidir com perfil-core.js
 function normalizarTextoApp(valor) {
   return (valor || "").toString().trim();
 }
@@ -65,7 +66,7 @@ function normalizarTextoAppLower(valor) {
   return normalizarTextoApp(valor).toLowerCase();
 }
 
-function normalizarListaRegionais(valor) {
+function normalizarListaRegionaisApp(valor) {
   if (!valor) return [];
 
   if (Array.isArray(valor)) {
@@ -80,6 +81,83 @@ function normalizarListaRegionais(valor) {
   }
 
   return [];
+}
+
+// ==========================
+// 🧩 HELPERS GLOBAIS DE FUNÇÃO
+// ==========================
+function getFuncaoGlobal(nome) {
+  const fn = window[nome];
+
+  if (typeof fn !== "function") {
+    return null;
+  }
+
+  return fn;
+}
+
+function chamarFuncaoGlobal(nome, ...args) {
+  const fn = getFuncaoGlobal(nome);
+
+  if (!fn) {
+    console.error(`❌ Função global não encontrada: ${nome}`);
+    return null;
+  }
+
+  return fn(...args);
+}
+
+function validarBootstrapPerfil() {
+  const obrigatorias = [
+    "getUsuarioLogado",
+    "getPermissoesSistemaUsuario",
+    "getEscopoUsuarioSistema",
+    "aplicarPermissoesTabela",
+    "abrirConfiguracoes",
+  ];
+
+  const faltando = obrigatorias.filter(
+    (nome) => typeof window[nome] !== "function"
+  );
+
+  if (faltando.length) {
+    console.error("❌ Funções de perfil ausentes:", faltando);
+    return false;
+  }
+
+  console.log("✅ Bootstrap de perfil carregado com sucesso");
+  return true;
+}
+
+// ==========================
+// 📅 FALLBACK SEMANA ATUAL
+// ==========================
+function getSemanaAtualFallback() {
+  const hoje = new Date();
+
+  const dataUTC = new Date(
+    Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+  );
+
+  const diaSemana = dataUTC.getUTCDay() || 7;
+  dataUTC.setUTCDate(dataUTC.getUTCDate() + 4 - diaSemana);
+
+  const anoInicio = new Date(Date.UTC(dataUTC.getUTCFullYear(), 0, 1));
+  const semana = Math.ceil((((dataUTC - anoInicio) / 86400000) + 1) / 7);
+
+  return semana;
+}
+
+function obterSemanaAtualApp() {
+  if (typeof window.getSemanaAtual === "function") {
+    try {
+      return window.getSemanaAtual();
+    } catch (erro) {
+      console.warn("⚠️ Falha ao usar getSemanaAtual global, usando fallback:", erro);
+    }
+  }
+
+  return getSemanaAtualFallback();
 }
 
 // ==========================
@@ -104,7 +182,7 @@ function montarUsuarioLocalAPartirDoPerfil(data) {
     subregional_vinculada: data.subregional_vinculada || null,
 
     // ✅ cenário de múltiplas regionais
-    regionais_vinculadas: normalizarListaRegionais(data.regionais_vinculadas),
+    regionais_vinculadas: normalizarListaRegionaisApp(data.regionais_vinculadas),
   };
 }
 
@@ -142,7 +220,7 @@ function montarPerfilFallbackApp(authUser) {
 
   console.warn(
     "⚠️ [APP] Perfil não encontrado em usuarios. Usando fallback local:",
-    perfilFallback,
+    perfilFallback
   );
 
   return perfilFallback;
@@ -253,7 +331,7 @@ async function buscarPerfilPorAuthIdApp(authUserId) {
   } catch (erro) {
     console.error(
       "❌ [APP] Falha inesperada em buscarPerfilPorAuthIdApp:",
-      erro,
+      erro
     );
     return null;
   }
@@ -287,7 +365,7 @@ async function buscarPerfilPorEmailApp(email) {
   } catch (erro) {
     console.error(
       "❌ [APP] Falha inesperada em buscarPerfilPorEmailApp:",
-      erro,
+      erro
     );
     return null;
   }
@@ -306,7 +384,7 @@ async function vincularAuthUserIdAoPerfilApp(perfil, authUser) {
     if (perfil.auth_user_id) {
       console.log(
         "ℹ️ [APP] Perfil já possui auth_user_id:",
-        perfil.auth_user_id,
+        perfil.auth_user_id
       );
       return perfil;
     }
@@ -317,7 +395,7 @@ async function vincularAuthUserIdAoPerfilApp(perfil, authUser) {
         usuario: perfil.nome,
         email: perfil.email,
         novoAuthId: authUser.id,
-      },
+      }
     );
 
     const { data, error } = await window.db
@@ -381,7 +459,7 @@ async function garantirPerfilLocal(authUser) {
 
       if (!perfilPorEmail) {
         console.warn(
-          "⚠️ [APP] Perfil não encontrado por auth_user_id nem por e-mail. Entrando com fallback local.",
+          "⚠️ [APP] Perfil não encontrado por auth_user_id nem por e-mail. Entrando com fallback local."
         );
 
         const usuarioFallback = montarPerfilFallbackApp(authUser);
@@ -395,7 +473,7 @@ async function garantirPerfilLocal(authUser) {
 
         if (!perfil) {
           console.error(
-            "❌ [APP] Falha ao vincular auth_user_id automaticamente",
+            "❌ [APP] Falha ao vincular auth_user_id automaticamente"
           );
           limparSessaoLocal();
           window.location.replace("login.html");
@@ -409,7 +487,7 @@ async function garantirPerfilLocal(authUser) {
               email: perfilPorEmail.email,
               auth_user_id_tabela: perfilPorEmail.auth_user_id,
               auth_user_id_auth: authUser.id,
-            },
+            }
           );
 
           limparSessaoLocal();
@@ -446,8 +524,8 @@ async function logout() {
 
     window.dashboardModoApresentacao = false;
 
-    if (typeof pausarTimerInatividade === "function") {
-      pausarTimerInatividade();
+    if (typeof window.pausarTimerInatividade === "function") {
+      window.pausarTimerInatividade();
     }
 
     limparSessaoLocal();
@@ -546,7 +624,6 @@ async function carregarSidebar() {
     preencherUsuario();
     montarMenuIndicadores();
 
-    // ✅ só faz bind se não houver onclick inline
     const btnLogout = el.querySelector(".btn-logout");
     if (
       btnLogout &&
@@ -690,8 +767,8 @@ function selecionarIndicador(indicador) {
   APP_STATE.classeAtiva = localStorage.getItem(STORAGE_KEYS.classeSelecionada);
   APP_STATE.telaAtiva = "tabela";
 
-  if (typeof carregarTabela === "function") {
-    carregarTabela();
+  if (typeof window.carregarTabela === "function") {
+    window.carregarTabela();
   } else {
     console.error("❌ carregarTabela não encontrada");
   }
@@ -806,16 +883,8 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
 
     let telaNormalizada = nomeTela.toString().trim().toLowerCase();
 
-    // ======================
-    // 🔁 COMPATIBILIDADE
-    // ======================
-    if (telaNormalizada === "ranking") {
-      telaNormalizada = "analises";
-    }
-
-    if (telaNormalizada === "analise") {
-      telaNormalizada = "analises";
-    }
+    if (telaNormalizada === "ranking") telaNormalizada = "analises";
+    if (telaNormalizada === "analise") telaNormalizada = "analises";
 
     const container = document.getElementById("conteudo");
 
@@ -841,11 +910,10 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
         `;
       }
 
-      if (typeof abrirConfiguracoes === "function") {
-        abrirConfiguracoes();
+      if (typeof window.abrirConfiguracoes === "function") {
+        window.abrirConfiguracoes();
       } else {
         console.error("❌ abrirConfiguracoes não encontrada");
-        mostrarErro("Função abrirConfiguracoes não encontrada");
       }
 
       return;
@@ -857,8 +925,8 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     if (telaNormalizada === "dashboard") {
       definirTelaAtiva("dashboard");
 
-      if (typeof telaDashboard === "function") {
-        await telaDashboard();
+      if (typeof window.telaDashboard === "function") {
+        await window.telaDashboard();
       } else {
         telaInicial();
       }
@@ -872,8 +940,8 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     if (telaNormalizada === "analises") {
       definirTelaAtiva("analises");
 
-      if (typeof telaAnalises === "function") {
-        await telaAnalises();
+      if (typeof window.telaAnalises === "function") {
+        await window.telaAnalises();
       } else {
         container.innerHTML = `
           <div class="card-conteudo">
@@ -892,8 +960,8 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     if (telaNormalizada === "comparativos") {
       definirTelaAtiva("comparativos");
 
-      if (typeof telaComparativos === "function") {
-        await telaComparativos();
+      if (typeof window.telaComparativos === "function") {
+        await window.telaComparativos();
       } else {
         container.innerHTML = `
           <div class="card-conteudo">
@@ -907,8 +975,7 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     }
 
     // ======================
-    // 📊 INDICADORES (compatibilidade)
-    // agora funciona como atalho para a tabela atual
+    // 📊 INDICADORES
     // ======================
     if (telaNormalizada === "indicadores") {
       console.log("📊 Indicadores (compatibilidade)");
@@ -921,8 +988,8 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
         classe: classeAtual,
       });
 
-      if (typeof carregarTabela === "function") {
-        await carregarTabela();
+      if (typeof window.carregarTabela === "function") {
+        await window.carregarTabela();
       } else {
         console.error("❌ carregarTabela não encontrada");
         mostrarErro("Função carregarTabela não encontrada");
@@ -931,9 +998,6 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
       return;
     }
 
-    // ======================
-    // 🧱 FALLBACK
-    // ======================
     console.warn("⚠️ Tela não mapeada:", telaNormalizada);
 
     container.innerHTML = `
@@ -1010,9 +1074,9 @@ function existeEdicaoAtivaNoConteudo() {
 
 async function sincronizarPerfilSilenciosamente() {
   try {
-    if (typeof sincronizarUsuarioLocalDoBanco === "function") {
+    if (typeof window.sincronizarUsuarioLocalDoBanco === "function") {
       console.log("🔄 Sincronizando perfil local silenciosamente...");
-      await sincronizarUsuarioLocalDoBanco();
+      await window.sincronizarUsuarioLocalDoBanco();
       preencherUsuario();
     }
   } catch (erro) {
@@ -1033,7 +1097,7 @@ async function atualizarTelaSilenciosamente() {
 
   if (existeEdicaoAtivaNoConteudo()) {
     console.log(
-      "⌨️ Usuário está interagindo com um campo - refresh silencioso adiado",
+      "⌨️ Usuário está interagindo com um campo - refresh silencioso adiado"
     );
     return;
   }
@@ -1051,25 +1115,25 @@ async function atualizarTelaSilenciosamente() {
     switch (APP_STATE.telaAtiva) {
       case "dashboard":
         console.log(
-          "📊 Dashboard ativo - atualização silenciosa desabilitada para não atrapalhar apresentação",
+          "📊 Dashboard ativo - atualização silenciosa desabilitada para não atrapalhar apresentação"
         );
         break;
 
       case "analises":
         console.log(
-          "📈 Análises ativa - atualização silenciosa desabilitada para não atrapalhar uso e apresentação",
+          "📈 Análises ativa - atualização silenciosa desabilitada para não atrapalhar uso e apresentação"
         );
         break;
 
       case "comparativos":
         console.log(
-          "📊 Comparativos ativo - atualização silenciosa desabilitada para não atrapalhar uso e apresentação",
+          "📊 Comparativos ativo - atualização silenciosa desabilitada para não atrapalhar uso e apresentação"
         );
         break;
 
       case "tabela":
-        if (typeof carregarTabela === "function") {
-          await carregarTabela();
+        if (typeof window.carregarTabela === "function") {
+          await window.carregarTabela();
         }
         break;
 
@@ -1080,7 +1144,7 @@ async function atualizarTelaSilenciosamente() {
       default:
         console.log(
           "ℹ️ Nenhuma tela compatível com refresh silencioso:",
-          APP_STATE.telaAtiva,
+          APP_STATE.telaAtiva
         );
         break;
     }
@@ -1100,7 +1164,9 @@ function iniciarAtualizacaoSilenciosa() {
     pararAtualizacaoSilenciosa();
 
     console.log(
-      `🔄 Iniciando atualização silenciosa automática a cada ${APP_STATE.silentRefreshMs / 1000}s`,
+      `🔄 Iniciando atualização silenciosa automática a cada ${
+        APP_STATE.silentRefreshMs / 1000
+      }s`
     );
 
     APP_STATE.silentRefreshTimer = setInterval(async () => {
@@ -1156,8 +1222,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   const perfilLocal = await garantirPerfilLocal(authUser);
   if (!perfilLocal) return;
 
-  // 4) sempre iniciar na semana atual
-  const semanaAtual = getSemanaAtual().toString().padStart(2, "0");
+  // 4) valida bootstrap dos arquivos de perfil
+  validarBootstrapPerfil();
+
+  // 5) sempre iniciar na semana atual
+  const semanaAtual = obterSemanaAtualApp().toString().padStart(2, "0");
   localStorage.setItem(STORAGE_KEYS.semana, semanaAtual);
 
   // limpa contexto do indicador/classe
@@ -1169,20 +1238,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   console.log("📅 Semana inicial forçada para a semana atual:", semanaAtual);
 
-  // 5) carrega sidebar
+  // 6) carrega sidebar
   await carregarSidebar();
 
-  // 6) testa conexão
+  // 7) testa conexão
   await testarConexao();
 
-  // 7) inicia monitoramento de inatividade
-  if (typeof iniciarMonitoramentoInatividade === "function") {
-    iniciarMonitoramentoInatividade();
+  // 8) inicia monitoramento de inatividade
+  if (typeof window.iniciarMonitoramentoInatividade === "function") {
+    window.iniciarMonitoramentoInatividade();
   }
 
-  // 8) inicia atualização silenciosa
+  // 9) inicia atualização silenciosa
   iniciarAtualizacaoSilenciosa();
 
-  // 9) abre dashboard
+  // 10) abre dashboard
   await abrirTelaInterna("dashboard", { silent: false });
 });
+
+// ==========================
+// 🌐 EXPOR

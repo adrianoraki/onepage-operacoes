@@ -64,6 +64,33 @@ function normalizarTextoTabelaUpper(valor) {
 }
 
 // ==========================
+// 🧰 HELPERS SEGUROS
+// ==========================
+function escapeHtmlTabela(valor) {
+  return (valor || "")
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function escapeCssSelectorTabela(valor) {
+  const texto = (valor || "").toString();
+
+  try {
+    if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+      return CSS.escape(texto);
+    }
+  } catch (erro) {
+    console.warn("⚠️ CSS.escape indisponível, usando fallback:", erro);
+  }
+
+  return texto.replace(/([ !"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, "\\$1");
+}
+
+// ==========================
 // 📝 JUSTIFICATIVAS SEM RESPOSTA
 // ==========================
 const JUSTIFICATIVAS_SEM_RESPOSTA = [
@@ -88,21 +115,14 @@ const JUSTIFICATIVA_UI_STATE = {
   timeoutClique: null,
 };
 
-function escapeHtmlTabela(valor) {
-  return (valor || "")
-    .toString()
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
 function prepararCliqueJustificativa(event = null) {
+  console.log("🖱️ prepararCliqueJustificativa");
+
   JUSTIFICATIVA_UI_STATE.clicandoBotao = true;
 
   if (JUSTIFICATIVA_UI_STATE.timeoutClique) {
     clearTimeout(JUSTIFICATIVA_UI_STATE.timeoutClique);
+    JUSTIFICATIVA_UI_STATE.timeoutClique = null;
   }
 
   if (event) {
@@ -114,10 +134,13 @@ function prepararCliqueJustificativa(event = null) {
 function finalizarCliqueJustificativa() {
   if (JUSTIFICATIVA_UI_STATE.timeoutClique) {
     clearTimeout(JUSTIFICATIVA_UI_STATE.timeoutClique);
+    JUSTIFICATIVA_UI_STATE.timeoutClique = null;
   }
 
   JUSTIFICATIVA_UI_STATE.timeoutClique = setTimeout(() => {
     JUSTIFICATIVA_UI_STATE.clicandoBotao = false;
+    JUSTIFICATIVA_UI_STATE.timeoutClique = null;
+    console.log("🖱️ Estado de clique na justificativa finalizado");
   }, 180);
 }
 
@@ -126,19 +149,39 @@ function valorCampoEstaVazioTabela(valor) {
 }
 
 function getBotaoJustificativa(loja, semana) {
-  return document.querySelector(
-    `button[data-loja="${CSS.escape(loja)}"][data-semana="${CSS.escape(
-      semana,
-    )}"][data-campo="justificativa"]`,
+  const lojaEsc = escapeCssSelectorTabela(loja);
+  const semanaEsc = escapeCssSelectorTabela(semana);
+
+  const el = document.querySelector(
+    `button[data-loja="${lojaEsc}"][data-semana="${semanaEsc}"][data-campo="justificativa"]`
   );
+
+  if (!el) {
+    console.warn("⚠️ Botão de justificativa não encontrado:", {
+      loja,
+      semana,
+    });
+  }
+
+  return el;
 }
 
 function getInputValorTabela(loja, semana) {
-  return document.querySelector(
-    `input[data-loja="${CSS.escape(loja)}"][data-semana="${CSS.escape(
-      semana,
-    )}"][data-campo="valor"]`,
+  const lojaEsc = escapeCssSelectorTabela(loja);
+  const semanaEsc = escapeCssSelectorTabela(semana);
+
+  const el = document.querySelector(
+    `input[data-loja="${lojaEsc}"][data-semana="${semanaEsc}"][data-campo="valor"]`
   );
+
+  if (!el) {
+    console.warn("⚠️ Input de valor não encontrado:", {
+      loja,
+      semana,
+    });
+  }
+
+  return el;
 }
 
 function getBotaoJustificativaDoInput(input) {
@@ -155,11 +198,50 @@ function atualizarEstadoVisualBotaoJustificativa(botao) {
   if (!botao) return;
 
   const justificativaAtual = normalizarTextoTabela(
-    botao.dataset.justificativaAtual || "",
+    botao.dataset.justificativaAtual || ""
   );
 
   botao.classList.toggle("ativo", !!justificativaAtual);
   botao.title = justificativaAtual || "Selecionar justificativa";
+
+  console.log("🎯 Estado visual do botão atualizado:", {
+    justificativaAtual,
+    ativo: !!justificativaAtual,
+  });
+}
+
+function atualizarEstadoVisualInputComJustificativa(input, botao = null) {
+  if (!input) return;
+
+  const botaoRef = botao || getBotaoJustificativaDoInput(input);
+
+  if (!botaoRef) {
+    input.classList.remove("input-com-justificativa");
+    console.warn("⚠️ Botão de justificativa não encontrado para atualizar input:", {
+      loja: input.dataset?.loja,
+      semana: input.dataset?.semana,
+    });
+    return;
+  }
+
+  const temValor = !valorCampoEstaVazioTabela(input.value);
+  const justificativaAtual = normalizarTextoTabela(
+    botaoRef.dataset.justificativaAtual ||
+      botaoRef.dataset.original ||
+      ""
+  );
+
+  const deveDestacar = !temValor && !!justificativaAtual;
+
+  input.classList.toggle("input-com-justificativa", deveDestacar);
+
+  console.log("🎨 Estado visual do input atualizado:", {
+    loja: input.dataset?.loja,
+    semana: input.dataset?.semana,
+    temValor,
+    justificativaAtual,
+    destacado: deveDestacar,
+  });
 }
 
 function atualizarVisibilidadeJustificativa(input, limparSeTiverValor = true) {
@@ -179,21 +261,37 @@ function atualizarVisibilidadeJustificativa(input, limparSeTiverValor = true) {
       atualizarEstadoVisualBotaoJustificativa(botao);
     }
 
-    botao.style.display = "none";
+    botao.classList.add("oculto");
     botao.disabled = true;
     botao.classList.remove("pendente");
+    input.classList.remove("input-com-justificativa");
+
+    console.log("👁️ Botão de justificativa ocultado porque existe valor", {
+      loja: input.dataset.loja,
+      semana: input.dataset.semana,
+    });
+
     return;
   }
 
-  botao.style.display = "inline-flex";
+  botao.classList.remove("oculto");
   botao.disabled = bloqueado;
   botao.classList.toggle("bloqueado", bloqueado);
   atualizarEstadoVisualBotaoJustificativa(botao);
+  atualizarEstadoVisualInputComJustificativa(input, botao);
+
+  console.log("👁️ Botão de justificativa exibido", {
+    loja: input.dataset.loja,
+    semana: input.dataset.semana,
+    bloqueado,
+  });
 }
 
 function sincronizarJustificativasComPermissoesTabela() {
+  console.log("🔐 Sincronizando justificativas com permissões da tabela...");
+
   const inputs = document.querySelectorAll(
-    '#conteudo input[data-loja][data-semana][data-campo="valor"]',
+    '#conteudo input[data-loja][data-semana][data-campo="valor"]'
   );
 
   inputs.forEach((input) => {
@@ -213,11 +311,19 @@ function sincronizarJustificativasComPermissoesTabela() {
       atualizarVisibilidadeJustificativa(input, false);
     }
   });
+
+  console.log("✅ Sincronização de justificativas concluída");
 }
 
 function garantirPainelJustificativa() {
   let painel = document.getElementById("painel-justificativa-flutuante");
-  if (painel) return painel;
+
+  if (painel) {
+    console.log("🪟 Painel de justificativa já existente");
+    return painel;
+  }
+
+  console.log("🪟 Criando painel de justificativa...");
 
   painel = document.createElement("div");
   painel.id = "painel-justificativa-flutuante";
@@ -243,6 +349,7 @@ function garantirPainelJustificativa() {
   document.body.appendChild(painel);
 
   const lista = painel.querySelector("#painel-justificativa-lista");
+
   JUSTIFICATIVAS_SEM_RESPOSTA.forEach((motivo) => {
     const btn = document.createElement("button");
     btn.type = "button";
@@ -251,6 +358,7 @@ function garantirPainelJustificativa() {
     btn.textContent = motivo;
 
     btn.addEventListener("click", async () => {
+      console.log("📝 Justificativa clicada no painel:", motivo);
       await selecionarJustificativaPainel(motivo);
     });
 
@@ -264,17 +372,18 @@ function garantirPainelJustificativa() {
 
   document.addEventListener("click", (event) => {
     const painelAberto = document.getElementById(
-      "painel-justificativa-flutuante",
+      "painel-justificativa-flutuante"
     );
 
     if (!painelAberto || !painelAberto.classList.contains("ativo")) return;
 
     const clicouNoPainel = painelAberto.contains(event.target);
     const clicouNoBotaoJustificativa = event.target.closest(
-      ".btn-justificativa-celula",
+      ".btn-justificativa-celula"
     );
 
     if (!clicouNoPainel && !clicouNoBotaoJustificativa) {
+      console.log("🪟 Clique fora do painel detectado. Fechando...");
       fecharPainelJustificativa();
     }
   });
@@ -291,6 +400,7 @@ function garantirPainelJustificativa() {
     }
   });
 
+  console.log("✅ Painel de justificativa criado com sucesso");
   return painel;
 }
 
@@ -325,6 +435,8 @@ function posicionarPainelJustificativa(botao) {
 
   caixa.style.left = `${left}px`;
   caixa.style.top = `${top}px`;
+
+  console.log("📍 Painel posicionado:", { left, top });
 }
 
 function marcarJustificativaSelecionadaNoPainel(botao) {
@@ -335,6 +447,8 @@ function marcarJustificativaSelecionadaNoPainel(botao) {
     const motivo = normalizarTextoTabela(item.dataset.motivo || "");
     item.classList.toggle("ativo", motivo === atual);
   });
+
+  console.log("✅ Justificativa marcada no painel:", atual || "(nenhuma)");
 }
 
 function abrirPainelJustificativa(botao, event = null) {
@@ -344,6 +458,7 @@ function abrirPainelJustificativa(botao, event = null) {
   }
 
   if (!botao || botao.disabled) {
+    console.warn("⚠️ Botão de justificativa inválido ou desabilitado");
     finalizarCliqueJustificativa();
     return;
   }
@@ -356,6 +471,12 @@ function abrirPainelJustificativa(botao, event = null) {
   posicionarPainelJustificativa(botao);
   marcarJustificativaSelecionadaNoPainel(botao);
 
+  console.log("🪟 Painel de justificativa aberto", {
+    loja: botao.dataset.loja,
+    semana: botao.dataset.semana,
+    justificativaAtual: botao.dataset.justificativaAtual || "",
+  });
+
   finalizarCliqueJustificativa();
 }
 
@@ -364,6 +485,8 @@ function fecharPainelJustificativa() {
   if (painel) {
     painel.classList.remove("ativo");
   }
+
+  console.log("🪟 Painel de justificativa fechado");
 
   JUSTIFICATIVA_UI_STATE.botaoAtivo = null;
   JUSTIFICATIVA_UI_STATE.clicandoBotao = false;
@@ -376,19 +499,36 @@ function fecharPainelJustificativa() {
 
 async function selecionarJustificativaPainel(motivo) {
   const botao = JUSTIFICATIVA_UI_STATE.botaoAtivo;
-  if (!botao) return;
+  if (!botao) {
+    console.warn("⚠️ Nenhum botão ativo para aplicar justificativa");
+    return;
+  }
 
   const input = getInputDoBotaoJustificativa(botao);
-  if (!input) return;
+  if (!input) {
+    console.warn("⚠️ Input relacionado ao botão não encontrado");
+    return;
+  }
+
+  console.log("📝 Selecionando justificativa do painel:", {
+    motivo,
+    loja: botao.dataset.loja,
+    semana: botao.dataset.semana,
+  });
 
   botao.dataset.justificativaAtual = normalizarTextoTabela(motivo || "");
-  botao.classList.remove("pendente");
+  botao.classList.remove("pendente", "oculto");
+
   atualizarEstadoVisualBotaoJustificativa(botao);
+  atualizarEstadoVisualInputComJustificativa(input, botao);
 
   const salvou = await processarAutoSalvarCampoTabela(input, botao);
 
   if (salvou) {
+    console.log("✅ Justificativa salva com sucesso");
     fecharPainelJustificativa();
+  } else {
+    console.warn("⚠️ Falha ao salvar justificativa selecionada");
   }
 }
 
@@ -440,7 +580,7 @@ function gerarSemanas() {
   const atual = parseInt(semanaSelecionada || getSemanaAtual(), 10);
 
   const lista = [atual - 3, atual - 2, atual - 1, atual].map((s) =>
-    s <= 0 ? 52 + s : s,
+    s <= 0 ? 52 + s : s
   );
 
   const semanas = lista.map((s) => s.toString().padStart(2, "0"));
@@ -554,7 +694,7 @@ async function carregarTabela() {
       normalizarTextoTabelaUpper(indicadorSelecionado);
     const indicadorBanco = obterIndicadorBanco(
       indicadorNormalizado,
-      classeSelecionada,
+      classeSelecionada
     );
     const classeAtual = obterClasse(indicadorNormalizado, classeSelecionada);
 
@@ -631,7 +771,7 @@ async function carregarTabela() {
         lojas,
         mapa,
         semanas,
-        classeSelecionada,
+        classeSelecionada
       );
     }
 
@@ -780,20 +920,23 @@ function montarLinha(loja, mapa, semanas, classeSelecionada = null) {
           >
 
           <button
-  type="button"
-  class="btn-justificativa-celula ${justificativa ? "ativo" : ""}"
-  data-loja="${escapeHtmlTabela(chaveLoja)}"
-  data-semana="${escapeHtmlTabela(semana)}"
-  data-campo="justificativa"
-  data-original="${escapeHtmlTabela(justificativa)}"
-  data-justificativa-atual="${escapeHtmlTabela(justificativa)}"
-  onmousedown="prepararCliqueJustificativa(event)"
-  onclick="abrirPainelJustificativa(this, event)"
-  title="${escapeHtmlTabela(justificativa || "Selecionar justificativa")}"
-  style="display:${mostrarBotaoJustificativa ? "inline-flex" : "none"};"
->
-  !
-</button>
+            type="button"
+            class="btn-justificativa-celula ${justificativa ? "ativo" : ""} ${
+              mostrarBotaoJustificativa ? "" : "oculto"
+            }"
+            data-loja="${escapeHtmlTabela(chaveLoja)}"
+            data-semana="${escapeHtmlTabela(semana)}"
+            data-campo="justificativa"
+            data-original="${escapeHtmlTabela(justificativa)}"
+            data-justificativa-atual="${escapeHtmlTabela(justificativa)}"
+            onmousedown="prepararCliqueJustificativa(event)"
+            onclick="abrirPainelJustificativa(this, event)"
+            title="${escapeHtmlTabela(
+              justificativa || "Selecionar justificativa"
+            )}"
+          >
+            !
+          </button>
         </div>
       </td>
     `;
@@ -831,7 +974,6 @@ function ativarFiltros() {
   const busca = document.getElementById("filtroBuscaLoja");
   const botoesRegional = document.querySelectorAll(".btn-filtro-regional");
 
-  // ✅ se a tabela atual não tiver esse filtro, não faz nada
   if (!busca || !botoesRegional.length) {
     console.warn("⚠️ Filtros padrão não disponíveis nessa tabela");
     return;
@@ -892,31 +1034,33 @@ async function processarAutoSalvarCampoTabela(input, botao = null) {
 
   const valorDigitado = (input.value || "").toString().trim();
   let justificativaSelecionada = normalizarTextoTabela(
-    botaoJustificativa?.dataset.justificativaAtual || "",
+    botaoJustificativa?.dataset.justificativaAtual || ""
   );
 
   const valorOriginal = input.dataset.original ?? "";
   const justificativaOriginal = input.dataset.originalJustificativa ?? "";
 
-  // se tem valor preenchido, justificativa deixa de existir
   if (!valorCampoEstaVazioTabela(valorDigitado)) {
     justificativaSelecionada = "";
 
     if (botaoJustificativa) {
       botaoJustificativa.dataset.justificativaAtual = "";
       botaoJustificativa.dataset.original = "";
-      botaoJustificativa.style.display = "none";
+      botaoJustificativa.classList.add("oculto");
       botaoJustificativa.disabled = true;
       botaoJustificativa.classList.remove("ativo", "pendente");
       botaoJustificativa.title = "Selecionar justificativa";
     }
+
+    input.classList.remove("input-com-justificativa");
   } else {
     if (botaoJustificativa) {
-      botaoJustificativa.style.display = "inline-flex";
+      botaoJustificativa.classList.remove("oculto");
       botaoJustificativa.disabled =
         input.disabled || input.readOnly || input.dataset.bloqueado === "true";
 
       atualizarEstadoVisualBotaoJustificativa(botaoJustificativa);
+      atualizarEstadoVisualInputComJustificativa(input, botaoJustificativa);
     }
   }
 
@@ -944,7 +1088,6 @@ async function processarAutoSalvarCampoTabela(input, botao = null) {
   const valorComparacao =
     valorLimpo === null || valorLimpo === undefined ? "" : String(valorLimpo);
 
-  // nada mudou
   if (
     valorComparacao === valorOriginal &&
     justificativaSelecionada === justificativaOriginal
@@ -960,29 +1103,28 @@ async function processarAutoSalvarCampoTabela(input, botao = null) {
       input.value = formatarValorParaInput(valorLimpo, tipo);
     }
 
+    atualizarEstadoVisualInputComJustificativa(input, botaoJustificativa);
     return true;
   }
 
-  // se não tem valor, exige justificativa
   if (valorLimpo === null && !justificativaSelecionada) {
     console.warn(
       "⚠️ Campo sem valor e sem justificativa. Salvamento bloqueado.",
       {
         loja,
         semana,
-      },
+      }
     );
 
     if (botaoJustificativa) {
       botaoJustificativa.classList.add("pendente");
-      abrirPainelJustificativa(botaoJustificativa);
+      abrirPainelJustificativa(botaoJustificativa, null);
     }
 
     aplicarStatusInput(input, "erro");
     return false;
   }
 
-  // reaplica máscara no campo se existir valor
   if (valorLimpo !== null && typeof formatarValorParaInput === "function") {
     input.value = formatarValorParaInput(valorLimpo, tipo);
   }
@@ -1001,7 +1143,7 @@ async function processarAutoSalvarCampoTabela(input, botao = null) {
     loja,
     semana,
     valorLimpo,
-    justificativaSelecionada,
+    justificativaSelecionada
   );
 
   if (salvou) {
@@ -1014,6 +1156,8 @@ async function processarAutoSalvarCampoTabela(input, botao = null) {
       botaoJustificativa.classList.remove("pendente");
       atualizarEstadoVisualBotaoJustificativa(botaoJustificativa);
     }
+
+    atualizarEstadoVisualInputComJustificativa(input, botaoJustificativa);
 
     aplicarStatusInput(input, "sucesso");
     atualizarVisibilidadeJustificativa(input, false);
@@ -1030,9 +1174,8 @@ async function processarAutoSalvarCampoTabela(input, botao = null) {
 async function autoSalvar(input) {
   if (!input) return;
 
-  // se o usuário estiver clicando no botão de justificativa,
-  // ignora o blur do input para não impedir a abertura do painel
   if (JUSTIFICATIVA_UI_STATE.clicandoBotao === true) {
+    console.log("ℹ️ AutoSave ignorado temporariamente por clique no botão");
     return;
   }
 
@@ -1059,7 +1202,7 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
   const indicadorNormalizado = normalizarTextoTabelaUpper(indicadorSelecionado);
   const indicadorBanco = obterIndicadorBanco(
     indicadorNormalizado,
-    classeSelecionada,
+    classeSelecionada
   );
   const classe = obterClasse(indicadorNormalizado, classeSelecionada);
 
@@ -1067,13 +1210,13 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
     loja,
     semana,
     indicadorBanco,
-    classe,
+    classe
   );
 
   if (TABELA_STATE.salvando.has(chaveSalvar)) {
     console.warn(
       "⚠️ Já existe um salvamento em andamento para este registro:",
-      chaveSalvar,
+      chaveSalvar
     );
     return false;
   }
