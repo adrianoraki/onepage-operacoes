@@ -12,6 +12,25 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
     return DashboardBI.CONSTS?.LIMITE_RANKING || 12;
   }
 
+  function normalizarPeriodo(valor, fallback = "MENSAL") {
+    if (DashboardBI.stateUtils?.normalizarPeriodo) {
+      return DashboardBI.stateUtils.normalizarPeriodo(valor, fallback);
+    }
+
+    const texto = (valor || "").toString().trim().toUpperCase();
+    if (["SEMANAL", "MENSAL", "ANUAL"].includes(texto)) return texto;
+    return fallback;
+  }
+
+  function normalizarSemana(valor) {
+    return String(valor || "").padStart(2, "0");
+  }
+
+  function numeroSeguro(valor) {
+    const n = Number(valor);
+    return Number.isFinite(n) ? n : 0;
+  }
+
   function getTipoValorPrincipalAtual() {
     const state = getState();
 
@@ -26,77 +45,170 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
     return "numero";
   }
 
-  // ==========================
-  // 📦 AGRUPAR INDICADORES POR MÉDIA
-  // ==========================
-  DashboardBI.aggregations.agruparIndicadoresPorMediaDashboard = function (
-    resultadosMes
-  ) {
+  function getOrdemAtualDashboard() {
+    const state = getState();
+
+    if (state.indicador && state.indicador !== "TODOS") {
+      return DashboardBI.helpers.getOrdemRanking(
+        state.indicador,
+        state.classe === "TODAS" ? null : state.classe
+      );
+    }
+
+    return "desc";
+  }
+
+  function getRegraOrdenacaoAtual(campo = "mediaValor") {
+    const tipoValorPrincipal = getTipoValorPrincipalAtual();
+    const menorMelhor = DashboardBI.helpers.menorEhMelhor(tipoValorPrincipal);
+    const ordemConfigurada = getOrdemAtualDashboard();
+
+    const ordemFinal = menorMelhor ? "asc" : ordemConfigurada || "desc";
+
+    return {
+      campo,
+      tipoValorPrincipal,
+      menorMelhor,
+      ordemConfigurada,
+      ordemFinal,
+    };
+  }
+
+  function ordenarListaPorRegra(lista = [], campo = "mediaValor") {
+    const regra = getRegraOrdenacaoAtual(campo);
+
+    const ordenada = [...(lista || [])].sort((a, b) => {
+      const va = numeroSeguro(a?.[campo]);
+      const vb = numeroSeguro(b?.[campo]);
+
+      if (regra.ordemFinal === "asc") return va - vb;
+      return vb - va;
+    });
+
+    console.log("↕️ Lista ordenada por regra:", {
+      campo,
+      ordemFinal: regra.ordemFinal,
+      total: ordenada.length,
+    });
+
+    return ordenada;
+  }
+
+  function montarMediaPorChave(resultados, chave) {
     const mapa = {};
 
-    (resultadosMes || []).forEach((r) => {
-      if (!mapa[r.indicador]) {
-        mapa[r.indicador] = {
-          indicador: r.indicador,
+    (resultados || []).forEach((r) => {
+      const chaveValor = r?.[chave];
+      if (!chaveValor) return;
+
+      if (!mapa[chaveValor]) {
+        mapa[chaveValor] = {
+          chave: chaveValor,
           valores: [],
           valores2: [],
+          qtd: 0,
         };
       }
 
-      mapa[r.indicador].valores.push(Number(r.valor));
-      mapa[r.indicador].valores2.push(Number(r.valor2));
+      mapa[chaveValor].valores.push(numeroSeguro(r.valor));
+      mapa[chaveValor].valores2.push(numeroSeguro(r.valor2));
+      mapa[chaveValor].qtd += 1;
     });
 
-    const lista = Object.values(mapa)
-      .map((item) => ({
-        indicador: item.indicador,
-        mediaValor: DashboardBI.helpers.calcularMedia(item.valores),
-        mediaValor2: DashboardBI.helpers.calcularMedia(item.valores2),
-      }))
-      .sort((a, b) => b.mediaValor - a.mediaValor)
-      .slice(0, getLimiteRanking());
+    const lista = Object.values(mapa).map((item) => ({
+      chave: item.chave,
+      mediaValor: item.qtd
+        ? DashboardBI.helpers.calcularMedia(item.valores)
+        : 0,
+      mediaValor2: item.qtd
+        ? DashboardBI.helpers.calcularMedia(item.valores2)
+        : 0,
+      qtd: item.qtd,
+    }));
 
-    console.log("📦 Ranking por indicador agregado:", {
+    console.log("📦 Médias por chave calculadas:", {
+      chave,
       total: lista.length,
-      lista,
     });
 
     return lista;
-  };
+  }
 
-  // ==========================
-  // 🏆 AGRUPAR RANKING DE LOJAS
-  // média = (primeira semana + última semana) / 2
-  // ==========================
-  DashboardBI.aggregations.agruparLojasRankingDashboard = function (
-    resultadosMes,
-    semanasMesInfo
-  ) {
+  function extrairPrimeiraEUltimaSemana(resultados = []) {
+    const semanas = [
+      ...new Set((resultados || []).map((r) => normalizarSemana(r.semana))),
+    ]
+      .filter(Boolean)
+      .sort((a, b) => Number(a) - Number(b));
+
+    return {
+      primeira: semanas[0] || null,
+      ultima: semanas[semanas.length - 1] || null,
+      lista: semanas,
+    };
+  }
+
+  function getInfoSemanasNormalizada(infoPeriodo = {}, resultados = []) {
+    const primeira = infoPeriodo?.primeira
+      ? normalizarSemana(infoPeriodo.primeira)
+      : null;
+    const ultima = infoPeriodo?.ultima
+      ? normalizarSemana(infoPeriodo.ultima)
+      : null;
+
+    if (primeira && ultima) {
+      return {
+        primeira,
+        ultima,
+        lista: (infoPeriodo?.lista || []).map(normalizarSemana),
+        descricao: infoPeriodo?.descricao || "período informado",
+      };
+    }
+
+    const extraida = extrairPrimeiraEUltimaSemana(resultados);
+    return {
+      primeira: extraida.primeira,
+      ultima: extraida.ultima,
+      lista: extraida.lista,
+      descricao: infoPeriodo?.descricao || "período calculado",
+    };
+  }
+
+  function montarMediaPrimeiraEUltimaSemana(resultados = [], chave = "loja") {
+    const semanasInfo = extrairPrimeiraEUltimaSemana(resultados);
     const mapa = {};
 
-    (resultadosMes || []).forEach((r) => {
-      if (!mapa[r.loja]) {
-        mapa[r.loja] = {
-          loja: r.loja,
+    (resultados || []).forEach((r) => {
+      const chaveValor = r?.[chave];
+      if (!chaveValor) return;
+
+      if (!mapa[chaveValor]) {
+        mapa[chaveValor] = {
+          chave: chaveValor,
           primeiraSemanaValores: [],
           ultimaSemanaValores: [],
           primeiraSemanaValores2: [],
           ultimaSemanaValores2: [],
+          qtd: 0,
         };
       }
 
-      if (String(r.semana) === String(semanasMesInfo.primeira)) {
-        mapa[r.loja].primeiraSemanaValores.push(Number(r.valor));
-        mapa[r.loja].primeiraSemanaValores2.push(Number(r.valor2));
+      const semanaAtual = normalizarSemana(r.semana);
+
+      if (semanaAtual === semanasInfo.primeira) {
+        mapa[chaveValor].primeiraSemanaValores.push(numeroSeguro(r.valor));
+        mapa[chaveValor].primeiraSemanaValores2.push(numeroSeguro(r.valor2));
       }
 
-      if (String(r.semana) === String(semanasMesInfo.ultima)) {
-        mapa[r.loja].ultimaSemanaValores.push(Number(r.valor));
-        mapa[r.loja].ultimaSemanaValores2.push(Number(r.valor2));
+      if (semanaAtual === semanasInfo.ultima) {
+        mapa[chaveValor].ultimaSemanaValores.push(numeroSeguro(r.valor));
+        mapa[chaveValor].ultimaSemanaValores2.push(numeroSeguro(r.valor2));
       }
+
+      mapa[chaveValor].qtd += 1;
     });
 
-    const lista = Object.values(mapa).map((item) => {
+    return Object.values(mapa).map((item) => {
       const mediaPrimeira = DashboardBI.helpers.calcularMedia(
         item.primeiraSemanaValores
       );
@@ -116,7 +228,6 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
 
       const temPrimeira = item.primeiraSemanaValores.length > 0;
       const temUltima = item.ultimaSemanaValores.length > 0;
-
       const temPrimeira2 = item.primeiraSemanaValores2.length > 0;
       const temUltima2 = item.ultimaSemanaValores2.length > 0;
 
@@ -137,33 +248,140 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
       }
 
       return {
-        loja: item.loja,
+        chave: item.chave,
         mediaValor,
         mediaValor2,
+        qtd: item.qtd,
       };
     });
+  }
 
-    const state = getState();
+  // ==========================
+  // 📦 AGRUPAR INDICADORES POR MÉDIA (COMPAT)
+  // ==========================
+  DashboardBI.aggregations.agruparIndicadoresPorMediaDashboard = function (
+    resultadosMes
+  ) {
+    const listaBase = montarMediaPorChave(resultadosMes, "indicador").map(
+      (item) => ({
+        indicador: item.chave,
+        mediaValor: item.mediaValor,
+        mediaValor2: item.mediaValor2,
+        qtd: item.qtd,
+      })
+    );
 
-    const ordem =
-      state.indicador && state.indicador !== "TODOS"
-        ? DashboardBI.helpers.getOrdemRanking(
-            state.indicador,
-            state.classe === "TODAS" ? null : state.classe
-          )
-        : "desc";
+    const lista = ordenarListaPorRegra(listaBase, "mediaValor").slice(
+      0,
+      getLimiteRanking()
+    );
 
-    lista.sort((a, b) => {
-      if (ordem === "asc") return a.mediaValor - b.mediaValor;
-      return b.mediaValor - a.mediaValor;
+    console.log("📦 Ranking por indicador agregado (compat):", {
+      total: lista.length,
+      lista,
     });
 
-    const final = lista
-      .filter((item) => !isNaN(item.mediaValor))
+    return lista;
+  };
+
+  // ==========================
+  // 🏆 AGRUPAR RANKING DE LOJAS (COMPAT)
+  // média = (primeira semana + última semana) / 2
+  // ==========================
+  DashboardBI.aggregations.agruparLojasRankingDashboard = function (
+    resultadosMes,
+    semanasMesInfo
+  ) {
+    let listaBase = [];
+
+    if (semanasMesInfo?.primeira && semanasMesInfo?.ultima) {
+      const primeira = normalizarSemana(semanasMesInfo.primeira);
+      const ultima = normalizarSemana(semanasMesInfo.ultima);
+      const mapa = {};
+
+      (resultadosMes || []).forEach((r) => {
+        if (!mapa[r.loja]) {
+          mapa[r.loja] = {
+            loja: r.loja,
+            primeiraSemanaValores: [],
+            ultimaSemanaValores: [],
+            primeiraSemanaValores2: [],
+            ultimaSemanaValores2: [],
+          };
+        }
+
+        const semanaAtual = normalizarSemana(r.semana);
+
+        if (semanaAtual === primeira) {
+          mapa[r.loja].primeiraSemanaValores.push(numeroSeguro(r.valor));
+          mapa[r.loja].primeiraSemanaValores2.push(numeroSeguro(r.valor2));
+        }
+
+        if (semanaAtual === ultima) {
+          mapa[r.loja].ultimaSemanaValores.push(numeroSeguro(r.valor));
+          mapa[r.loja].ultimaSemanaValores2.push(numeroSeguro(r.valor2));
+        }
+      });
+
+      listaBase = Object.values(mapa).map((item) => {
+        const mediaPrimeira = DashboardBI.helpers.calcularMedia(
+          item.primeiraSemanaValores
+        );
+        const mediaUltima = DashboardBI.helpers.calcularMedia(
+          item.ultimaSemanaValores
+        );
+
+        const mediaPrimeira2 = DashboardBI.helpers.calcularMedia(
+          item.primeiraSemanaValores2
+        );
+        const mediaUltima2 = DashboardBI.helpers.calcularMedia(
+          item.ultimaSemanaValores2
+        );
+
+        let mediaValor = 0;
+        let mediaValor2 = 0;
+
+        const temPrimeira = item.primeiraSemanaValores.length > 0;
+        const temUltima = item.ultimaSemanaValores.length > 0;
+        const temPrimeira2 = item.primeiraSemanaValores2.length > 0;
+        const temUltima2 = item.ultimaSemanaValores2.length > 0;
+
+        if (temPrimeira && temUltima) {
+          mediaValor = (mediaPrimeira + mediaUltima) / 2;
+        } else if (temPrimeira) {
+          mediaValor = mediaPrimeira;
+        } else if (temUltima) {
+          mediaValor = mediaUltima;
+        }
+
+        if (temPrimeira2 && temUltima2) {
+          mediaValor2 = (mediaPrimeira2 + mediaUltima2) / 2;
+        } else if (temPrimeira2) {
+          mediaValor2 = mediaPrimeira2;
+        } else if (temUltima2) {
+          mediaValor2 = mediaUltima2;
+        }
+
+        return {
+          loja: item.loja,
+          mediaValor,
+          mediaValor2,
+        };
+      });
+    } else {
+      listaBase = montarMediaPorChave(resultadosMes, "loja").map((item) => ({
+        loja: item.chave,
+        mediaValor: item.mediaValor,
+        mediaValor2: item.mediaValor2,
+        qtd: item.qtd,
+      }));
+    }
+
+    const final = ordenarListaPorRegra(listaBase, "mediaValor")
+      .filter((item) => Number.isFinite(Number(item.mediaValor)))
       .slice(0, getLimiteRanking());
 
-    console.log("🏆 Ranking de lojas agregado:", {
-      ordem,
+    console.log("🏆 Ranking de lojas agregado (compat):", {
       total: final.length,
       final,
     });
@@ -172,8 +390,150 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
   };
 
   // ==========================
+  // 🏆 NOVO RANKING DE LOJAS POR PERÍODO
+  // semanal / mensal / anual
+  // ==========================
+  DashboardBI.aggregations.agruparRankingLojasPorPeriodoDashboard = function (
+    resultadosPeriodo,
+    infoPeriodo = {}
+  ) {
+    const state = getState();
+    const periodo = normalizarPeriodo(
+      state.periodoRanking || state.periodoDashboard,
+      "MENSAL"
+    );
+
+    let listaBase = [];
+
+    // Mantemos o tratamento explícito por período para logs claros
+    if (periodo === "SEMANAL") {
+      listaBase = montarMediaPorChave(resultadosPeriodo, "loja").map((item) => ({
+        loja: item.chave,
+        mediaValor: item.mediaValor,
+        mediaValor2: item.mediaValor2,
+        qtd: item.qtd,
+      }));
+    } else if (periodo === "MENSAL") {
+      listaBase = montarMediaPorChave(resultadosPeriodo, "loja").map((item) => ({
+        loja: item.chave,
+        mediaValor: item.mediaValor,
+        mediaValor2: item.mediaValor2,
+        qtd: item.qtd,
+      }));
+    } else if (periodo === "ANUAL") {
+      listaBase = montarMediaPorChave(resultadosPeriodo, "loja").map((item) => ({
+        loja: item.chave,
+        mediaValor: item.mediaValor,
+        mediaValor2: item.mediaValor2,
+        qtd: item.qtd,
+      }));
+    } else {
+      listaBase = montarMediaPorChave(resultadosPeriodo, "loja").map((item) => ({
+        loja: item.chave,
+        mediaValor: item.mediaValor,
+        mediaValor2: item.mediaValor2,
+        qtd: item.qtd,
+      }));
+    }
+
+    const final = ordenarListaPorRegra(listaBase, "mediaValor")
+      .filter((item) => Number.isFinite(Number(item.mediaValor)))
+      .slice(0, getLimiteRanking());
+
+    console.log("🏆 Ranking de lojas por período agregado:", {
+      periodo,
+      infoPeriodo,
+      total: final.length,
+      final,
+    });
+
+    return final;
+  };
+
+  // ==========================
+  // 📦 NOVO RANKING DE INDICADORES POR PERÍODO
+  // semanal / mensal / anual
+  // ==========================
+  DashboardBI.aggregations.agruparRankingIndicadoresPorPeriodoDashboard =
+    function (resultadosPeriodo, infoPeriodo = {}) {
+      const state = getState();
+      const periodo = normalizarPeriodo(
+        state.periodoRanking || state.periodoDashboard,
+        "MENSAL"
+      );
+
+      const listaBase = montarMediaPorChave(
+        resultadosPeriodo,
+        "indicador"
+      ).map((item) => ({
+        indicador: item.chave,
+        mediaValor: item.mediaValor,
+        mediaValor2: item.mediaValor2,
+        qtd: item.qtd,
+      }));
+
+      const final = ordenarListaPorRegra(listaBase, "mediaValor")
+        .filter((item) => Number.isFinite(Number(item.mediaValor)))
+        .slice(0, getLimiteRanking());
+
+      console.log("📦 Ranking de indicadores por período agregado:", {
+        periodo,
+        infoPeriodo,
+        total: final.length,
+        final,
+      });
+
+      return final;
+    };
+
+  // ==========================
+  // 🌍 EVOLUÇÃO REGIONAL (NE1 x NE2)
+  // ==========================
+  DashboardBI.aggregations.agruparEvolucaoRegionalDashboard = function (
+    resultados,
+    semanasJanela,
+    mapaLojaRegional = {}
+  ) {
+    const lista = (semanasJanela || []).map((semana) => {
+      const semanaNorm = normalizarSemana(semana);
+
+      const dadosSemana = (resultados || []).filter(
+        (r) => normalizarSemana(r.semana) === semanaNorm
+      );
+
+      const dadosNE1 = dadosSemana.filter((r) => {
+        const regional = DashboardBI.helpers.normalizarTextoUpper(
+          mapaLojaRegional[r.loja] || ""
+        );
+        return regional === "NE1";
+      });
+
+      const dadosNE2 = dadosSemana.filter((r) => {
+        const regional = DashboardBI.helpers.normalizarTextoUpper(
+          mapaLojaRegional[r.loja] || ""
+        );
+        return regional === "NE2";
+      });
+
+      return {
+        semana: semanaNorm,
+        registros: dadosSemana.length,
+        mediaNE1: DashboardBI.helpers.calcularMedia(dadosNE1.map((r) => r.valor)),
+        mediaNE2: DashboardBI.helpers.calcularMedia(dadosNE2.map((r) => r.valor)),
+      };
+    });
+
+    console.log("🌍 Evolução regional NE1 x NE2 agregada:", {
+      total: lista.length,
+      lista,
+    });
+
+    return lista;
+  };
+
+  // ==========================
   // 🧩 RANKING POR SUBCLASSE
-  // (novo: mais útil para a nova visão BI)
+  // mantido apenas por compatibilidade
   // ==========================
   DashboardBI.aggregations.agruparRankingSubclassesDashboard = function (
     resultadosMes
@@ -181,8 +541,7 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
     const mapa = {};
 
     (resultadosMes || []).forEach((r) => {
-      const subclasse =
-        r.subclasse || r.classe || "Sem subclasse";
+      const subclasse = r.subclasse || r.classe || "Sem subclasse";
 
       if (!mapa[subclasse]) {
         mapa[subclasse] = {
@@ -193,13 +552,10 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
         };
       }
 
-      mapa[subclasse].valores.push(Number(r.valor));
-      mapa[subclasse].valores2.push(Number(r.valor2));
+      mapa[subclasse].valores.push(numeroSeguro(r.valor));
+      mapa[subclasse].valores2.push(numeroSeguro(r.valor2));
       mapa[subclasse].qtd += 1;
     });
-
-    const tipoValorPrincipal = getTipoValorPrincipalAtual();
-    const menorMelhor = DashboardBI.helpers.menorEhMelhor(tipoValorPrincipal);
 
     const lista = Object.values(mapa).map((item) => ({
       subclasse: item.subclasse,
@@ -212,18 +568,14 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
         : 0,
     }));
 
-    lista.sort((a, b) => {
-      if (menorMelhor) return a.mediaValor - b.mediaValor;
-      return b.mediaValor - a.mediaValor;
+    const ordenada = ordenarListaPorRegra(lista, "mediaValor");
+
+    console.log("🧩 Ranking por subclasse agregado (compat):", {
+      total: ordenada.length,
+      ordenada,
     });
 
-    console.log("🧩 Ranking por subclasse agregado:", {
-      menorMelhor,
-      total: lista.length,
-      lista,
-    });
-
-    return lista;
+    return ordenada;
   };
 
   // ==========================
@@ -239,7 +591,7 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
       if (!mapa[r.loja]) {
         mapa[r.loja] = [];
       }
-      mapa[r.loja].push(Number(r.valor));
+      mapa[r.loja].push(numeroSeguro(r.valor));
     });
 
     const lista = Object.entries(mapa).map(([loja, valores]) => ({
@@ -301,12 +653,15 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
     resultadosMes,
     semanasMesInfo
   ) {
+    const primeira = normalizarSemana(semanasMesInfo?.primeira);
+    const ultima = normalizarSemana(semanasMesInfo?.ultima);
+
     const primeiraSemana = (resultadosMes || []).filter(
-      (r) => String(r.semana) === String(semanasMesInfo.primeira)
+      (r) => normalizarSemana(r.semana) === primeira
     );
 
     const ultimaSemana = (resultadosMes || []).filter(
-      (r) => String(r.semana) === String(semanasMesInfo.ultima)
+      (r) => normalizarSemana(r.semana) === ultima
     );
 
     const mediaPrimeira = DashboardBI.helpers.calcularMedia(
@@ -341,12 +696,14 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
     semanasJanela
   ) {
     const lista = (semanasJanela || []).map((semana) => {
+      const semanaNorm = normalizarSemana(semana);
+
       const dadosSemana = (resultados || []).filter(
-        (r) => String(r.semana) === String(semana)
+        (r) => normalizarSemana(r.semana) === semanaNorm
       );
 
       return {
-        semana,
+        semana: semanaNorm,
         registros: dadosSemana.length,
         mediaValor: DashboardBI.helpers.calcularMedia(
           dadosSemana.map((r) => r.valor)
@@ -357,7 +714,11 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
       };
     });
 
-    console.log("📈 Evolução semanal agregada:", lista);
+    console.log("📈 Evolução semanal agregada:", {
+      total: lista.length,
+      lista,
+    });
+
     return lista;
   };
 
@@ -366,6 +727,12 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
       typeof DashboardBI.aggregations.agruparIndicadoresPorMediaDashboard,
     agruparLojasRankingDashboard:
       typeof DashboardBI.aggregations.agruparLojasRankingDashboard,
+    agruparRankingLojasPorPeriodoDashboard:
+      typeof DashboardBI.aggregations.agruparRankingLojasPorPeriodoDashboard,
+    agruparRankingIndicadoresPorPeriodoDashboard:
+      typeof DashboardBI.aggregations.agruparRankingIndicadoresPorPeriodoDashboard,
+    agruparEvolucaoRegionalDashboard:
+      typeof DashboardBI.aggregations.agruparEvolucaoRegionalDashboard,
     agruparRankingSubclassesDashboard:
       typeof DashboardBI.aggregations.agruparRankingSubclassesDashboard,
     calcularMelhorEPiorLojaDashboard:

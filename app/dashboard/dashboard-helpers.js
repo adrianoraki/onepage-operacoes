@@ -377,3 +377,8 @@ DashboardBI.helpers = DashboardBI.helpers || {};
     helpers: Object.keys(DashboardBI.helpers || {}),
   });
 })();
+
+DashboardBI.helpers.usuarioDashboardEhGlobal = function (contexto) {
+  const escopo = contexto?.escopo || {};
+  return (escopo.tipo || "") === "global";
+};

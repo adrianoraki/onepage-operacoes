@@ -8,12 +8,31 @@ DashboardBI.filters = DashboardBI.filters || {};
     return DashboardBI.STATE || {};
   }
 
+  function getPeriodoNormalizado(valor, fallback = "MENSAL") {
+    if (DashboardBI.stateUtils?.normalizarPeriodo) {
+      return DashboardBI.stateUtils.normalizarPeriodo(valor, fallback);
+    }
+
+    const texto = (valor || "").toString().trim().toUpperCase();
+    if (["SEMANAL", "MENSAL", "ANUAL"].includes(texto)) return texto;
+    return fallback;
+  }
+
+  function getContextoAtualDashboard() {
+    try {
+      if (typeof window.getContextoDashboardUsuario === "function") {
+        return window.getContextoDashboardUsuario();
+      }
+    } catch (erro) {
+      console.error("❌ Erro ao obter contexto atual do dashboard:", erro);
+    }
+
+    return null;
+  }
+
   function recarregarDashboardViaDados() {
     try {
-      const contexto =
-        typeof window.getContextoDashboardUsuario === "function"
-          ? window.getContextoDashboardUsuario()
-          : null;
+      const contexto = getContextoAtualDashboard();
 
       if (!contexto) {
         console.warn(
@@ -52,6 +71,26 @@ DashboardBI.filters = DashboardBI.filters || {};
     } catch (erro) {
       console.error("❌ Erro ao reconstruir tela do dashboard:", erro);
     }
+  }
+
+  function usuarioEhGlobal(contexto) {
+    const escopo = contexto?.escopo || {};
+    const perfil = (contexto?.usuario?.perfil || "").toString().toLowerCase();
+
+    return escopo.tipo === "global" || perfil === "master";
+  }
+
+  function getAnosDisponiveisDashboard() {
+    const anoAtual = Number(
+      DashboardBI.stateUtils?.getAnoAtual?.() || new Date().getFullYear()
+    );
+
+    const anos = [];
+    for (let ano = anoAtual - 3; ano <= anoAtual + 1; ano++) {
+      anos.push(String(ano));
+    }
+
+    return anos;
   }
 
   // ==========================
@@ -97,6 +136,96 @@ DashboardBI.filters = DashboardBI.filters || {};
   };
 
   // ==========================
+  // ⏱️ OPTIONS PERÍODO DASHBOARD
+  // ==========================
+  DashboardBI.filters.gerarOptionsPeriodoDashboard = function () {
+    const state = getState();
+    const periodo = getPeriodoNormalizado(state.periodoDashboard, "MENSAL");
+
+    return `
+      <option value="SEMANAL" ${
+        periodo === "SEMANAL" ? "selected" : ""
+      }>Dashboard semanal</option>
+      <option value="MENSAL" ${
+        periodo === "MENSAL" ? "selected" : ""
+      }>Dashboard mensal</option>
+      <option value="ANUAL" ${
+        periodo === "ANUAL" ? "selected" : ""
+      }>Dashboard anual</option>
+    `;
+  };
+
+  // ==========================
+  // 🏆 OPTIONS PERÍODO RANKING
+  // ==========================
+  DashboardBI.filters.gerarOptionsPeriodoRanking = function () {
+    const state = getState();
+    const periodo = getPeriodoNormalizado(state.periodoRanking, "MENSAL");
+
+    return `
+      <option value="SEMANAL" ${
+        periodo === "SEMANAL" ? "selected" : ""
+      }>Ranking semanal</option>
+      <option value="MENSAL" ${
+        periodo === "MENSAL" ? "selected" : ""
+      }>Ranking mensal</option>
+      <option value="ANUAL" ${
+        periodo === "ANUAL" ? "selected" : ""
+      }>Ranking anual</option>
+    `;
+  };
+
+  // ==========================
+  // 🗓️ OPTIONS MESES
+  // ==========================
+  DashboardBI.filters.gerarOptionsMesesDashboard = function () {
+    const state = getState();
+    const mesAtual = String(state.mes || "01").padStart(2, "0");
+
+    const meses = [
+      { valor: "01", nome: "Janeiro" },
+      { valor: "02", nome: "Fevereiro" },
+      { valor: "03", nome: "Março" },
+      { valor: "04", nome: "Abril" },
+      { valor: "05", nome: "Maio" },
+      { valor: "06", nome: "Junho" },
+      { valor: "07", nome: "Julho" },
+      { valor: "08", nome: "Agosto" },
+      { valor: "09", nome: "Setembro" },
+      { valor: "10", nome: "Outubro" },
+      { valor: "11", nome: "Novembro" },
+      { valor: "12", nome: "Dezembro" },
+    ];
+
+    return meses
+      .map(
+        (m) =>
+          `<option value="${m.valor}" ${
+            mesAtual === m.valor ? "selected" : ""
+          }>${m.nome}</option>`
+      )
+      .join("");
+  };
+
+  // ==========================
+  // 🗓️ OPTIONS ANOS
+  // ==========================
+  DashboardBI.filters.gerarOptionsAnosDashboard = function () {
+    const state = getState();
+    const anoAtual = String(state.ano || new Date().getFullYear());
+    const anos = getAnosDisponiveisDashboard();
+
+    return anos
+      .map(
+        (ano) =>
+          `<option value="${ano}" ${
+            anoAtual === ano ? "selected" : ""
+          }>${ano}</option>`
+      )
+      .join("");
+  };
+
+  // ==========================
   // 🏬 POPULAR SELECT DE LOJAS
   // ==========================
   DashboardBI.filters.popularSelectLojasDashboard = function (lojas) {
@@ -135,6 +264,11 @@ DashboardBI.filters = DashboardBI.filters || {};
     const state = getState();
 
     if (!contexto) return lista;
+
+    if (usuarioEhGlobal(contexto)) {
+      console.log("🌐 Usuário global/master no dashboard: sem filtro base de escopo");
+      return lista;
+    }
 
     if (state.visao === "regional") {
       if (contexto.escopo?.regional) {
@@ -190,9 +324,44 @@ DashboardBI.filters = DashboardBI.filters || {};
   // ==========================
   DashboardBI.filters.dashboardAlterarSemana = async function (semana) {
     DashboardBI.setState({ semana });
-    localStorage.setItem("semana", semana);
 
     console.log("📅 Dashboard semana alterada:", semana);
+    await recarregarDashboardViaDados();
+  };
+
+  DashboardBI.filters.dashboardAlterarMes = async function (mes) {
+    DashboardBI.setState({ mes: String(mes).padStart(2, "0") });
+
+    console.log("🗓️ Dashboard mês alterado:", mes);
+    await recarregarDashboardViaDados();
+  };
+
+  DashboardBI.filters.dashboardAlterarAno = async function (ano) {
+    DashboardBI.setState({ ano: String(ano) });
+
+    console.log("🗓️ Dashboard ano alterado:", ano);
+    await recarregarDashboardViaDados();
+  };
+
+  DashboardBI.filters.dashboardAlterarPeriodoDashboard = async function (
+    periodoDashboard
+  ) {
+    const periodo = getPeriodoNormalizado(periodoDashboard, "MENSAL");
+
+    DashboardBI.setState({ periodoDashboard: periodo });
+
+    console.log("⏱️ Período principal do dashboard alterado:", periodo);
+    await recarregarDashboardViaDados();
+  };
+
+  DashboardBI.filters.dashboardAlterarPeriodoRanking = async function (
+    periodoRanking
+  ) {
+    const periodo = getPeriodoNormalizado(periodoRanking, "MENSAL");
+
+    DashboardBI.setState({ periodoRanking: periodo });
+
+    console.log("🏆 Período do ranking alterado:", periodo);
     await recarregarDashboardViaDados();
   };
 
@@ -238,9 +407,25 @@ DashboardBI.filters = DashboardBI.filters || {};
   DashboardBI.filters.dashboardAlterarVisao = async function (visao) {
     console.log("ℹ️ dashboardAlterarVisao chamado:", visao);
 
-    DashboardBI.setState({
+    const contexto = getContextoAtualDashboard();
+    const ehGlobal = usuarioEhGlobal(contexto);
+
+    const novoState = {
       visao: visao || getState().visao || "regional",
-    });
+    };
+
+    // quando muda a visão, zera os filtros dependentes
+    if (novoState.visao === "regional") {
+      novoState.loja = "TODAS";
+      if (ehGlobal) novoState.regional = "TODAS";
+    }
+
+    if (novoState.visao === "gerencial") {
+      novoState.regional = "TODAS";
+      if (ehGlobal) novoState.loja = "TODAS";
+    }
+
+    DashboardBI.setState(novoState);
 
     await reconstruirTelaDashboard();
   };
@@ -252,6 +437,15 @@ DashboardBI.filters = DashboardBI.filters || {};
     DashboardBI.filters.gerarOptionsClassesDashboard;
   window.gerarOptionsIndicadoresDashboard =
     DashboardBI.filters.gerarOptionsIndicadoresDashboard;
+  window.gerarOptionsPeriodoDashboard =
+    DashboardBI.filters.gerarOptionsPeriodoDashboard;
+  window.gerarOptionsPeriodoRanking =
+    DashboardBI.filters.gerarOptionsPeriodoRanking;
+  window.gerarOptionsMesesDashboard =
+    DashboardBI.filters.gerarOptionsMesesDashboard;
+  window.gerarOptionsAnosDashboard =
+    DashboardBI.filters.gerarOptionsAnosDashboard;
+
   window.popularSelectLojasDashboard =
     DashboardBI.filters.popularSelectLojasDashboard;
 
@@ -261,9 +455,17 @@ DashboardBI.filters = DashboardBI.filters || {};
     DashboardBI.filters.aplicarFiltrosVisuaisLojasDashboard;
 
   window.dashboardAlterarSemana = DashboardBI.filters.dashboardAlterarSemana;
+  window.dashboardAlterarMes = DashboardBI.filters.dashboardAlterarMes;
+  window.dashboardAlterarAno = DashboardBI.filters.dashboardAlterarAno;
+  window.dashboardAlterarPeriodoDashboard =
+    DashboardBI.filters.dashboardAlterarPeriodoDashboard;
+  window.dashboardAlterarPeriodoRanking =
+    DashboardBI.filters.dashboardAlterarPeriodoRanking;
   window.dashboardAlterarClasse = DashboardBI.filters.dashboardAlterarClasse;
-  window.dashboardAlterarIndicador = DashboardBI.filters.dashboardAlterarIndicador;
-  window.dashboardAlterarRegional = DashboardBI.filters.dashboardAlterarRegional;
+  window.dashboardAlterarIndicador =
+    DashboardBI.filters.dashboardAlterarIndicador;
+  window.dashboardAlterarRegional =
+    DashboardBI.filters.dashboardAlterarRegional;
   window.dashboardAlterarLoja = DashboardBI.filters.dashboardAlterarLoja;
   window.dashboardAlterarVisao = DashboardBI.filters.dashboardAlterarVisao;
 
@@ -272,15 +474,30 @@ DashboardBI.filters = DashboardBI.filters || {};
       typeof DashboardBI.filters.gerarOptionsClassesDashboard,
     gerarOptionsIndicadoresDashboard:
       typeof DashboardBI.filters.gerarOptionsIndicadoresDashboard,
+    gerarOptionsPeriodoDashboard:
+      typeof DashboardBI.filters.gerarOptionsPeriodoDashboard,
+    gerarOptionsPeriodoRanking:
+      typeof DashboardBI.filters.gerarOptionsPeriodoRanking,
+    gerarOptionsMesesDashboard:
+      typeof DashboardBI.filters.gerarOptionsMesesDashboard,
+    gerarOptionsAnosDashboard:
+      typeof DashboardBI.filters.gerarOptionsAnosDashboard,
     aplicarEscopoBaseLojasDashboard:
       typeof DashboardBI.filters.aplicarEscopoBaseLojasDashboard,
     aplicarFiltrosVisuaisLojasDashboard:
       typeof DashboardBI.filters.aplicarFiltrosVisuaisLojasDashboard,
     dashboardAlterarSemana: typeof DashboardBI.filters.dashboardAlterarSemana,
+    dashboardAlterarMes: typeof DashboardBI.filters.dashboardAlterarMes,
+    dashboardAlterarAno: typeof DashboardBI.filters.dashboardAlterarAno,
+    dashboardAlterarPeriodoDashboard:
+      typeof DashboardBI.filters.dashboardAlterarPeriodoDashboard,
+    dashboardAlterarPeriodoRanking:
+      typeof DashboardBI.filters.dashboardAlterarPeriodoRanking,
     dashboardAlterarClasse: typeof DashboardBI.filters.dashboardAlterarClasse,
     dashboardAlterarIndicador:
       typeof DashboardBI.filters.dashboardAlterarIndicador,
-    dashboardAlterarRegional: typeof DashboardBI.filters.dashboardAlterarRegional,
+    dashboardAlterarRegional:
+      typeof DashboardBI.filters.dashboardAlterarRegional,
     dashboardAlterarLoja: typeof DashboardBI.filters.dashboardAlterarLoja,
     dashboardAlterarVisao: typeof DashboardBI.filters.dashboardAlterarVisao,
   });
