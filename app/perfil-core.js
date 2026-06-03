@@ -53,14 +53,34 @@ function listaRegionaisParaTexto(lista) {
 }
 
 // ==========================
+// 🧠 HELPERS DE PERMISSÃO
+// ==========================
+function valorBooleanoPermissao(valor, fallback = false) {
+  if (valor === true) return true;
+  if (valor === false) return false;
+  return fallback;
+}
+
+function getPermissaoVisualizacaoNormalizada(valor, fallback = "NENHUMA") {
+  let final = valor ?? fallback;
+
+  if (typeof window.normalizarPermissaoVisualizacao === "function") {
+    final = window.normalizarPermissaoVisualizacao(final);
+  }
+
+  return final || fallback;
+}
+
+// ==========================
 // 🧠 PERMISSÕES BASE POR PERFIL
 // master > admin > usuario
+// ✅ usuario nasce bloqueado por padrão
 // ==========================
 function getPermissoesBasePorPerfil(perfil) {
   const perfilNorm = normalizarTextoLower(perfil);
 
   if (perfilNorm === "master") {
-    return {
+    const permissoesMaster = {
       pode_editar_semana_atual: true,
       pode_editar_semana_anterior: true,
       pode_editar_qualquer_semana: true,
@@ -74,12 +94,16 @@ function getPermissoesBasePorPerfil(perfil) {
       pode_aprovar_ajustes: true,
       pode_atribuir_escopo: true,
 
+      ignorar_loja_vinculada: true,
       permissao_visualizacao: "TODOS",
     };
+
+    console.log("👑 Permissões base do perfil master:", permissoesMaster);
+    return permissoesMaster;
   }
 
   if (perfilNorm === "admin") {
-    return {
+    const permissoesAdmin = {
       pode_editar_semana_atual: true,
       pode_editar_semana_anterior: true,
       pode_editar_qualquer_semana: false,
@@ -93,31 +117,41 @@ function getPermissoesBasePorPerfil(perfil) {
       pode_aprovar_ajustes: true,
       pode_atribuir_escopo: false,
 
+      ignorar_loja_vinculada: true,
       permissao_visualizacao: "TODOS",
     };
+
+    console.log("🛡️ Permissões base do perfil admin:", permissoesAdmin);
+    return permissoesAdmin;
   }
 
-  return {
-    pode_editar_semana_atual: true,
+  // ✅ usuario nasce travado
+  const permissoesUsuario = {
+    pode_editar_semana_atual: false,
     pode_editar_semana_anterior: false,
     pode_editar_qualquer_semana: false,
 
     pode_gerenciar_usuarios: false,
     pode_gerenciar_funcoes: false,
-    pode_ver_dashboard: true,
-    pode_ver_analises: true,
-    pode_ver_comparativos: true,
+    pode_ver_dashboard: false,
+    pode_ver_analises: false,
+    pode_ver_comparativos: false,
     pode_ver_justificativas: false,
     pode_aprovar_ajustes: false,
     pode_atribuir_escopo: false,
 
-    permissao_visualizacao: "TODOS",
+    ignorar_loja_vinculada: true,
+    permissao_visualizacao: "NENHUMA",
   };
+
+  console.log("👤 Permissões base do perfil usuario:", permissoesUsuario);
+  return permissoesUsuario;
 }
 
 // ==========================
 // 🔐 PERMISSÕES EFETIVAS DO USUÁRIO
 // mistura base + overrides salvos
+// ✅ overrides da tela têm prioridade
 // ==========================
 function getPermissoesSistemaUsuario(user = null) {
   const usuario = user || getUsuarioLogado();
@@ -132,55 +166,81 @@ function getPermissoesSistemaUsuario(user = null) {
   const base = getPermissoesBasePorPerfil(usuario.perfil);
   const perms = usuario.permissoes || {};
 
-  let permissaoVisualizacaoFinal =
-    perms.permissao_visualizacao ?? base.permissao_visualizacao;
-
-  if (typeof window.normalizarPermissaoVisualizacao === "function") {
-    permissaoVisualizacaoFinal =
-      window.normalizarPermissaoVisualizacao(permissaoVisualizacaoFinal);
-  } else {
-    console.warn(
-      "⚠️ normalizarPermissaoVisualizacao ainda não carregada. Mantendo valor bruto:",
-      permissaoVisualizacaoFinal
-    );
-  }
-
   const permissoesFinal = {
     ...base,
 
-    pode_editar_semana_atual:
-      perms.pode_editar_semana_atual ?? base.pode_editar_semana_atual,
+    pode_editar_semana_atual: valorBooleanoPermissao(
+      perms.pode_editar_semana_atual,
+      base.pode_editar_semana_atual
+    ),
 
-    pode_editar_semana_anterior:
-      perms.pode_editar_semana_anterior ?? base.pode_editar_semana_anterior,
+    pode_editar_semana_anterior: valorBooleanoPermissao(
+      perms.pode_editar_semana_anterior,
+      base.pode_editar_semana_anterior
+    ),
 
-    pode_editar_qualquer_semana:
-      perms.pode_editar_qualquer_semana ?? base.pode_editar_qualquer_semana,
+    pode_editar_qualquer_semana: valorBooleanoPermissao(
+      perms.pode_editar_qualquer_semana,
+      base.pode_editar_qualquer_semana
+    ),
 
-    pode_gerenciar_usuarios:
-      perms.pode_gerenciar_usuarios ?? base.pode_gerenciar_usuarios,
+    pode_gerenciar_usuarios: valorBooleanoPermissao(
+      perms.pode_gerenciar_usuarios,
+      base.pode_gerenciar_usuarios
+    ),
 
-    pode_gerenciar_funcoes:
-      perms.pode_gerenciar_funcoes ?? base.pode_gerenciar_funcoes,
+    pode_gerenciar_funcoes: valorBooleanoPermissao(
+      perms.pode_gerenciar_funcoes,
+      base.pode_gerenciar_funcoes
+    ),
 
-    pode_ver_dashboard: perms.pode_ver_dashboard ?? base.pode_ver_dashboard,
-    pode_ver_analises: perms.pode_ver_analises ?? base.pode_ver_analises,
-    pode_ver_comparativos:
-      perms.pode_ver_comparativos ?? base.pode_ver_comparativos,
-    pode_ver_justificativas:
-      perms.pode_ver_justificativas ?? base.pode_ver_justificativas,
-    pode_aprovar_ajustes:
-      perms.pode_aprovar_ajustes ?? base.pode_aprovar_ajustes,
-    pode_atribuir_escopo:
-      perms.pode_atribuir_escopo ?? base.pode_atribuir_escopo,
+    pode_ver_dashboard: valorBooleanoPermissao(
+      perms.pode_ver_dashboard,
+      base.pode_ver_dashboard
+    ),
 
-    permissao_visualizacao: permissaoVisualizacaoFinal,
+    pode_ver_analises: valorBooleanoPermissao(
+      perms.pode_ver_analises,
+      base.pode_ver_analises
+    ),
+
+    pode_ver_comparativos: valorBooleanoPermissao(
+      perms.pode_ver_comparativos,
+      base.pode_ver_comparativos
+    ),
+
+    pode_ver_justificativas: valorBooleanoPermissao(
+      perms.pode_ver_justificativas,
+      base.pode_ver_justificativas
+    ),
+
+    pode_aprovar_ajustes: valorBooleanoPermissao(
+      perms.pode_aprovar_ajustes,
+      base.pode_aprovar_ajustes
+    ),
+
+    pode_atribuir_escopo: valorBooleanoPermissao(
+      perms.pode_atribuir_escopo,
+      base.pode_atribuir_escopo
+    ),
+
+    ignorar_loja_vinculada: valorBooleanoPermissao(
+      perms.ignorar_loja_vinculada,
+      base.ignorar_loja_vinculada
+    ),
+
+    permissao_visualizacao: getPermissaoVisualizacaoNormalizada(
+      perms.permissao_visualizacao,
+      base.permissao_visualizacao
+    ),
   };
 
   console.log("🔐 Permissões efetivas calculadas:", {
     usuario: usuario.nome || usuario.email || "(sem nome)",
     perfil: usuario.perfil,
-    permissao_visualizacao: permissoesFinal.permissao_visualizacao,
+    base,
+    overrides: perms,
+    efetivas: permissoesFinal,
   });
 
   return permissoesFinal;
@@ -228,6 +288,7 @@ function getUsuarioLogado() {
       pode_aprovar_ajustes: permissoesSistema.pode_aprovar_ajustes,
       pode_atribuir_escopo: permissoesSistema.pode_atribuir_escopo,
 
+      ignorar_loja_vinculada: permissoesSistema.ignorar_loja_vinculada,
       permissao_visualizacao: permissoesSistema.permissao_visualizacao,
     };
 
@@ -257,10 +318,14 @@ function getUsuarioLogado() {
       regional_vinculada: usuarioLogado.regional_vinculada,
       regionais_vinculadas: usuarioLogado.regionais_vinculadas,
       permissao_visualizacao: usuarioLogado.permissao_visualizacao,
+      ignorar_loja_vinculada: usuarioLogado.ignorar_loja_vinculada,
       pode_editar_semana_atual: usuarioLogado.pode_editar_semana_atual,
       pode_editar_semana_anterior: usuarioLogado.pode_editar_semana_anterior,
       pode_editar_qualquer_semana:
         usuarioLogado.pode_editar_qualquer_semana,
+      pode_ver_dashboard: usuarioLogado.pode_ver_dashboard,
+      pode_ver_analises: usuarioLogado.pode_ver_analises,
+      pode_ver_comparativos: usuarioLogado.pode_ver_comparativos,
     });
 
     return usuarioLogado;
@@ -305,7 +370,10 @@ try {
     configurable: true,
   });
 } catch (erro) {
-  console.warn("⚠️ Não foi possível definir propriedades globais de estado:", erro);
+  console.warn(
+    "⚠️ Não foi possível definir propriedades globais de estado:",
+    erro
+  );
 }
 
 // ==========================
@@ -334,4 +402,3 @@ console.log("✅ perfil-core.js pronto", {
   getPermissoesSistemaUsuario: typeof window.getPermissoesSistemaUsuario,
   getUsuarioLogado: typeof window.getUsuarioLogado,
 });
-``

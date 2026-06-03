@@ -3,7 +3,7 @@
 // ==========================
 const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co";
 const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY"; // mantenha sua key atual
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY";
 
 let supabaseClient = null;
 
@@ -57,9 +57,12 @@ function limparSessaoLocal() {
 // ==========================
 // 🔠 HELPERS DE NORMALIZAÇÃO (APP)
 // ==========================
-// ✅ Renomeados para não colidir com perfil-core.js
 function normalizarTextoApp(valor) {
   return (valor || "").toString().trim();
+}
+
+function normalizarTextoAppUpper(valor) {
+  return normalizarTextoApp(valor).toUpperCase();
 }
 
 function normalizarTextoAppLower(valor) {
@@ -143,7 +146,7 @@ function getSemanaAtualFallback() {
   dataUTC.setUTCDate(dataUTC.getUTCDate() + 4 - diaSemana);
 
   const anoInicio = new Date(Date.UTC(dataUTC.getUTCFullYear(), 0, 1));
-  const semana = Math.ceil((((dataUTC - anoInicio) / 86400000) + 1) / 7);
+  const semana = Math.ceil(((dataUTC - anoInicio) / 86400000 + 1) / 7);
 
   return semana;
 }
@@ -153,7 +156,10 @@ function obterSemanaAtualApp() {
     try {
       return window.getSemanaAtual();
     } catch (erro) {
-      console.warn("⚠️ Falha ao usar getSemanaAtual global, usando fallback:", erro);
+      console.warn(
+        "⚠️ Falha ao usar getSemanaAtual global, usando fallback:",
+        erro
+      );
     }
   }
 
@@ -181,15 +187,12 @@ function montarUsuarioLocalAPartirDoPerfil(data) {
     regional_vinculada: data.regional_vinculada || null,
     subregional_vinculada: data.subregional_vinculada || null,
 
-    // ✅ cenário de múltiplas regionais
     regionais_vinculadas: normalizarListaRegionaisApp(data.regionais_vinculadas),
   };
 }
 
 // ==========================
 // 🆘 PERFIL FALLBACK PELO AUTH (APP)
-// usado quando existe sessão no Auth
-// mas não existe linha em usuarios
 // ==========================
 function montarPerfilFallbackApp(authUser) {
   const email = (authUser?.email || "").toString().trim().toLowerCase();
@@ -207,7 +210,9 @@ function montarPerfilFallbackApp(authUser) {
     permissoes: {
       indicadores: [],
       classes: [],
+      subclasses: [],
       acesso_total: false,
+      permissao_visualizacao: "NENHUMA",
     },
 
     tipo_visao: "regional",
@@ -339,7 +344,6 @@ async function buscarPerfilPorAuthIdApp(authUserId) {
 
 // ==========================
 // 🔎 BUSCAR PERFIL POR EMAIL
-// fallback para usuários criados manualmente no Auth
 // ==========================
 async function buscarPerfilPorEmailApp(email) {
   try {
@@ -426,7 +430,6 @@ async function vincularAuthUserIdAoPerfilApp(perfil, authUser) {
 
 // ==========================
 // 👤 GARANTIR PERFIL LOCAL
-// com fallback por e-mail + vínculo automático
 // ==========================
 async function garantirPerfilLocal(authUser) {
   try {
@@ -593,6 +596,256 @@ const coresClasse = {
 };
 
 // ==========================
+// 🔐 HELPERS DE PERMISSÃO DO APP
+// ==========================
+function getUsuarioEfetivoApp() {
+  try {
+    if (typeof window.getUsuarioLogado === "function") {
+      return window.getUsuarioLogado();
+    }
+  } catch (erro) {
+    console.warn("⚠️ Falha ao usar getUsuarioLogado no app:", erro);
+  }
+
+  return getUsuarioLocal();
+}
+
+function getPermissoesSistemaEfetivasApp(user = null) {
+  const usuario = user || getUsuarioEfetivoApp();
+
+  try {
+    if (typeof window.getPermissoesSistemaUsuario === "function") {
+      return window.getPermissoesSistemaUsuario(usuario);
+    }
+  } catch (erro) {
+    console.warn("⚠️ Falha ao usar getPermissoesSistemaUsuario no app:", erro);
+  }
+
+  return {
+    pode_ver_dashboard: false,
+    pode_ver_analises: false,
+    pode_ver_comparativos: false,
+    permissao_visualizacao: "NENHUMA",
+  };
+}
+
+function getPermissoesIndicadoresApp(user = null) {
+  const usuario = user || getUsuarioEfetivoApp();
+  const permissoes = usuario?.permissoes || {};
+
+  return {
+    acesso_total: permissoes.acesso_total === true,
+    indicadores: Array.isArray(permissoes.indicadores)
+      ? permissoes.indicadores.map((i) => normalizarTextoAppUpper(i))
+      : [],
+    classes: Array.isArray(permissoes.classes)
+      ? permissoes.classes.map((c) => normalizarTextoAppUpper(c))
+      : [],
+    subclasses: Array.isArray(permissoes.subclasses)
+      ? permissoes.subclasses.map((s) => normalizarTextoAppUpper(s))
+      : [],
+  };
+}
+
+function getMetaIndicadorApp(indicador, classeFallback = "") {
+  if (typeof window.getMetaIndicadorPermissao === "function") {
+    try {
+      const meta = window.getMetaIndicadorPermissao(indicador);
+      return {
+        classe: normalizarTextoAppUpper(meta?.classe || classeFallback || ""),
+        subclasse: normalizarTextoAppUpper(meta?.subclasse || "GERAL"),
+      };
+    } catch (erro) {
+      console.warn("⚠️ Falha ao usar getMetaIndicadorPermissao:", erro);
+    }
+  }
+
+  return {
+    classe: normalizarTextoAppUpper(classeFallback || ""),
+    subclasse: "GERAL",
+  };
+}
+
+function getTokenSubclasseApp(classe, subclasse) {
+  if (typeof window.getTokenSubclasse === "function") {
+    try {
+      return normalizarTextoAppUpper(window.getTokenSubclasse(classe, subclasse));
+    } catch (erro) {
+      console.warn("⚠️ Falha ao usar getTokenSubclasse:", erro);
+    }
+  }
+
+  return `${normalizarTextoAppUpper(classe)}___SUB___${normalizarTextoAppUpper(
+    subclasse || "GERAL"
+  )}`;
+}
+
+function usuarioTemAcessoClasseApp(classe, user = null) {
+  const permissoes = getPermissoesIndicadoresApp(user);
+
+  if (permissoes.acesso_total) return true;
+  if (permissoes.classes.includes(normalizarTextoAppUpper(classe))) return true;
+
+  const temIndicadorNaClasse = Object.values(classesIndicadores[classe] || []).some(
+    (item) => {
+      const valor = item?.valor || item;
+      return permissoes.indicadores.includes(normalizarTextoAppUpper(valor));
+    }
+  );
+
+  return temIndicadorNaClasse;
+}
+
+function usuarioTemAcessoIndicadorApp(indicador, classe = "", user = null) {
+  const permissoes = getPermissoesIndicadoresApp(user);
+  const indicadorNorm = normalizarTextoAppUpper(indicador);
+  const classeNorm = normalizarTextoAppUpper(classe);
+  const meta = getMetaIndicadorApp(indicadorNorm, classeNorm);
+  const tokenSubclasse = getTokenSubclasseApp(meta.classe, meta.subclasse);
+
+  const acesso =
+    permissoes.acesso_total === true ||
+    permissoes.classes.includes(meta.classe) ||
+    permissoes.subclasses.includes(tokenSubclasse) ||
+    permissoes.indicadores.includes(indicadorNorm) ||
+    permissoes.indicadores.includes("TODAS") ||
+    permissoes.indicadores.includes("TODAS AS TABELAS") ||
+    permissoes.indicadores.includes("TODOS OS INDICADORES");
+
+  console.log("🎯 Checagem de acesso ao indicador:", {
+    indicador,
+    indicadorNorm,
+    classe,
+    classeNorm,
+    meta,
+    tokenSubclasse,
+    acesso,
+    permissoes,
+  });
+
+  return acesso;
+}
+
+function usuarioPodeAbrirTelaApp(tela, user = null) {
+  const permissoes = getPermissoesSistemaEfetivasApp(user);
+  const telaNorm = normalizarTextoAppLower(tela);
+
+  let permitido = true;
+
+  if (telaNorm === "dashboard") {
+    permitido = permissoes.pode_ver_dashboard === true;
+  } else if (telaNorm === "analises") {
+    permitido = permissoes.pode_ver_analises === true;
+  } else if (telaNorm === "comparativos") {
+    permitido = permissoes.pode_ver_comparativos === true;
+  }
+
+  console.log("🧭 Checagem de acesso à tela:", {
+    tela: telaNorm,
+    permitido,
+    permissoes,
+  });
+
+  return permitido;
+}
+
+function resolverPrimeiraTelaPermitidaApp(user = null) {
+  const usuario = user || getUsuarioEfetivoApp();
+
+  if (usuarioPodeAbrirTelaApp("dashboard", usuario)) return "dashboard";
+  if (usuarioPodeAbrirTelaApp("analises", usuario)) return "analises";
+  if (usuarioPodeAbrirTelaApp("comparativos", usuario)) return "comparativos";
+
+  for (const classe in classesIndicadores) {
+    const itens = classesIndicadores[classe] || [];
+    for (const item of itens) {
+      const valor = item?.valor || item;
+      if (usuarioTemAcessoIndicadorApp(valor, classe, usuario)) {
+        localStorage.setItem(STORAGE_KEYS.classeSelecionada, classe);
+        localStorage.setItem(STORAGE_KEYS.indicador, valor);
+
+        console.log("📌 Primeira tela permitida resolvida por indicador:", {
+          classe,
+          indicador: valor,
+        });
+
+        return "indicadores";
+      }
+    }
+  }
+
+  console.warn("⚠️ Nenhuma tela permitida encontrada. Usando configurações.");
+  return "configuracoes";
+}
+
+function renderAcessoNegadoTela(nomeTela) {
+  const conteudo = document.getElementById("conteudo");
+  if (!conteudo) return;
+
+  conteudo.innerHTML = `
+    <div class="card-conteudo">
+      <h2 style="color:#b91c1c;">🚫 Acesso negado</h2>
+      <p>Você não possui permissão para acessar o módulo <b>${nomeTela}</b>.</p>
+    </div>
+  `;
+}
+
+function aplicarPermissoesMenuPrincipal() {
+  try {
+    const usuario = getUsuarioEfetivoApp();
+    const permissoes = getPermissoesSistemaEfetivasApp(usuario);
+
+    const candidatos = document.querySelectorAll(
+      "#sidebar button, #sidebar a, #sidebar li"
+    );
+
+    candidatos.forEach((el) => {
+      const texto = (el.textContent || "").toString().trim().toLowerCase();
+      const onclickAttr = (el.getAttribute("onclick") || "")
+        .toString()
+        .trim()
+        .toLowerCase();
+
+      let esconder = false;
+
+      if (
+        texto.includes("dashboard") ||
+        onclickAttr.includes("dashboard")
+      ) {
+        esconder = permsFalse(permissoes.pode_ver_dashboard);
+      }
+
+      if (
+        texto.includes("anális") ||
+        texto.includes("analise") ||
+        onclickAttr.includes("analises")
+      ) {
+        esconder = permsFalse(permissoes.pode_ver_analises);
+      }
+
+      if (
+        texto.includes("comparativo") ||
+        onclickAttr.includes("comparativos")
+      ) {
+        esconder = permsFalse(permissoes.pode_ver_comparativos);
+      }
+
+      if (esconder) {
+        el.style.display = "none";
+      }
+    });
+
+    console.log("🧭 Permissões aplicadas ao menu principal:", permissoes);
+  } catch (erro) {
+    console.warn("⚠️ Falha ao aplicar permissões ao menu principal:", erro);
+  }
+}
+
+function permsFalse(valor) {
+  return valor !== true;
+}
+
+// ==========================
 // 📦 CARREGAR SIDEBAR
 // ==========================
 async function carregarSidebar() {
@@ -608,6 +861,7 @@ async function carregarSidebar() {
       console.warn("⚠️ Sidebar já carregado - não recarregar");
       preencherUsuario();
       montarMenuIndicadores();
+      aplicarPermissoesMenuPrincipal();
       return;
     }
 
@@ -623,6 +877,7 @@ async function carregarSidebar() {
 
     preencherUsuario();
     montarMenuIndicadores();
+    aplicarPermissoesMenuPrincipal();
 
     const btnLogout = el.querySelector(".btn-logout");
     if (
@@ -681,6 +936,7 @@ function limparItensDinamicosMenu(menu) {
 
 // ==========================
 // 🧭 MENU POR CLASSE
+// ✅ agora respeita permissões por classe / indicador
 // ==========================
 function montarMenuIndicadores() {
   const menu = document.querySelector("#menu-list");
@@ -688,9 +944,25 @@ function montarMenuIndicadores() {
 
   limparItensDinamicosMenu(menu);
 
+  const usuario = getUsuarioEfetivoApp();
+
   let index = 0;
+  let totalClassesMontadas = 0;
+  let totalIndicadoresMontados = 0;
 
   for (const classe in classesIndicadores) {
+    const itensOriginais = classesIndicadores[classe] || [];
+
+    const itensPermitidos = itensOriginais.filter((item) => {
+      const valor = item?.valor || item;
+      return usuarioTemAcessoIndicadorApp(valor, classe, usuario);
+    });
+
+    if (!itensPermitidos.length) {
+      console.log("🚫 Classe sem acesso, não exibida no menu:", classe);
+      continue;
+    }
+
     const id = "classe_" + index;
 
     const icon = iconesClasse[classe] || "fa-folder";
@@ -717,7 +989,7 @@ function montarMenuIndicadores() {
     submenu.id = id;
     submenu.dataset.menuDinamico = "true";
 
-    classesIndicadores[classe].forEach((item) => {
+    itensPermitidos.forEach((item) => {
       const li = document.createElement("li");
       li.classList.add("submenu-item");
 
@@ -727,17 +999,24 @@ function montarMenuIndicadores() {
       li.textContent = nome;
 
       li.onclick = () => {
-        console.log("📊 Indicador:", valor, "| Classe:", classe);
+        console.log("📊 Indicador permitido clicado:", valor, "| Classe:", classe);
         localStorage.setItem(STORAGE_KEYS.classeSelecionada, classe);
         selecionarIndicador(valor);
       };
 
       submenu.appendChild(li);
+      totalIndicadoresMontados++;
     });
 
     menu.appendChild(submenu);
+    totalClassesMontadas++;
     index++;
   }
+
+  console.log("✅ Menu de indicadores montado com permissões:", {
+    totalClassesMontadas,
+    totalIndicadoresMontados,
+  });
 }
 
 // ==========================
@@ -758,13 +1037,27 @@ function toggleClasse(id) {
 
 // ==========================
 // ✅ SELECIONAR INDICADOR
+// ✅ agora valida permissão antes de abrir
 // ==========================
 function selecionarIndicador(indicador) {
-  console.log("✅ Indicador:", indicador);
+  const usuario = getUsuarioEfetivoApp();
+  const classe = localStorage.getItem(STORAGE_KEYS.classeSelecionada) || "";
+
+  if (!usuarioTemAcessoIndicadorApp(indicador, classe, usuario)) {
+    console.warn("🚫 Usuário sem acesso ao indicador selecionado:", {
+      indicador,
+      classe,
+    });
+
+    mostrarErro("Você não possui permissão para acessar este indicador.");
+    return;
+  }
+
+  console.log("✅ Indicador autorizado:", indicador);
 
   localStorage.setItem(STORAGE_KEYS.indicador, indicador);
   APP_STATE.indicadorAtivo = indicador;
-  APP_STATE.classeAtiva = localStorage.getItem(STORAGE_KEYS.classeSelecionada);
+  APP_STATE.classeAtiva = classe;
   APP_STATE.telaAtiva = "tabela";
 
   if (typeof window.carregarTabela === "function") {
@@ -873,6 +1166,7 @@ function definirTelaAtiva(tela, extras = {}) {
 
 // ==========================
 // 🔄 ABRIR TELA INTERNA
+// ✅ agora valida permissão de módulo
 // ==========================
 async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
   try {
@@ -894,6 +1188,8 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     }
 
     console.log("🧭 Abrindo tela:", telaNormalizada, "| silent:", silent);
+
+    const usuario = getUsuarioEfetivoApp();
 
     // ======================
     // ⚙️ CONFIGURAÇÕES
@@ -923,6 +1219,13 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     // 📊 DASHBOARD
     // ======================
     if (telaNormalizada === "dashboard") {
+      if (!usuarioPodeAbrirTelaApp("dashboard", usuario)) {
+        console.warn("🚫 Acesso negado ao dashboard");
+        definirTelaAtiva("dashboard");
+        renderAcessoNegadoTela("Dashboard");
+        return;
+      }
+
       definirTelaAtiva("dashboard");
 
       if (typeof window.telaDashboard === "function") {
@@ -938,6 +1241,13 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     // 📈 ANÁLISES
     // ======================
     if (telaNormalizada === "analises") {
+      if (!usuarioPodeAbrirTelaApp("analises", usuario)) {
+        console.warn("🚫 Acesso negado às análises");
+        definirTelaAtiva("analises");
+        renderAcessoNegadoTela("Análises");
+        return;
+      }
+
       definirTelaAtiva("analises");
 
       if (typeof window.telaAnalises === "function") {
@@ -958,6 +1268,13 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     // 🔀 COMPARATIVOS
     // ======================
     if (telaNormalizada === "comparativos") {
+      if (!usuarioPodeAbrirTelaApp("comparativos", usuario)) {
+        console.warn("🚫 Acesso negado aos comparativos");
+        definirTelaAtiva("comparativos");
+        renderAcessoNegadoTela("Comparativos");
+        return;
+      }
+
       definirTelaAtiva("comparativos");
 
       if (typeof window.telaComparativos === "function") {
@@ -982,6 +1299,22 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
 
       const indicadorAtual = localStorage.getItem(STORAGE_KEYS.indicador);
       const classeAtual = localStorage.getItem(STORAGE_KEYS.classeSelecionada);
+
+      if (!indicadorAtual) {
+        console.warn("⚠️ Nenhum indicador selecionado");
+        mostrarErro("Nenhum indicador foi selecionado.");
+        return;
+      }
+
+      if (!usuarioTemAcessoIndicadorApp(indicadorAtual, classeAtual, usuario)) {
+        console.warn("🚫 Acesso negado ao indicador pelo app:", {
+          classeAtual,
+          indicadorAtual,
+        });
+
+        mostrarErro("Você não possui permissão para acessar este indicador.");
+        return;
+      }
 
       definirTelaAtiva("tabela", {
         indicador: indicadorAtual,
@@ -1078,6 +1411,8 @@ async function sincronizarPerfilSilenciosamente() {
       console.log("🔄 Sincronizando perfil local silenciosamente...");
       await window.sincronizarUsuarioLocalDoBanco();
       preencherUsuario();
+      montarMenuIndicadores();
+      aplicarPermissoesMenuPrincipal();
     }
   } catch (erro) {
     console.warn("⚠️ Falha ao sincronizar perfil local silenciosamente:", erro);
@@ -1252,9 +1587,54 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 9) inicia atualização silenciosa
   iniciarAtualizacaoSilenciosa();
 
-  // 10) abre dashboard
-  await abrirTelaInterna("dashboard", { silent: false });
+  // 10) abre primeira tela permitida
+  const telaInicialPermitida = resolverPrimeiraTelaPermitidaApp(perfilLocal);
+
+  console.log("🧭 Tela inicial permitida resolvida:", telaInicialPermitida);
+
+  if (telaInicialPermitida === "indicadores") {
+    await abrirTelaInterna("indicadores", { silent: false });
+  } else {
+    await abrirTelaInterna(telaInicialPermitida, { silent: false });
+  }
 });
 
 // ==========================
-// 🌐 EXPOR
+// 🌐 EXPOR FUNÇÕES
+// ==========================
+window.getUsuarioLocal = getUsuarioLocal;
+window.setUsuarioLocal = setUsuarioLocal;
+window.limparSessaoLocal = limparSessaoLocal;
+
+window.initSupabase = initSupabase;
+window.verificarSessao = verificarSessao;
+window.garantirPerfilLocal = garantirPerfilLocal;
+window.logout = logout;
+
+window.mostrar = mostrar;
+window.abrirTelaInterna = abrirTelaInterna;
+window.abrirConfiguracoesMenu = abrirConfiguracoesMenu;
+window.selecionarIndicador = selecionarIndicador;
+window.toggleClasse = toggleClasse;
+
+window.definirTelaAtiva = definirTelaAtiva;
+window.iniciarAtualizacaoSilenciosa = iniciarAtualizacaoSilenciosa;
+window.pararAtualizacaoSilenciosa = pararAtualizacaoSilenciosa;
+window.atualizarTelaSilenciosamente = atualizarTelaSilenciosamente;
+
+window.usuarioTemAcessoIndicadorApp = usuarioTemAcessoIndicadorApp;
+window.usuarioTemAcessoClasseApp = usuarioTemAcessoClasseApp;
+window.usuarioPodeAbrirTelaApp = usuarioPodeAbrirTelaApp;
+
+// ==========================
+// ✅ LOG FINAL DE BOOTSTRAP
+// ==========================
+console.log("✅ app.js pronto", {
+  getUsuarioLocal: typeof window.getUsuarioLocal,
+  setUsuarioLocal: typeof window.setUsuarioLocal,
+  mostrar: typeof window.mostrar,
+  abrirTelaInterna: typeof window.abrirTelaInterna,
+  selecionarIndicador: typeof window.selecionarIndicador,
+  usuarioTemAcessoIndicadorApp: typeof window.usuarioTemAcessoIndicadorApp,
+  usuarioPodeAbrirTelaApp: typeof window.usuarioPodeAbrirTelaApp,
+});

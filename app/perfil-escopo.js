@@ -33,6 +33,17 @@ function normalizarPermissaoVisualizacao(valor) {
   if (!texto) return "TODOS";
 
   if (
+    texto === "NENHUMA" ||
+    texto === "NENHUM" ||
+    texto === "BLOQUEADA" ||
+    texto === "BLOQUEADO" ||
+    texto === "SEM ACESSO" ||
+    texto === "SEM_ACESSO"
+  ) {
+    return "NENHUMA";
+  }
+
+  if (
     texto === "TODOS" ||
     texto === "TOTAL" ||
     texto === "GLOBAL" ||
@@ -77,6 +88,7 @@ function getRegionaisDaPermissaoVisualizacao(valor, user = null) {
   const modo = normalizarPermissaoVisualizacao(valor);
   const usuario = user || getUsuarioLogado();
 
+  if (modo === "NENHUMA") return [];
   if (modo === "NE1_NE2") return ["NE1", "NE2"];
   if (modo === "NE1") return ["NE1"];
   if (modo === "NE2") return ["NE2"];
@@ -125,6 +137,7 @@ function getRestricaoVisualizacaoUsuario(user = null) {
 
   console.log("👁️ Restrição de visualização calculada:", {
     usuario: usuario?.nome || usuario?.email || "(sem nome)",
+    permissao_visualizacao_bruta: permissoesSistema.permissao_visualizacao,
     resultado,
   });
 
@@ -135,6 +148,7 @@ function regionalPermitidaPorVisualizacao(regionalLinha, user = null) {
   const restricao = getRestricaoVisualizacaoUsuario(user);
   const regionalNorm = normalizarTexto(regionalLinha);
 
+  if (restricao.modo === "NENHUMA") return false;
   if (restricao.modo === "TODOS") return true;
   if (!restricao.regionais.length) return true;
 
@@ -194,9 +208,30 @@ function getEscopoUsuarioSistema(user = null) {
     regionais_vinculadas: listaRegionais,
     ignorarLojaVinculada,
     lojaEscopo,
+    permissao_visualizacao: restricaoVisualizacao.modo,
+    regionais_visuais: restricaoVisualizacao.regionais,
   });
 
-  // master vê tudo
+  // bloqueio total por visualização
+  if (restricaoVisualizacao.modo === "NENHUMA") {
+    const escopoBloqueado = {
+      tipo: "global",
+      loja_vinculada: null,
+      regional_vinculada: null,
+      regionais_vinculadas: [],
+      permissao_visualizacao: "NENHUMA",
+      regionais_visuais: [],
+      ignorar_loja_vinculada: ignorarLojaVinculada,
+    };
+
+    console.log(
+      "🚫 Escopo bloqueado por permissao_visualizacao = NENHUMA:",
+      escopoBloqueado
+    );
+    return escopoBloqueado;
+  }
+
+  // master vê tudo, mas ainda pode ter filtro visual adicional
   if (perfil === "master") {
     const escopoMaster = {
       tipo: "global",
@@ -247,7 +282,7 @@ function getEscopoUsuarioSistema(user = null) {
     return escopoLoja;
   }
 
-  // se loja foi ignorada e houver regionais -> escopo regional
+  // se houver regionais explícitas -> escopo regional
   if (listaRegionais.length || regionalPrincipal) {
     const listaFinal = [...listaRegionais];
 
@@ -269,11 +304,11 @@ function getEscopoUsuarioSistema(user = null) {
     return escopoRegional;
   }
 
-  // fallback: se ignorar loja foi ligado e não há regionais, usa global controlado
+  // fallback: sem loja e sem regionais -> global controlado
   const escopoPadrao = {
     tipo: "global",
     loja_vinculada: null,
-    regional_vinculada: regionalPrincipal || null,
+    regional_vinculada: null,
     regionais_vinculadas: [],
     permissao_visualizacao: restricaoVisualizacao.modo,
     regionais_visuais: restricaoVisualizacao.regionais,
@@ -371,7 +406,10 @@ function extrairDadosLinhaEscopo(row) {
   const codigoDataset =
     row.dataset?.lojaCodigo || row.dataset?.codigo || row.dataset?.loja || "";
   const lojaDataset =
-    row.dataset?.lojaNome || row.dataset?.nomeLoja || row.dataset?.lojaTexto || "";
+    row.dataset?.lojaNome ||
+    row.dataset?.nomeLoja ||
+    row.dataset?.lojaTexto ||
+    "";
   const regionalDataset = row.dataset?.regional || "";
 
   const tds = row.querySelectorAll("td");
@@ -402,6 +440,21 @@ function aplicarEscopoVisualTabela() {
   }
 
   const escopo = getEscopoUsuarioSistema(user);
+
+  const seletorGlobal = "#tbody-tabela tr, #tbody-especial tr, #tbody-rh tr";
+
+  // bloqueio total de visualização
+  if (escopo.permissao_visualizacao === "NENHUMA") {
+    document.querySelectorAll(seletorGlobal).forEach((row) => {
+      row.dataset.escopoPermitido = "false";
+      row.style.display = "none";
+    });
+
+    console.log(
+      "🚫 Visualização bloqueada por permissao_visualizacao = NENHUMA"
+    );
+    return;
+  }
 
   const tabelasPossiveis = [
     "#tbody-tabela tr",
@@ -450,6 +503,11 @@ function aplicarEscopoVisualTabela() {
         );
       }
 
+      // segurança extra
+      if (escopo.permissao_visualizacao === "NENHUMA") {
+        visivel = false;
+      }
+
       row.dataset.escopoPermitido = visivel ? "true" : "false";
       row.style.display = visivel ? "" : "none";
 
@@ -483,7 +541,8 @@ window.aplicarEscopoVisualTabela = aplicarEscopoVisualTabela;
 // ✅ LOG FINAL DE BOOTSTRAP
 // ==========================
 console.log("✅ perfil-escopo.js pronto", {
-  normalizarPermissaoVisualizacao: typeof window.normalizarPermissaoVisualizacao,
+  normalizarPermissaoVisualizacao:
+    typeof window.normalizarPermissaoVisualizacao,
   getRegionaisDaPermissaoVisualizacao:
     typeof window.getRegionaisDaPermissaoVisualizacao,
   getRestricaoVisualizacaoUsuario:

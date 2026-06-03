@@ -1,15 +1,16 @@
-console.log("✅ perfil-edicao.js carregado");
+console.log("✅ perfil-escopo.js carregado");
 
 // ==========================
 // 🧪 VALIDAÇÃO DE DEPENDÊNCIAS
 // ==========================
-(function validarDependenciasPerfilEdicao() {
+(function validarDependenciasPerfilEscopo() {
   const obrigatorias = [
-    "getUsuarioLogado",
-    "getPermissoesSistemaUsuario",
     "normalizarTexto",
     "normalizarTextoLower",
-    "aplicarEscopoVisualTabela",
+    "normalizarTextoSemAcento",
+    "normalizarListaRegionais",
+    "getPermissoesSistemaUsuario",
+    "getUsuarioLogado",
   ];
 
   const faltando = obrigatorias.filter(
@@ -17,404 +18,536 @@ console.log("✅ perfil-edicao.js carregado");
   );
 
   if (faltando.length) {
-    console.error("❌ perfil-edicao.js sem dependências obrigatórias:", faltando);
+    console.error("❌ perfil-escopo.js sem dependências do core:", faltando);
   } else {
-    console.log("✅ Dependências de perfil-edicao.js OK");
+    console.log("✅ Dependências de perfil-escopo.js OK");
   }
 })();
 
 // ==========================
-// 📅 SEMANA ANTERIOR
+// 👁️ PERMISSÃO DE VISUALIZAÇÃO
 // ==========================
-function getSemanaAnterior(semanaAtual) {
-  const atual = Number(semanaAtual);
+function normalizarPermissaoVisualizacao(valor) {
+  const texto = normalizarTextoSemAcento(valor || "").toUpperCase();
 
-  if (Number.isNaN(atual)) {
-    console.warn("⚠️ getSemanaAnterior recebeu valor inválido:", semanaAtual);
-    return 53;
+  if (!texto) return "TODOS";
+
+  if (
+    texto === "NENHUMA" ||
+    texto === "NENHUM" ||
+    texto === "BLOQUEADA" ||
+    texto === "BLOQUEADO" ||
+    texto === "SEM ACESSO" ||
+    texto === "SEM_ACESSO"
+  ) {
+    return "NENHUMA";
   }
 
-  if (atual <= 1) return 53;
-  return atual - 1;
+  if (
+    texto === "TODOS" ||
+    texto === "TOTAL" ||
+    texto === "GLOBAL" ||
+    texto === "TUDO"
+  ) {
+    return "TODOS";
+  }
+
+  if (
+    texto === "REGIONAL_CONFIGURADA" ||
+    texto === "REGIONAL VINCULADA" ||
+    texto === "REGIONAL_VINCULADA" ||
+    texto === "APENAS REGIONAL" ||
+    texto === "SOMENTE REGIONAL"
+  ) {
+    return "REGIONAL_CONFIGURADA";
+  }
+
+  // compatibilidade com registros antigos
+  if (
+    texto === "NE1 E NE2" ||
+    texto === "NE1/NE2" ||
+    texto === "NE1_NE2" ||
+    texto === "NE1, NE2" ||
+    texto === "NE1 E  NE2"
+  ) {
+    return "NE1_NE2";
+  }
+
+  if (texto === "NE1") return "NE1";
+  if (texto === "NE2") return "NE2";
+
+  console.warn(
+    "⚠️ Permissão de visualização desconhecida. Assumindo TODOS:",
+    valor
+  );
+
+  return "TODOS";
 }
 
-// ==========================
-// 📅 JANELA DE EDIÇÃO
-// ==========================
-function podeEditarNaJanela(user, semanaInformada, semanaAtual) {
+function getRegionaisDaPermissaoVisualizacao(valor, user = null) {
+  const modo = normalizarPermissaoVisualizacao(valor);
   const usuario = user || getUsuarioLogado();
 
-  if (!usuario) {
-    console.warn("⚠️ podeEditarNaJanela sem usuário");
-    return false;
-  }
+  if (modo === "NENHUMA") return [];
+  if (modo === "NE1_NE2") return ["NE1", "NE2"];
+  if (modo === "NE1") return ["NE1"];
+  if (modo === "NE2") return ["NE2"];
 
-  const permissoes = getPermissoesSistemaUsuario(usuario);
+  if (modo === "REGIONAL_CONFIGURADA") {
+    const lista = [];
 
-  const s = Number(semanaInformada);
-  const atual = Number(semanaAtual);
+    if (usuario?.regional_vinculada) {
+      lista.push(normalizarTexto(usuario.regional_vinculada));
+    }
 
-  if (Number.isNaN(s) || Number.isNaN(atual)) {
-    console.warn("⚠️ podeEditarNaJanela com semana inválida:", {
-      semanaInformada,
-      semanaAtual,
+    if (Array.isArray(usuario?.regionais_vinculadas)) {
+      usuario.regionais_vinculadas.forEach((r) => {
+        const regionalNorm = normalizarTexto(r);
+        if (regionalNorm) lista.push(regionalNorm);
+      });
+    }
+
+    const resultado = [...new Set(lista)].filter(Boolean);
+
+    console.log("🌍 Regionais da permissão REGIONAL_CONFIGURADA:", {
+      usuario: usuario?.nome || usuario?.email || "(sem nome)",
+      regionais: resultado,
     });
-    return false;
+
+    return resultado;
   }
 
-  if (permissoes.pode_editar_qualquer_semana) {
-    console.log("🟢 Edição liberada: pode_editar_qualquer_semana = true");
-    return true;
-  }
-
-  if (permissoes.pode_editar_semana_anterior) {
-    const permitido = s <= atual;
-    console.log("🟡 Regra semana anterior:", {
-      semanaInformada: s,
-      semanaAtual: atual,
-      permitido,
-    });
-    return permitido;
-  }
-
-  if (permissoes.pode_editar_semana_atual) {
-    const permitido = s === atual;
-    console.log("🟡 Regra semana atual:", {
-      semanaInformada: s,
-      semanaAtual: atual,
-      permitido,
-    });
-    return permitido;
-  }
-
-  console.log("🔴 Nenhuma regra de edição de janela habilitada");
-  return false;
+  return [];
 }
 
-// ==========================
-// 🔍 SEMANA ATUAL COM FALLBACK
-// ==========================
-function obterSemanaAtualEdicao() {
-  if (typeof window.getSemanaAtual === "function") {
-    try {
-      return Number(window.getSemanaAtual());
-    } catch (erro) {
-      console.warn("⚠️ Falha ao usar getSemanaAtual global:", erro);
-    }
-  }
+function getRestricaoVisualizacaoUsuario(user = null) {
+  const usuario = user || getUsuarioLogado();
+  const permissoesSistema = getPermissoesSistemaUsuario(usuario);
 
-  if (typeof window.obterSemanaAtualApp === "function") {
-    try {
-      return Number(window.obterSemanaAtualApp());
-    } catch (erro) {
-      console.warn("⚠️ Falha ao usar obterSemanaAtualApp:", erro);
-    }
-  }
-
-  console.warn("⚠️ Nenhuma função de semana atual encontrada. Usando fallback 1.");
-  return 1;
-}
-
-// ==========================
-// 🧩 HELPERS DE CLASSE / SUBCLASSE
-// ==========================
-function getClasseEfetivaDoIndicador(indicador, classeInformada = "") {
-  const classeDireta = normalizarTexto(classeInformada || "");
-  if (classeDireta) return classeDireta;
-
-  if (typeof window.getMetaIndicadorPermissao === "function") {
-    try {
-      const meta = window.getMetaIndicadorPermissao(indicador);
-      return normalizarTexto(meta?.classe || "");
-    } catch (erro) {
-      console.warn(
-        "⚠️ Falha ao resolver classe por getMetaIndicadorPermissao:",
-        erro
-      );
-    }
-  }
-
-  return "";
-}
-
-function getSubclasseEfetivaDoIndicador(indicador) {
-  if (typeof window.getMetaIndicadorPermissao === "function") {
-    try {
-      const meta = window.getMetaIndicadorPermissao(indicador);
-      return normalizarTexto(meta?.subclasse || "GERAL");
-    } catch (erro) {
-      console.warn(
-        "⚠️ Falha ao resolver subclasse por getMetaIndicadorPermissao:",
-        erro
-      );
-    }
-  }
-
-  return "GERAL";
-}
-
-// ==========================
-// 🔍 MOTIVO DO BLOQUEIO
-// ==========================
-function getMotivoBloqueio(indicador, classe, semana) {
-  const user = getUsuarioLogado();
-
-  if (!user) {
-    return "Usuário não autenticado";
-  }
-
-  const semanaAtual = String(obterSemanaAtualEdicao()).padStart(2, "0");
-  const semanaInformada = String(semana).padStart(2, "0");
-
-  const permissoesSistema = getPermissoesSistemaUsuario(user);
-
-  const permissoesIndicadores = user.permissoes || {};
-  const indicadores = (permissoesIndicadores.indicadores || []).map(
-    normalizarTexto
-  );
-  const classes = (permissoesIndicadores.classes || []).map(normalizarTexto);
-  const subclasses = (permissoesIndicadores.subclasses || []).map(
-    normalizarTexto
+  const modo = normalizarPermissaoVisualizacao(
+    permissoesSistema.permissao_visualizacao
   );
 
-  const indicadorNorm = normalizarTexto(indicador);
-  const classeNorm = getClasseEfetivaDoIndicador(indicadorNorm, classe);
-  const subclasseNorm = getSubclasseEfetivaDoIndicador(indicadorNorm);
+  const regionais = getRegionaisDaPermissaoVisualizacao(modo, usuario);
 
-  let tokenSubclasse = "";
-  if (typeof window.getTokenSubclasse === "function" && classeNorm) {
-    try {
-      tokenSubclasse = normalizarTexto(
-        window.getTokenSubclasse(classeNorm, subclasseNorm)
-      );
-    } catch (erro) {
-      console.warn("⚠️ Falha ao montar token de subclasse:", erro);
-    }
-  }
+  const resultado = {
+    modo,
+    regionais,
+  };
 
-  const acessoTotalIndicadores =
-    permissoesIndicadores.acesso_total === true ||
-    indicadores.includes("TODAS") ||
-    indicadores.includes("TODAS AS TABELAS") ||
-    indicadores.includes("TODOS OS INDICADORES");
-
-  const permitidoIndicador =
-    acessoTotalIndicadores ||
-    indicadores.includes(indicadorNorm) ||
-    (classeNorm && classes.includes(classeNorm)) ||
-    (tokenSubclasse && subclasses.includes(tokenSubclasse)) ||
-    normalizarTextoLower(user.perfil) === "master";
-
-  console.log("🔍 Permissão check:", {
-    user: user.nome || user.email || "(sem nome)",
-    perfil: user.perfil,
-    indicador: indicadorNorm,
-    classeInformada: classe,
-    classeEfetiva: classeNorm,
-    subclasse: subclasseNorm,
-    tokenSubclasse,
-    subclasses,
-    semana: semanaInformada,
-    semanaAtual,
-    permitidoIndicador,
-    permissoesSistema,
-    indicadores,
-    classes,
-    acessoTotalIndicadores,
+  console.log("👁️ Restrição de visualização calculada:", {
+    usuario: usuario?.nome || usuario?.email || "(sem nome)",
+    resultado,
   });
 
-  // master sempre pode editar
-  if (normalizarTextoLower(user.perfil) === "master") return null;
-
-  if (!permitidoIndicador) {
-    return "Sem permissão para este indicador/tabela";
-  }
-
-  const dentroDaJanela = podeEditarNaJanela(
-    user,
-    Number(semanaInformada),
-    Number(semanaAtual)
-  );
-
-  if (!dentroDaJanela) {
-    if (permissoesSistema.pode_editar_qualquer_semana) {
-      return null;
-    }
-
-    if (permissoesSistema.pode_editar_semana_anterior) {
-      return "Você não pode editar esta semana.";
-    }
-
-    if (permissoesSistema.pode_editar_semana_atual) {
-      return "Você só pode editar a semana atual.";
-    }
-
-    return "Prazo encerrado. Somente com desbloqueio do Master.";
-  }
-
-  return null;
+  return resultado;
 }
 
-// ==========================
-// 🔐 REGRA FINAL DE EDIÇÃO
-// ==========================
-function podeEditar(indicador, classe, semana) {
-  const motivo = getMotivoBloqueio(indicador, classe, semana);
-  const permitido = motivo === null;
+function regionalPermitidaPorVisualizacao(regionalLinha, user = null) {
+  const restricao = getRestricaoVisualizacaoUsuario(user);
+  const regionalNorm = normalizarTexto(regionalLinha);
 
-  console.log("✏️ podeEditar:", {
-    indicador,
-    classe,
-    semana,
+  if (restricao.modo === "NENHUMA") return false;
+  if (restricao.modo === "TODOS") return true;
+  if (!restricao.regionais.length) return true;
+
+  const permitido = restricao.regionais.includes(regionalNorm);
+
+  console.log("🧭 regionalPermitidaPorVisualizacao:", {
+    regionalLinha,
+    regionalNorm,
+    modo: restricao.modo,
+    regionaisPermitidas: restricao.regionais,
     permitido,
-    motivo,
   });
 
   return permitido;
 }
 
 // ==========================
-// 🔒 APLICAR BLOQUEIO NO INPUT
+// 🧠 CONTEXTO DE ESCOPO DO USUÁRIO
 // ==========================
-function aplicarPermissaoInput(input, indicador, classe, semana) {
-  if (!input) {
-    console.warn("⚠️ aplicarPermissaoInput recebeu input nulo");
-    return;
+function getEscopoUsuarioSistema(user = null) {
+  const usuario = user || getUsuarioLogado();
+  const restricaoVisualizacao = getRestricaoVisualizacaoUsuario(usuario);
+
+  if (!usuario) {
+    const escopoSemUsuario = {
+      tipo: "global",
+      loja_vinculada: null,
+      regional_vinculada: null,
+      regionais_vinculadas: [],
+      permissao_visualizacao: restricaoVisualizacao.modo,
+      regionais_visuais: restricaoVisualizacao.regionais,
+      ignorar_loja_vinculada: false,
+    };
+
+    console.warn("⚠️ getEscopoUsuarioSistema sem usuário. Retornando global.");
+    return escopoSemUsuario;
   }
 
-  const row = input.closest("tr");
-  const dentroEscopo = !row || row.dataset.escopoPermitido !== "false";
+  const perfil = normalizarTextoLower(usuario.perfil);
+  const listaRegionais = normalizarListaRegionais(usuario.regionais_vinculadas);
+  const regionalPrincipal = normalizarTexto(usuario.regional_vinculada);
 
-  if (!dentroEscopo) {
-    input.disabled = true;
-    input.readOnly = true;
-    input.removeAttribute("onblur");
-    input.onblur = null;
+  const permissoes = usuario.permissoes || {};
+  const ignorarLojaVinculada = permissoes.ignorar_loja_vinculada === true;
 
-    input.style.background = "#f1f1f1";
-    input.style.color = "#777";
-    input.style.cursor = "not-allowed";
-    input.style.border = "1px solid #ddd";
+  const lojaEscopo = ignorarLojaVinculada
+    ? null
+    : usuario.loja_vinculada || usuario.loja_codigo || null;
 
-    input.title = "Fora do escopo configurado para este usuário";
-    input.dataset.bloqueado = "true";
-    input.dataset.motivo = "Fora do escopo configurado para este usuário";
+  console.log("🧭 Avaliando escopo do usuário:", {
+    usuario: usuario.nome || usuario.email || "(sem nome)",
+    perfil,
+    loja_codigo: usuario.loja_codigo,
+    loja_vinculada: usuario.loja_vinculada,
+    regional_vinculada: usuario.regional_vinculada,
+    regionais_vinculadas: listaRegionais,
+    ignorarLojaVinculada,
+    lojaEscopo,
+    permissao_visualizacao: restricaoVisualizacao.modo,
+  });
 
-    console.log("🚫 Input bloqueado por escopo:", {
-      indicador,
-      classe,
-      semana,
-      motivo: "Fora do escopo configurado para este usuário",
+  // se a visualização já está bloqueada, escopo global bloqueado
+  if (restricaoVisualizacao.modo === "NENHUMA") {
+    const escopoBloqueado = {
+      tipo: "global",
+      loja_vinculada: null,
+      regional_vinculada: null,
+      regionais_vinculadas: [],
+      permissao_visualizacao: "NENHUMA",
+      regionais_visuais: [],
+      ignorar_loja_vinculada: ignorarLojaVinculada,
+    };
+
+    console.log("🚫 Escopo bloqueado por permissao_visualizacao = NENHUMA:", escopoBloqueado);
+    return escopoBloqueado;
+  }
+
+  // master vê tudo, mas respeita permissao_visualizacao se existir
+  if (perfil === "master") {
+    const escopoMaster = {
+      tipo: "global",
+      loja_vinculada: null,
+      regional_vinculada: null,
+      regionais_vinculadas: [],
+      permissao_visualizacao: restricaoVisualizacao.modo,
+      regionais_visuais: restricaoVisualizacao.regionais,
+      ignorar_loja_vinculada: ignorarLojaVinculada,
+    };
+
+    console.log("👑 Escopo do master:", escopoMaster);
+    return escopoMaster;
+  }
+
+  const semLoja = !lojaEscopo;
+  const semRegionais = !listaRegionais.length && !regionalPrincipal;
+
+  // admin sem vínculo = global
+  if (perfil === "admin" && semLoja && semRegionais) {
+    const escopoAdminGlobal = {
+      tipo: "global",
+      loja_vinculada: null,
+      regional_vinculada: null,
+      regionais_vinculadas: [],
+      permissao_visualizacao: restricaoVisualizacao.modo,
+      regionais_visuais: restricaoVisualizacao.regionais,
+      ignorar_loja_vinculada: ignorarLojaVinculada,
+    };
+
+    console.log("🛡️ Escopo admin sem vínculos:", escopoAdminGlobal);
+    return escopoAdminGlobal;
+  }
+
+  // se ignorar loja está desligado e existe loja -> escopo de loja
+  if (lojaEscopo) {
+    const escopoLoja = {
+      tipo: "loja",
+      loja_vinculada: lojaEscopo,
+      regional_vinculada: regionalPrincipal || null,
+      regionais_vinculadas: listaRegionais,
+      permissao_visualizacao: restricaoVisualizacao.modo,
+      regionais_visuais: restricaoVisualizacao.regionais,
+      ignorar_loja_vinculada: ignorarLojaVinculada,
+    };
+
+    console.log("🏬 Escopo por loja:", escopoLoja);
+    return escopoLoja;
+  }
+
+  // se houver regionais explícitas -> escopo regional
+  if (listaRegionais.length || regionalPrincipal) {
+    const listaFinal = [...listaRegionais];
+
+    if (regionalPrincipal && !listaFinal.includes(regionalPrincipal)) {
+      listaFinal.unshift(regionalPrincipal);
+    }
+
+    const escopoRegional = {
+      tipo: "regional",
+      loja_vinculada: null,
+      regional_vinculada: regionalPrincipal || null,
+      regionais_vinculadas: [...new Set(listaFinal)],
+      permissao_visualizacao: restricaoVisualizacao.modo,
+      regionais_visuais: restricaoVisualizacao.regionais,
+      ignorar_loja_vinculada: ignorarLojaVinculada,
+    };
+
+    console.log("🌎 Escopo regional:", escopoRegional);
+    return escopoRegional;
+  }
+
+  // fallback: sem loja e sem regionais -> global controlado
+  const escopoPadrao = {
+    tipo: "global",
+    loja_vinculada: null,
+    regional_vinculada: null,
+    regionais_vinculadas: [],
+    permissao_visualizacao: restricaoVisualizacao.modo,
+    regionais_visuais: restricaoVisualizacao.regionais,
+    ignorar_loja_vinculada: ignorarLojaVinculada,
+  };
+
+  console.log("ℹ️ Escopo padrão/global:", escopoPadrao);
+  return escopoPadrao;
+}
+
+// ==========================
+// 🏬 MATCH DE LOJA NO ESCOPO
+// ==========================
+function lojaDentroDoEscopoUsuario(codigo, nomeLoja, lojaVinculada) {
+  if (!lojaVinculada) return true;
+
+  const codigoNorm = normalizarTexto(codigo);
+  const nomeNorm = normalizarTexto(nomeLoja);
+  const chaveLoja = normalizarTexto(`${codigo} - ${nomeLoja}`);
+  const vinculo = normalizarTexto(lojaVinculada);
+
+  const permitido =
+    vinculo === codigoNorm ||
+    vinculo === chaveLoja ||
+    (codigoNorm && vinculo.includes(codigoNorm)) ||
+    (nomeNorm && vinculo.includes(nomeNorm));
+
+  console.log("🏬 lojaDentroDoEscopoUsuario:", {
+    codigo,
+    nomeLoja,
+    lojaVinculada,
+    codigoNorm,
+    nomeNorm,
+    chaveLoja,
+    vinculo,
+    permitido,
+  });
+
+  return permitido;
+}
+
+// ==========================
+// 🌍 MATCH DE REGIONAL NO ESCOPO
+// ==========================
+function regionalDentroDoEscopoUsuario(
+  regionalLinha,
+  regionalVinculada,
+  regionaisVinculadas = []
+) {
+  const regionalNorm = normalizarTexto(regionalLinha);
+  const lista = normalizarListaRegionais(regionaisVinculadas);
+
+  if (lista.length) {
+    const permitidoLista = lista.includes(regionalNorm);
+
+    console.log("🌍 regionalDentroDoEscopoUsuario (lista):", {
+      regionalLinha,
+      regionalNorm,
+      lista,
+      permitido: permitidoLista,
     });
 
+    return permitidoLista;
+  }
+
+  if (!regionalVinculada) {
+    console.log("🌍 regionalDentroDoEscopoUsuario sem vínculo específico -> true");
+    return true;
+  }
+
+  const permitido = regionalNorm === normalizarTexto(regionalVinculada);
+
+  console.log("🌍 regionalDentroDoEscopoUsuario (principal):", {
+    regionalLinha,
+    regionalNorm,
+    regionalVinculada,
+    permitido,
+  });
+
+  return permitido;
+}
+
+// ==========================
+// 🧾 EXTRAIR DADOS DA LINHA
+// ==========================
+function extrairDadosLinhaEscopo(row) {
+  if (!row) {
+    return {
+      codigo: "",
+      loja: "",
+      regional: "",
+    };
+  }
+
+  const codigoDataset =
+    row.dataset?.lojaCodigo || row.dataset?.codigo || row.dataset?.loja || "";
+  const lojaDataset =
+    row.dataset?.lojaNome ||
+    row.dataset?.nomeLoja ||
+    row.dataset?.lojaTexto ||
+    "";
+  const regionalDataset = row.dataset?.regional || "";
+
+  const tds = row.querySelectorAll("td");
+
+  const codigoTd = tds[0]?.textContent?.trim() || "";
+  const lojaTd = tds[1]?.textContent?.trim() || "";
+  const regionalTd = tds[2]?.textContent?.trim() || "";
+
+  const resultado = {
+    codigo: codigoDataset || codigoTd,
+    loja: lojaDataset || lojaTd,
+    regional: regionalDataset || regionalTd,
+  };
+
+  console.log("🧾 Dados extraídos da linha para escopo:", resultado);
+  return resultado;
+}
+
+// ==========================
+// 👁️ APLICAR ESCOPO VISUAL DA TABELA
+// ==========================
+function aplicarEscopoVisualTabela() {
+  const user = getUsuarioLogado();
+
+  if (!user) {
+    console.warn("⚠️ aplicarEscopoVisualTabela sem usuário logado");
     return;
   }
 
-  const motivo = getMotivoBloqueio(indicador, classe, semana);
-  const allowed = motivo === null;
+  const escopo = getEscopoUsuarioSistema(user);
 
-  if (!allowed) {
-    input.disabled = true;
-    input.readOnly = true;
-    input.removeAttribute("onblur");
-    input.onblur = null;
+  const seletorGlobal =
+    "#tbody-tabela tr, #tbody-especial tr, #tbody-rh tr";
 
-    input.style.background = "#f1f1f1";
-    input.style.color = "#777";
-    input.style.cursor = "not-allowed";
-    input.style.border = "1px solid #ddd";
-
-    input.title = motivo;
-    input.dataset.bloqueado = "true";
-    input.dataset.motivo = motivo;
-
-    console.log("🚫 Input bloqueado por permissão:", {
-      indicador,
-      classe,
-      semana,
-      motivo,
+  // bloqueio total de visualização
+  if (escopo.permissao_visualizacao === "NENHUMA") {
+    document.querySelectorAll(seletorGlobal).forEach((row) => {
+      row.dataset.escopoPermitido = "false";
+      row.style.display = "none";
     });
 
+    console.log(
+      "🚫 Visualização bloqueada por permissao_visualizacao = NENHUMA"
+    );
     return;
   }
 
-  input.disabled = false;
-  input.readOnly = false;
-  input.style.background = "#fff";
-  input.style.color = "#000";
-  input.style.cursor = "text";
-  input.style.border = "1px solid #ccc";
+  const tabelasPossiveis = [
+    "#tbody-tabela tr",
+    "#tbody-especial tr",
+    "#tbody-rh tr",
+  ];
 
-  input.removeAttribute("title");
-  input.dataset.bloqueado = "false";
-  input.dataset.motivo = "";
+  let totalLinhas = 0;
+  let totalOcultadas = 0;
 
-  console.log("✅ Input liberado:", {
-    indicador,
-    classe,
-    semana,
+  tabelasPossiveis.forEach((selector) => {
+    const linhas = document.querySelectorAll(selector);
+
+    if (!linhas.length) {
+      console.log("ℹ️ Nenhuma linha encontrada para o seletor:", selector);
+      return;
+    }
+
+    linhas.forEach((row) => {
+      const { codigo, loja, regional } = extrairDadosLinhaEscopo(row);
+
+      let visivel = true;
+
+      if (escopo.tipo === "loja") {
+        visivel = lojaDentroDoEscopoUsuario(
+          codigo,
+          loja,
+          escopo.loja_vinculada
+        );
+      }
+
+      if (escopo.tipo === "regional") {
+        visivel = regionalDentroDoEscopoUsuario(
+          regional,
+          escopo.regional_vinculada,
+          escopo.regionais_vinculadas
+        );
+      }
+
+      // filtro adicional por permissao_visualizacao
+      if (visivel && escopo.regionais_visuais?.length) {
+        visivel = regionalDentroDoEscopoUsuario(
+          regional,
+          null,
+          escopo.regionais_visuais
+        );
+      }
+
+      // segurança extra
+      if (escopo.permissao_visualizacao === "NENHUMA") {
+        visivel = false;
+      }
+
+      row.dataset.escopoPermitido = visivel ? "true" : "false";
+      row.style.display = visivel ? "" : "none";
+
+      totalLinhas++;
+      if (!visivel) totalOcultadas++;
+    });
+  });
+
+  console.log("👁️ Escopo visual aplicado:", {
+    usuario: user.nome || user.email || "(sem nome)",
+    escopo,
+    totalLinhas,
+    totalOcultadas,
   });
 }
 
 // ==========================
-// 🧩 APLICAR PERMISSÕES NA TABELA
+// 🌐 EXPOR FUNÇÕES DE ESCOPO NO WINDOW
 // ==========================
-function aplicarPermissoesTabela(indicador, classe) {
-  console.log("🛡️ Aplicando permissões na tabela...", { indicador, classe });
-
-  // 1) aplica escopo visual primeiro
-  if (typeof window.aplicarEscopoVisualTabela === "function") {
-    window.aplicarEscopoVisualTabela();
-  } else {
-    console.error("❌ aplicarEscopoVisualTabela não encontrada");
-  }
-
-  // 2) aplica permissão nos inputs
-  const inputs = document.querySelectorAll(
-    "#conteudo input[data-loja][data-semana]"
-  );
-
-  if (!inputs.length) {
-    console.warn("⚠️ Nenhum input encontrado para aplicar permissão");
-  } else {
-    inputs.forEach((input) => {
-      const semana = input.dataset.semana;
-      aplicarPermissaoInput(input, indicador, classe, semana);
-    });
-
-    console.log("✅ Permissões aplicadas na tabela:", {
-      totalInputs: inputs.length,
-      indicador,
-      classe,
-    });
-  }
-}
-
-// ==========================
-// 🌐 EXPOR FUNÇÕES DE EDIÇÃO NO WINDOW
-// ==========================
-window.getSemanaAnterior = getSemanaAnterior;
-window.podeEditarNaJanela = podeEditarNaJanela;
-window.getMotivoBloqueio = getMotivoBloqueio;
-window.podeEditar = podeEditar;
-window.aplicarPermissaoInput = aplicarPermissaoInput;
-window.aplicarPermissoesTabela = aplicarPermissoesTabela;
-window.obterSemanaAtualEdicao = obterSemanaAtualEdicao;
-window.getClasseEfetivaDoIndicador = getClasseEfetivaDoIndicador;
-window.getSubclasseEfetivaDoIndicador = getSubclasseEfetivaDoIndicador;
+window.normalizarPermissaoVisualizacao = normalizarPermissaoVisualizacao;
+window.getRegionaisDaPermissaoVisualizacao = getRegionaisDaPermissaoVisualizacao;
+window.getRestricaoVisualizacaoUsuario = getRestricaoVisualizacaoUsuario;
+window.regionalPermitidaPorVisualizacao = regionalPermitidaPorVisualizacao;
+window.getEscopoUsuarioSistema = getEscopoUsuarioSistema;
+window.lojaDentroDoEscopoUsuario = lojaDentroDoEscopoUsuario;
+window.regionalDentroDoEscopoUsuario = regionalDentroDoEscopoUsuario;
+window.extrairDadosLinhaEscopo = extrairDadosLinhaEscopo;
+window.aplicarEscopoVisualTabela = aplicarEscopoVisualTabela;
 
 // ==========================
 // ✅ LOG FINAL DE BOOTSTRAP
 // ==========================
-console.log("✅ perfil-edicao.js pronto", {
-  getSemanaAnterior: typeof window.getSemanaAnterior,
-  podeEditarNaJanela: typeof window.podeEditarNaJanela,
-  getMotivoBloqueio: typeof window.getMotivoBloqueio,
-  podeEditar: typeof window.podeEditar,
-  aplicarPermissaoInput: typeof window.aplicarPermissaoInput,
-  aplicarPermissoesTabela: typeof window.aplicarPermissoesTabela,
-  obterSemanaAtualEdicao: typeof window.obterSemanaAtualEdicao,
-  getClasseEfetivaDoIndicador: typeof window.getClasseEfetivaDoIndicador,
-  getSubclasseEfetivaDoIndicador: typeof window.getSubclasseEfetivaDoIndicador,
+console.log("✅ perfil-escopo.js pronto", {
+  normalizarPermissaoVisualizacao:
+    typeof window.normalizarPermissaoVisualizacao,
+  getRegionaisDaPermissaoVisualizacao:
+    typeof window.getRegionaisDaPermissaoVisualizacao,
+  getRestricaoVisualizacaoUsuario:
+    typeof window.getRestricaoVisualizacaoUsuario,
+  regionalPermitidaPorVisualizacao:
+    typeof window.regionalPermitidaPorVisualizacao,
+  getEscopoUsuarioSistema: typeof window.getEscopoUsuarioSistema,
+  lojaDentroDoEscopoUsuario: typeof window.lojaDentroDoEscopoUsuario,
+  regionalDentroDoEscopoUsuario:
+    typeof window.regionalDentroDoEscopoUsuario,
+  extrairDadosLinhaEscopo: typeof window.extrairDadosLinhaEscopo,
+  aplicarEscopoVisualTabela: typeof window.aplicarEscopoVisualTabela,
 });
-``

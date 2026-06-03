@@ -92,6 +92,7 @@ function mostrarStatusAutosaveUsuario(msg, tipo = "info") {
 
 // ==========================
 // 🔢 EXTRAIR CÓDIGO DA LOJA
+// mantido por compatibilidade
 // ==========================
 function extrairCodigoDaLojaVinculada(texto) {
   const valor = (texto || "").toString().trim();
@@ -103,6 +104,7 @@ function extrairCodigoDaLojaVinculada(texto) {
 
 // ==========================
 // 🏬 BUSCAR LOJAS PARA VÍNCULO
+// mantido por compatibilidade / uso futuro
 // ==========================
 async function buscarLojasParaVinculo() {
   try {
@@ -125,6 +127,7 @@ async function buscarLojasParaVinculo() {
 
 // ==========================
 // 🌍 REGIONAIS DISPONÍVEIS
+// mantido por compatibilidade / uso futuro
 // ==========================
 async function buscarRegionaisDisponiveis() {
   const lojas = await buscarLojasParaVinculo();
@@ -142,6 +145,7 @@ async function buscarRegionaisDisponiveis() {
 
 // ==========================
 // 🌍 NORMALIZAR REGIONAIS NO CADASTRO
+// mantido por compatibilidade
 // ==========================
 function normalizarRegionaisCadastro(valor) {
   if (!valor) return [];
@@ -154,6 +158,7 @@ function normalizarRegionaisCadastro(valor) {
 
 // ==========================
 // 🏬 BUSCAR LOJA POR CÓDIGO
+// mantido por compatibilidade
 // ==========================
 async function buscarLojaPorCodigoCadastro(lojaCodigo) {
   try {
@@ -183,6 +188,7 @@ async function buscarLojaPorCodigoCadastro(lojaCodigo) {
 
 // ==========================
 // 🏬 RESOLVER VÍNCULO AUTOMÁTICO
+// ✅ NOVO MODELO: vínculo neutralizado
 // ==========================
 async function resolverVinculoAutomaticoUsuario({
   loja_codigo,
@@ -190,93 +196,27 @@ async function resolverVinculoAutomaticoUsuario({
   regionais_vinculadas,
   perfil,
 }) {
-  const db = getWindowDb();
-
   const perfilNorm = normalizarTextoLower(perfil || "usuario");
-  const lojaCodigo = (loja_codigo || "").toString().trim();
-  const regionalInfo = normalizarTexto(regional_vinculada || "");
-  let regionais = normalizarListaRegionais(regionais_vinculadas || []);
 
-  console.log("🧩 Resolvendo vínculo automático:", {
+  const resultado = {
+    tipo_visao: "regional",
+    loja_codigo: null,
+    loja_vinculada: null,
+    regional_vinculada: null,
+    regionais_vinculadas: [],
+  };
+
+  console.log("🧩 Vínculo automático neutralizado para novo modelo:", {
     perfilNorm,
-    lojaCodigo,
-    regionalInfo,
-    regionais,
+    entrada: {
+      loja_codigo,
+      regional_vinculada,
+      regionais_vinculadas,
+    },
+    resultado,
   });
 
-  if (lojaCodigo) {
-    const { data: loja, error } = await db
-      .from("lojas")
-      .select("*")
-      .eq("codigo", lojaCodigo)
-      .single();
-
-    if (error || !loja) {
-      throw new Error("Número da loja não encontrado na base.");
-    }
-
-    const regionalDaLoja = normalizarTexto(loja.regional || "");
-
-    if (regionalDaLoja && !regionais.includes(regionalDaLoja)) {
-      regionais.push(regionalDaLoja);
-    }
-
-    regionais = [...new Set(regionais)];
-
-    const resultado = {
-      tipo_visao: "gerencial",
-      loja_codigo: String(loja.codigo),
-      loja_vinculada: `${loja.codigo} - ${loja.nome}`,
-      regional_vinculada: regionalInfo || regionalDaLoja || null,
-      regionais_vinculadas: regionais,
-    };
-
-    console.log("✅ Vínculo resolvido por loja:", resultado);
-    return resultado;
-  }
-
-  if (regionais.length) {
-    const resultado = {
-      tipo_visao: "regional",
-      loja_codigo: null,
-      loja_vinculada: null,
-      regional_vinculada: regionalInfo || regionais[0] || null,
-      regionais_vinculadas: [...new Set(regionais)],
-    };
-
-    console.log("✅ Vínculo resolvido por regionais:", resultado);
-    return resultado;
-  }
-
-  if (regionalInfo) {
-    const resultado = {
-      tipo_visao: "regional",
-      loja_codigo: null,
-      loja_vinculada: null,
-      regional_vinculada: regionalInfo,
-      regionais_vinculadas: [regionalInfo],
-    };
-
-    console.log("✅ Vínculo resolvido por regional principal:", resultado);
-    return resultado;
-  }
-
-  if (perfilNorm === "master" || perfilNorm === "admin") {
-    const resultado = {
-      tipo_visao: "regional",
-      loja_codigo: null,
-      loja_vinculada: null,
-      regional_vinculada: null,
-      regionais_vinculadas: [],
-    };
-
-    console.log("✅ Vínculo resolvido por perfil administrativo:", resultado);
-    return resultado;
-  }
-
-  throw new Error(
-    "Informe o número da loja ou pelo menos uma regional para este usuário."
-  );
+  return resultado;
 }
 
 // ==========================
@@ -510,9 +450,10 @@ async function salvarSenha() {
 
 // ==========================
 // ➕ NOVO USUÁRIO (MANUAL)
+// ✅ NOVO MODELO: sem campos de bloqueio por loja/regional
 // ==========================
 function novoUsuario() {
-  console.log("➕ Novo Usuário (modo manual)");
+  console.log("➕ Novo Usuário (novo modelo sem vínculo de loja/regional)");
 
   const user = getUsuarioLogado();
   const container = getConfigConteudoEl();
@@ -568,24 +509,6 @@ function novoUsuario() {
             `
         }
 
-        <div class="campo">
-          <label>Número da loja</label>
-          <input id="novo_loja_codigo" placeholder="Ex.: 305">
-          <small>Preencha para restringir à própria loja.</small>
-        </div>
-
-        <div class="campo">
-          <label>Regional principal</label>
-          <input id="novo_regional_vinculada" placeholder="Ex.: NE1">
-          <small>Informativo / principal.</small>
-        </div>
-
-        <div class="campo">
-          <label>Regionais adicionais</label>
-          <input id="novo_regionais_vinculadas" placeholder="Ex.: NE1, NE2">
-          <small>Se preencher NE1, NE2, o usuário verá / editará as duas regionais.</small>
-        </div>
-
       </div>
 
       <div class="acoes">
@@ -599,11 +522,12 @@ function novoUsuario() {
     </div>
   `;
 
-  console.log("➕ Tela de novo usuário renderizada");
+  console.log("➕ Tela de novo usuário renderizada (sem vínculo)");
 }
 
 // ==========================
 // 💾 SALVAR NOVO USUÁRIO (MANUAL)
+// ✅ novo usuário nasce sem vínculo e usuario já nasce bloqueado por padrão
 // ==========================
 async function salvarNovoUsuario() {
   const nome = document.getElementById("novo_nome")?.value.trim();
@@ -614,26 +538,14 @@ async function salvarNovoUsuario() {
   const perfil =
     document.getElementById("novo_perfil")?.value?.trim() || "usuario";
 
-  const loja_codigo =
-    document.getElementById("novo_loja_codigo")?.value.trim() || null;
-
-  const regional_vinculada =
-    document.getElementById("novo_regional_vinculada")?.value.trim() || null;
-
-  const regionais_vinculadas_raw =
-    document.getElementById("novo_regionais_vinculadas")?.value.trim() || "";
-
   const resultadoEl = document.getElementById("resultado-novo-usuario");
 
-  console.log("💾 Criando usuário no modo manual...", {
+  console.log("💾 Criando usuário no novo modelo...", {
     nome,
     matricula,
     email,
     funcao,
     perfil,
-    loja_codigo,
-    regional_vinculada,
-    regionais_vinculadas_raw,
   });
 
   if (!nome || !matricula || !email || !funcao) {
@@ -707,13 +619,6 @@ async function salvarNovoUsuario() {
       return;
     }
 
-    const vinculoResolvido = await resolverVinculoAutomaticoUsuario({
-      loja_codigo,
-      regional_vinculada,
-      regionais_vinculadas: regionais_vinculadas_raw,
-      perfil,
-    });
-
     const permissoesBase = getPermissoesBasePorPerfil(perfil);
 
     const payload = {
@@ -725,13 +630,11 @@ async function salvarNovoUsuario() {
       funcao,
       perfil,
 
-      tipo_visao: vinculoResolvido.tipo_visao,
-      loja_codigo: vinculoResolvido.loja_codigo,
-      loja_vinculada: vinculoResolvido.loja_vinculada,
-      regional_vinculada: regional_vinculada
-        ? normalizarTexto(regional_vinculada)
-        : null,
-      regionais_vinculadas: vinculoResolvido.regionais_vinculadas,
+      tipo_visao: "regional",
+      loja_codigo: null,
+      loja_vinculada: null,
+      regional_vinculada: null,
+      regionais_vinculadas: [],
 
       primeiro_acesso: true,
       permissoes: {
@@ -739,9 +642,11 @@ async function salvarNovoUsuario() {
         classes: [],
         subclasses: [],
         acesso_total: perfil === "master",
-        ignorar_loja_vinculada: false,
+        ignorar_loja_vinculada: true,
         permissao_visualizacao:
-          permissoesBase.permissao_visualizacao || "TODOS",
+          perfil === "usuario"
+            ? "NENHUMA"
+            : permissoesBase.permissao_visualizacao || "TODOS",
         ...permissoesBase,
       },
     };
@@ -772,16 +677,16 @@ async function salvarNovoUsuario() {
             email,
             matricula,
             funcao,
-            tipo_visao: vinculoResolvido.tipo_visao,
-            loja_codigo: vinculoResolvido.loja_codigo,
-            loja_vinculada: vinculoResolvido.loja_vinculada,
-            regional_vinculada: regional_vinculada
-              ? normalizarTexto(regional_vinculada)
-              : null,
-            regionais_vinculadas: vinculoResolvido.regionais_vinculadas,
+            tipo_visao: "regional",
+            loja_codigo: null,
+            loja_vinculada: null,
+            regional_vinculada: null,
+            regionais_vinculadas: [],
             permissao_visualizacao:
-              permissoesBase.permissao_visualizacao || "TODOS",
-            ignorar_loja_vinculada: false,
+              perfil === "usuario"
+                ? "NENHUMA"
+                : permissoesBase.permissao_visualizacao || "TODOS",
+            ignorar_loja_vinculada: true,
           },
         });
       } catch (erroLog) {
@@ -802,13 +707,9 @@ async function salvarNovoUsuario() {
           <div><b>Matrícula:</b> ${escapeHtml(data.matricula)}</div>
           <div><b>Função:</b> ${escapeHtml(data.funcao)}</div>
           <div><b>Perfil:</b> ${escapeHtml(data.perfil)}</div>
-          <div><b>Loja:</b> ${escapeHtml(data.loja_vinculada || "-")}</div>
-          <div><b>Regional principal:</b> ${escapeHtml(data.regional_vinculada || "-")}</div>
-          <div><b>Regionais adicionais:</b> ${
-            Array.isArray(data.regionais_vinculadas)
-              ? escapeHtml(data.regionais_vinculadas.join(", "))
-              : "-"
-          }</div>
+          <div><b>Visualização inicial:</b> ${escapeHtml(
+            data?.permissoes?.permissao_visualizacao || "-"
+          )}</div>
 
           <br>
           <small>
@@ -823,9 +724,6 @@ async function salvarNovoUsuario() {
     document.getElementById("novo_matricula").value = "";
     document.getElementById("novo_email").value = "";
     document.getElementById("novo_funcao").value = "";
-    document.getElementById("novo_loja_codigo").value = "";
-    document.getElementById("novo_regional_vinculada").value = "";
-    document.getElementById("novo_regionais_vinculadas").value = "";
   } catch (erro) {
     console.error("❌ Erro ao criar usuário manualmente:", erro);
 
@@ -978,21 +876,9 @@ function resumoPermissoesUsuario(usuario) {
     tags.push(`<span class="perm-tag perm-total">Ignora loja vinculada</span>`);
   }
 
-  if (usuario.loja_vinculada) {
-    tags.push(
-      `<span class="perm-tag perm-total">Escopo: ${escapeHtml(
-        usuario.loja_vinculada
-      )}</span>`
-    );
-  } else if (usuario.regionais_vinculadas?.length) {
-    tags.push(
-      `<span class="perm-tag">Escopo: ${escapeHtml(
-        usuario.regionais_vinculadas.join(", ")
-      )}</span>`
-    );
-  }
-
-  if (permissoesSistema.permissao_visualizacao === "NE1_NE2") {
+  if (permissoesSistema.permissao_visualizacao === "NENHUMA") {
+    tags.push(`<span class="perm-tag">Visualização: Nenhuma</span>`);
+  } else if (permissoesSistema.permissao_visualizacao === "NE1_NE2") {
     tags.push(`<span class="perm-tag">Visualização: NE1 e NE2</span>`);
   } else if (permissoesSistema.permissao_visualizacao === "NE1") {
     tags.push(`<span class="perm-tag">Visualização: NE1</span>`);
@@ -1001,7 +887,9 @@ function resumoPermissoesUsuario(usuario) {
   } else if (
     permissoesSistema.permissao_visualizacao === "REGIONAL_CONFIGURADA"
   ) {
-    tags.push(`<span class="perm-tag">Visualização: Regional configurada</span>`);
+    tags.push(
+      `<span class="perm-tag">Visualização: Regional configurada</span>`
+    );
   } else {
     tags.push(`<span class="perm-tag">Visualização: Todos</span>`);
   }
@@ -1176,6 +1064,7 @@ async function carregarUsuariosPermissoes() {
 
 // ==========================
 // 📦 COLETAR CAMPOS DA AÇÃO
+// ✅ novo modelo: sem loja / regional
 // ==========================
 function coletarCamposEdicaoUsuario() {
   return {
@@ -1186,14 +1075,6 @@ function coletarCamposEdicaoUsuario() {
       document.getElementById("edit_perm_email")?.value.trim().toLowerCase() ||
       "",
     funcao: document.getElementById("edit_perm_funcao")?.value.trim() || "",
-    loja_codigo:
-      document.getElementById("edit_perm_loja_codigo")?.value.trim() || "",
-    regional_vinculada:
-      document.getElementById("edit_perm_regional_vinculada")?.value.trim() ||
-      "",
-    regionais_vinculadas:
-      document.getElementById("edit_perm_regionais_vinculadas")?.value.trim() ||
-      "",
     perfil: document.getElementById("edit_perm_perfil")?.value || undefined,
   };
 }
@@ -1294,6 +1175,7 @@ function coletarPermissoesIndicadoresTela() {
 
 // ==========================
 // 💾 AUTOSAVE USUÁRIO (AÇÃO)
+// ✅ novo modelo: sem resolver vínculo
 // ==========================
 async function autoSalvarUsuarioAcao(id, campoOrigem = "manual") {
   try {
@@ -1323,26 +1205,17 @@ async function autoSalvarUsuarioAcao(id, campoOrigem = "manual") {
           return;
         }
 
-        const vinculoResolvido = await resolverVinculoAutomaticoUsuario({
-          loja_codigo: dados.loja_codigo,
-          regional_vinculada: dados.regional_vinculada,
-          regionais_vinculadas: dados.regionais_vinculadas,
-          perfil: dados.perfil || userAtual?.perfil || "usuario",
-        });
-
         const payload = {
           nome: dados.nome,
           matricula: dados.matricula,
           email: dados.email,
           funcao: dados.funcao,
 
-          tipo_visao: vinculoResolvido.tipo_visao,
-          loja_codigo: vinculoResolvido.loja_codigo,
-          loja_vinculada: vinculoResolvido.loja_vinculada,
-          regional_vinculada: dados.regional_vinculada
-            ? normalizarTexto(dados.regional_vinculada)
-            : null,
-          regionais_vinculadas: vinculoResolvido.regionais_vinculadas,
+          tipo_visao: "regional",
+          loja_codigo: null,
+          loja_vinculada: null,
+          regional_vinculada: null,
+          regionais_vinculadas: [],
         };
 
         if (isMaster && dados.perfil) {
@@ -1356,18 +1229,13 @@ async function autoSalvarUsuarioAcao(id, campoOrigem = "manual") {
 
         if (error) throw error;
 
-        const infoLoja = document.getElementById("info_loja_inferida");
-        if (infoLoja) {
-          infoLoja.value = vinculoResolvido.loja_vinculada || "-";
-        }
-
         mostrarStatusAutosaveUsuario("✅ Salvo automaticamente", "sucesso");
 
         if (typeof window.registrarEventoSistema === "function") {
           await window.registrarEventoSistema({
             tipo_evento: "usuario",
             modulo: "Permissões",
-            acao: "atualizou dados de ação/vínculo",
+            acao: "atualizou dados de ação",
             usuario_alvo: dados.nome,
             perfil_alvo: payload.perfil,
             autenticacao: "sessao_propria",
@@ -1377,13 +1245,11 @@ async function autoSalvarUsuarioAcao(id, campoOrigem = "manual") {
               matricula: dados.matricula,
               email: dados.email,
               funcao: dados.funcao,
-              tipo_visao: vinculoResolvido.tipo_visao,
-              loja_codigo: vinculoResolvido.loja_codigo,
-              loja_vinculada: vinculoResolvido.loja_vinculada,
-              regional_vinculada: dados.regional_vinculada
-                ? normalizarTexto(dados.regional_vinculada)
-                : null,
-              regionais_vinculadas: vinculoResolvido.regionais_vinculadas,
+              tipo_visao: "regional",
+              loja_codigo: null,
+              loja_vinculada: null,
+              regional_vinculada: null,
+              regionais_vinculadas: [],
             },
           });
         }
@@ -1412,11 +1278,9 @@ function ativarAutosaveEdicaoUsuario(id) {
     "edit_perm_matricula",
     "edit_perm_email",
     "edit_perm_funcao",
-    "edit_perm_loja_codigo",
-    "edit_perm_regionais_vinculadas",
   ];
 
-  const camposChange = ["edit_perm_regional_vinculada", "edit_perm_perfil"];
+  const camposChange = ["edit_perm_perfil"];
 
   camposBlur.forEach((campoId) => {
     const el = document.getElementById(campoId);
@@ -1653,10 +1517,11 @@ function renderPermissoesIndicadorHtml({
 }
 
 // ==========================
-// ⚙️ EDITAR PERMISSÕES + AÇÃO + VÍNCULO
+// ⚙️ EDITAR PERMISSÕES + AÇÃO
+// ✅ novo modelo: sem vínculo de loja/regional
 // ==========================
 async function editarPermissoes(id) {
-  console.log("⚙️ Editando permissões / vínculo:", id);
+  console.log("⚙️ Editando permissões (novo modelo sem vínculo):", id);
 
   const container = getConfigConteudoEl();
   if (!container) {
@@ -1688,23 +1553,6 @@ async function editarPermissoes(id) {
     const userAtual = getUsuarioLogado();
     const isMaster = userAtual?.perfil === "master";
 
-    const regionais = await buscarRegionaisDisponiveis();
-
-    const optionsRegionais = regionais
-      .map((r) => {
-        return `<option value="${escapeHtml(r)}" ${
-          normalizarTexto(data.regional_vinculada) === normalizarTexto(r)
-            ? "selected"
-            : ""
-        }>${escapeHtml(r)}</option>`;
-      })
-      .join("");
-
-    const lojaCodigoAtual =
-      data.loja_codigo || extrairCodigoDaLojaVinculada(data.loja_vinculada);
-
-    const regionaisTexto = listaRegionaisParaTexto(data.regionais_vinculadas);
-
     const agrupado = agruparIndicadoresPermissao();
     console.log("🧩 agrupado para tela de permissões:", agrupado);
 
@@ -1730,7 +1578,7 @@ async function editarPermissoes(id) {
 
     let html = `
       <div class="card-conteudo">
-        <h3>⚙️ Permissões / Ação / Vínculo - ${escapeHtml(data.nome)}</h3>
+        <h3>⚙️ Permissões / Ação - ${escapeHtml(data.nome)}</h3>
 
         <div id="status-autosave-usuario" class="status-autosave neutro">
           ℹ️ Altere um campo para salvar automaticamente.
@@ -1780,38 +1628,6 @@ async function editarPermissoes(id) {
               `
               : ""
           }
-
-          <div class="campo">
-            <label>Número da loja</label>
-            <input id="edit_perm_loja_codigo" value="${escapeHtml(
-              lojaCodigoAtual || ""
-            )}" placeholder="Ex.: 305">
-            <small>Se preencher, o usuário ficará restrito à própria loja.</small>
-          </div>
-
-          <div class="campo">
-            <label>Regional principal</label>
-            <select id="edit_perm_regional_vinculada">
-              <option value="">Selecione</option>
-              ${optionsRegionais}
-            </select>
-            <small>Campo principal / referência.</small>
-          </div>
-
-          <div class="campo">
-            <label>Regionais adicionais</label>
-            <input id="edit_perm_regionais_vinculadas" value="${escapeHtml(
-              regionaisTexto || ""
-            )}" placeholder="Ex.: NE1, NE2">
-            <small>Preencha uma regional inteira ou NE1, NE2 para duas regionais.</small>
-          </div>
-
-          <div class="campo">
-            <label>Loja inferida</label>
-            <input id="info_loja_inferida" value="${escapeHtml(
-              data.loja_vinculada || "-"
-            )}" disabled>
-          </div>
 
         </div>
     `;
@@ -1897,7 +1713,7 @@ async function editarPermissoes(id) {
             <input type="checkbox" id="perm_atribuir_escopo" ${
               permsSistema.pode_atribuir_escopo ? "checked" : ""
             }>
-            Atribuir loja/regional
+            Atribuir escopo
           </label>
 
           <label class="check-item check-item-bi">
@@ -1912,6 +1728,9 @@ async function editarPermissoes(id) {
           <div class="campo" style="margin-top:6px;">
             <label>Permissão de visualização</label>
             <select id="perm_visualizacao">
+              <option value="NENHUMA" ${
+                visualizacaoAtual === "NENHUMA" ? "selected" : ""
+              }>Nenhuma</option>
               <option value="TODOS" ${
                 visualizacaoAtual === "TODOS" ? "selected" : ""
               }>Todos</option>
@@ -1976,6 +1795,7 @@ async function editarPermissoes(id) {
 
 // ==========================
 // 💾 SALVAR PERMISSÕES
+// ✅ novo modelo: sem vínculo
 // ==========================
 async function salvarPermissoes(id) {
   const dados = coletarCamposEdicaoUsuario();
@@ -1984,7 +1804,7 @@ async function salvarPermissoes(id) {
 
   const permissoesIndicadoresTela = coletarPermissoesIndicadoresTela();
 
-  console.log("💾 Salvando permissões + vínculo manual:", {
+  console.log("💾 Salvando permissões (novo modelo sem vínculo):", {
     id,
     dados,
     permissoesIndicadoresTela,
@@ -1997,14 +1817,6 @@ async function salvarPermissoes(id) {
 
   try {
     const db = getWindowDb();
-
-    const vinculoResolvido = await resolverVinculoAutomaticoUsuario({
-      loja_codigo: dados.loja_codigo,
-      regional_vinculada: dados.regional_vinculada,
-      regionais_vinculadas: dados.regionais_vinculadas,
-      perfil:
-        dados.perfil || window.usuarioPermissoesEditando?.perfil || "usuario",
-    });
 
     const perfilFinal =
       isMaster && dados.perfil
@@ -2019,10 +1831,9 @@ async function salvarPermissoes(id) {
     if (isMaster) {
       permissoesSistema = coletarPermissoesSistemaTela(permissoesSistema);
     } else {
-      permissoesSistema.permissao_visualizacao =
-        normalizarPermissaoVisualizacao(
-          permissoesSistema.permissao_visualizacao || "TODOS"
-        );
+      permissoesSistema.permissao_visualizacao = normalizarPermissaoVisualizacao(
+        permissoesSistema.permissao_visualizacao || "TODOS"
+      );
     }
 
     console.log("🧭 Permissões de sistema coletadas para salvar:", permissoesSistema);
@@ -2032,13 +1843,12 @@ async function salvarPermissoes(id) {
       matricula: dados.matricula,
       email: dados.email,
       funcao: dados.funcao,
-      tipo_visao: vinculoResolvido.tipo_visao,
-      loja_codigo: vinculoResolvido.loja_codigo,
-      loja_vinculada: vinculoResolvido.loja_vinculada,
-      regional_vinculada: dados.regional_vinculada
-        ? normalizarTexto(dados.regional_vinculada)
-        : null,
-      regionais_vinculadas: vinculoResolvido.regionais_vinculadas,
+
+      tipo_visao: "regional",
+      loja_codigo: null,
+      loja_vinculada: null,
+      regional_vinculada: null,
+      regionais_vinculadas: [],
 
       permissoes: {
         ...(window.usuarioPermissoesEditando?.permissoes || {}),
@@ -2072,7 +1882,7 @@ async function salvarPermissoes(id) {
       );
     }
 
-    console.log("✅ Permissões/vínculo salvos no banco:", data);
+    console.log("✅ Permissões salvas no banco:", data);
 
     if (String(id) === String(user?.id)) {
       console.log(
@@ -2087,7 +1897,7 @@ async function salvarPermissoes(id) {
       await window.registrarEventoSistema({
         tipo_evento: "permissao",
         modulo: "Permissões",
-        acao: "atualizou permissões e vínculo",
+        acao: "atualizou permissões",
         usuario_alvo: dados.nome,
         perfil_alvo: perfilFinal,
         autenticacao: "sessao_propria",
@@ -2103,13 +1913,11 @@ async function salvarPermissoes(id) {
           ignorar_loja_vinculada:
             permissoesSistema.ignorar_loja_vinculada === true,
           permissao_visualizacao: permissoesSistema.permissao_visualizacao,
-          tipo_visao: vinculoResolvido.tipo_visao,
-          loja_codigo: vinculoResolvido.loja_codigo,
-          loja_vinculada: vinculoResolvido.loja_vinculada,
-          regional_vinculada: dados.regional_vinculada
-            ? normalizarTexto(dados.regional_vinculada)
-            : null,
-          regionais_vinculadas: vinculoResolvido.regionais_vinculadas,
+          tipo_visao: "regional",
+          loja_codigo: null,
+          loja_vinculada: null,
+          regional_vinculada: null,
+          regionais_vinculadas: [],
           funcao: dados.funcao,
           matricula: dados.matricula,
           permissoesSistema,
@@ -2117,11 +1925,11 @@ async function salvarPermissoes(id) {
       });
     }
 
-    alert("✅ Permissões / vínculo atualizados!");
+    alert("✅ Permissões atualizadas!");
     abrirTelaPermissoes();
   } catch (erro) {
     console.error("❌ Erro ao salvar permissões:", erro);
-    alert(`❌ ${erro.message || "Erro ao salvar permissões / vínculo."}`);
+    alert(`❌ ${erro.message || "Erro ao salvar permissões."}`);
   }
 }
 
