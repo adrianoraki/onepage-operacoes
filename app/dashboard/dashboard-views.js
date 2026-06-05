@@ -96,8 +96,6 @@ DashboardBI.views = DashboardBI.views || {};
       state.indicador || ""
     );
 
-    // ✅ Mantém o principal como padrão.
-    // Se futuramente houver seletor explícito para Horas -, o data.js pode passar mediaValor2.
     if (
       indicadorNorm === "BANCOS DE HORAS" ||
       indicadorNorm === "BANCO DE HORAS" ||
@@ -188,10 +186,35 @@ DashboardBI.views = DashboardBI.views || {};
     `;
   }
 
+  function montarObservacaoJustificativa(item) {
+    const temJustificativa = !!item?.temJustificativa;
+    const observacao = textoSeguro(
+      item?.observacao || (temJustificativa ? "OBS: Teve justificativas" : ""),
+      ""
+    );
+
+    if (!observacao) return "";
+
+    return `
+      <div style="
+        margin-top:4px;
+        font-size:11px;
+        font-weight:700;
+        color:#8a5a00;
+        background:rgba(255, 243, 205, 0.85);
+        border:1px solid rgba(255, 193, 7, 0.35);
+        display:inline-block;
+        padding:2px 6px;
+        border-radius:8px;
+      ">
+        ${escapeHtml(observacao)}
+      </div>
+    `;
+  }
+
   function montarLinhaRanking({
     idx,
     item,
-    colunaNome,
     tipoValor,
     getNomeItem,
     getResultado,
@@ -225,8 +248,13 @@ DashboardBI.views = DashboardBI.views || {};
         estiloFinal ? `style="${escapeHtml(estiloFinal)}"` : ""
       }>
         <td>${idx + 1}</td>
-        <td>${escapeHtml(nomeItem)}</td>
-        <td>${escapeHtml(DashboardBI.helpers.formatarValor(resultado, tipoValor))}</td>
+        <td>
+          <div>${escapeHtml(nomeItem)}</div>
+          ${montarObservacaoJustificativa(item)}
+        </td>
+        <td>${escapeHtml(
+          DashboardBI.helpers.formatarValor(resultado, tipoValor)
+        )}</td>
         ${
           typeof getQtd === "function"
             ? `<td>${escapeHtml(String(qtd ?? 0))}</td>`
@@ -291,7 +319,6 @@ DashboardBI.views = DashboardBI.views || {};
                         montarLinhaRanking({
                           idx,
                           item,
-                          colunaNome,
                           tipoValor: tipoValorPrincipal,
                           getNomeItem,
                           getResultado,
@@ -318,6 +345,73 @@ DashboardBI.views = DashboardBI.views || {};
   };
 
   // ==========================
+  // 📋 CARD - LOJAS COM JUSTIFICATIVA
+  // ==========================
+  DashboardBI.views.renderCardLojasComJustificativa = function (
+    lista = [],
+    {
+      titulo = "Lojas com justificativas",
+      subtitulo = "Estas lojas tiveram justificativas no período do ranking",
+      spanClass = "span-12",
+    } = {}
+  ) {
+    const dados = listaSegura(lista);
+
+    logInfo("Renderizando card de lojas com justificativa", {
+      total: dados.length,
+      titulo,
+    });
+
+    return `
+      <div class="dashboard-card ${spanClass}">
+        <div class="dashboard-card-header">
+          <span class="dashboard-card-titulo">${escapeHtml(titulo)}</span>
+          <span class="dashboard-card-subtitulo">${escapeHtml(subtitulo)}</span>
+        </div>
+
+        <div class="tabela-container">
+          <table class="tabela">
+            <thead>
+              <tr>
+                <th>Loja</th>
+                <th>Regional</th>
+                <th>Qtd Justificativas</th>
+                <th>Semanas</th>
+                <th>Indicadores</th>
+                <th>Motivos</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                dados.length
+                  ? dados
+                      .map(
+                        (item) => `
+                    <tr>
+                      <td>${escapeHtml(item.loja || "-")}</td>
+                      <td>${escapeHtml(item.regional || "-")}</td>
+                      <td>${escapeHtml(String(item.qtdJustificativas || 0))}</td>
+                      <td>${escapeHtml((item.semanas || []).join(", ") || "-")}</td>
+                      <td>${escapeHtml((item.indicadores || []).join(", ") || "-")}</td>
+                      <td>${escapeHtml((item.motivos || []).join(" | ") || "-")}</td>
+                    </tr>
+                  `
+                      )
+                      .join("")
+                  : `
+                    <tr>
+                      <td colspan="6">Nenhuma loja com justificativa no período.</td>
+                    </tr>
+                  `
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  };
+
+  // ==========================
   // 📋 TABELA RANKING INDICADORES
   // ==========================
   DashboardBI.views.renderTabelaRankingIndicadores = function (
@@ -325,6 +419,12 @@ DashboardBI.views = DashboardBI.views || {};
     tipoValorPrincipal,
     subtitulo = "Posição e média consolidada"
   ) {
+    const colorirFaixaAuditoria = DashboardBI.helpers.rankingEhAuditoria(
+      DashboardBI.STATE?.indicador,
+      DashboardBI.STATE?.classe,
+      tipoValorPrincipal
+    );
+
     return DashboardBI.views.renderTabelaRankingPadrao({
       titulo: "Ranking por indicador",
       subtitulo,
@@ -335,6 +435,7 @@ DashboardBI.views = DashboardBI.views || {};
       getNomeItem: (item) => item?.indicador || "-",
       getResultado: (item) => item?.mediaValor ?? 0,
       spanClass: "span-12",
+      colorirFaixaAuditoria,
     });
   };
 
@@ -351,7 +452,11 @@ DashboardBI.views = DashboardBI.views || {};
     getNomeItem = (item) => item?.loja || "-",
     getQtd = null,
   }) {
-    const colorirFaixaAuditoria = DashboardBI.helpers.rankingEhAuditoria();
+    const colorirFaixaAuditoria = DashboardBI.helpers.rankingEhAuditoria(
+      DashboardBI.STATE?.indicador,
+      DashboardBI.STATE?.classe,
+      tipoValorPrincipal
+    );
 
     logInfo("Renderizando colunas de ranking regionais", {
       totalNE1: listaSegura(rankingNE1).length,
@@ -560,6 +665,7 @@ DashboardBI.views = DashboardBI.views || {};
     lojas,
     lojasEscopoBase,
     resultados,
+    resultadosEscopoBase,
     resultadosRanking,
     rankingIndicadores,
     periodoDashboardInfo,
@@ -567,6 +673,7 @@ DashboardBI.views = DashboardBI.views || {};
     semanasJanela,
     semanasMesInfo,
     usandoFallback,
+    lojasComJustificativa = [],
   }) {
     logInfo("Renderizando visão gerencial...");
 
@@ -658,6 +765,12 @@ DashboardBI.views = DashboardBI.views || {};
         tipoValorPrincipal,
         descricaoPeriodoRanking
       )}
+
+      ${DashboardBI.views.renderCardLojasComJustificativa(lojasComJustificativa, {
+        titulo: "Lojas com justificativas",
+        subtitulo: "Estas lojas tiveram justificativas no período do ranking",
+        spanClass: "span-12",
+      })}
     `;
 
     DashboardBI.charts.renderGraficosDashboard({
@@ -672,6 +785,7 @@ DashboardBI.views = DashboardBI.views || {};
     logInfo("Visão gerencial renderizada", {
       totalResultados: resultadosMes.length,
       totalRankingIndicadores: listaRankingIndicadores.length,
+      lojasComJustificativa: listaSegura(lojasComJustificativa).length,
       tipoValorPrincipal,
       tipoValorSecundario,
     });
@@ -697,6 +811,7 @@ DashboardBI.views = DashboardBI.views || {};
     evolucaoComparativaRegional = [],
     campoResultadoRankingRegional = null,
     tipoValorRankingRegional = null,
+    lojasComJustificativa = [],
   }) {
     logInfo("Renderizando visão regional...");
 
@@ -717,7 +832,11 @@ DashboardBI.views = DashboardBI.views || {};
     const rankingConsolidado =
       DashboardBI.aggregations.agruparRankingLojasPorPeriodoDashboard(
         resultadosRankingBase,
-        periodoRankingInfo || {}
+        periodoRankingInfo || {},
+        {
+          limite: null,
+          campo: campoResultadoRankingRegional || getCampoResultadoRegionalAtual(),
+        }
       );
 
     const tipoValorPrincipal = getTipoValorPrincipalAtual();
@@ -748,6 +867,7 @@ DashboardBI.views = DashboardBI.views || {};
       rankingConsolidado: rankingConsolidado.length,
       rankingNE1: listaSegura(rankingNE1).length,
       rankingNE2: listaSegura(rankingNE2).length,
+      lojasComJustificativa: listaSegura(lojasComJustificativa).length,
       semanasJanela,
       semanasMesInfo,
       descricaoPeriodoDashboard,
@@ -756,7 +876,11 @@ DashboardBI.views = DashboardBI.views || {};
       tipoValorRegional,
     });
 
-    if (!resultadosMes.length && !listaSegura(rankingNE1).length && !listaSegura(rankingNE2).length) {
+    if (
+      !resultadosMes.length &&
+      !listaSegura(rankingNE1).length &&
+      !listaSegura(rankingNE2).length
+    ) {
       alvo.innerHTML = renderMensagemSemDados(
         "Sem dados regionais",
         "Nenhum resultado regional encontrado para os filtros aplicados."
@@ -797,6 +921,12 @@ DashboardBI.views = DashboardBI.views || {};
         subtituloNE2: `${descricaoPeriodoRanking} • lojas NE2`,
         campoResultado: campoResultadoRegional,
       })}
+
+      ${DashboardBI.views.renderCardLojasComJustificativa(lojasComJustificativa, {
+        titulo: "Lojas com justificativas",
+        subtitulo: "Estas lojas tiveram justificativas no período do ranking",
+        spanClass: "span-12",
+      })}
     `;
 
     DashboardBI.charts.renderGraficosDashboard({
@@ -812,6 +942,7 @@ DashboardBI.views = DashboardBI.views || {};
       totalResultados: resultadosMes.length,
       rankingNE1: listaSegura(rankingNE1).length,
       rankingNE2: listaSegura(rankingNE2).length,
+      lojasComJustificativa: listaSegura(lojasComJustificativa).length,
       campoResultadoRegional,
       tipoValorRegional,
     });
@@ -827,5 +958,7 @@ DashboardBI.views = DashboardBI.views || {};
       typeof DashboardBI.views.renderTabelaRankingIndicadores,
     renderColunasRankingRegionais:
       typeof DashboardBI.views.renderColunasRankingRegionais,
+    renderCardLojasComJustificativa:
+      typeof DashboardBI.views.renderCardLojasComJustificativa,
   });
 })();

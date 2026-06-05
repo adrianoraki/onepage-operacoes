@@ -3,6 +3,7 @@ console.log("✅ dashboard-state.js carregado");
 window.DashboardBI = window.DashboardBI || {};
 
 (function inicializarDashboardState() {
+  const LOG_PREFIX = "🧠 DashboardState";
   const hoje = new Date();
 
   const semanaAtual =
@@ -13,12 +14,33 @@ window.DashboardBI = window.DashboardBI || {};
   const mesAtual = String(hoje.getMonth() + 1).padStart(2, "0");
   const anoAtual = String(hoje.getFullYear());
 
+  function logInfo(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.log(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.log(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function logWarn(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function textoSeguro(valor, fallback = "") {
+    const texto = (valor || "").toString().trim();
+    return texto || fallback;
+  }
+
   function getStorage(key, fallback) {
     try {
       const valor = localStorage.getItem(key);
       return valor ?? fallback;
     } catch (erro) {
-      console.warn(`⚠️ Falha ao ler localStorage[${key}]`, erro);
+      logWarn(`Falha ao ler localStorage[${key}]`, erro);
       return fallback;
     }
   }
@@ -27,12 +49,20 @@ window.DashboardBI = window.DashboardBI || {};
     try {
       localStorage.setItem(key, value);
     } catch (erro) {
-      console.warn(`⚠️ Falha ao gravar localStorage[${key}]`, erro);
+      logWarn(`Falha ao gravar localStorage[${key}]`, erro);
+    }
+  }
+
+  function removerStorage(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch (erro) {
+      logWarn(`Falha ao remover localStorage[${key}]`, erro);
     }
   }
 
   function normalizarPeriodo(valor, fallback = "MENSAL") {
-    const texto = (valor || "").toString().trim().toUpperCase();
+    const texto = textoSeguro(valor).toUpperCase();
 
     if (["SEMANAL", "MENSAL", "ANUAL"].includes(texto)) {
       return texto;
@@ -41,19 +71,54 @@ window.DashboardBI = window.DashboardBI || {};
     return fallback;
   }
 
+  function normalizarVisao(valor, fallback = "regional") {
+    const texto = textoSeguro(valor).toLowerCase();
+
+    if (texto === "regional" || texto === "gerencial") {
+      return texto;
+    }
+
+    return fallback;
+  }
+
+  function normalizarSemana(valor, fallback = semanaAtual) {
+    const texto = String(valor || fallback).replace(/\D/g, "").padStart(2, "0");
+    return texto || fallback;
+  }
+
+  function normalizarMes(valor, fallback = mesAtual) {
+    const texto = String(valor || fallback).replace(/\D/g, "").padStart(2, "0");
+    return texto || fallback;
+  }
+
+  function normalizarAno(valor, fallback = anoAtual) {
+    const texto = String(valor || fallback).replace(/\D/g, "");
+    return texto || fallback;
+  }
+
+  function normalizarCampoRankingRegional(valor, fallback = "valor") {
+    const texto = textoSeguro(valor, fallback).toLowerCase();
+
+    if (["valor", "valor2", "mediavalor", "mediavalor2"].includes(texto)) {
+      return texto;
+    }
+
+    return fallback;
+  }
+
   function construirStateInicial() {
-    return {
+    const state = {
       // filtros-base
-      semana: getStorage("semana", semanaAtual),
-      mes: getStorage("dashboard_mes", mesAtual),
-      ano: getStorage("dashboard_ano", anoAtual),
+      semana: normalizarSemana(getStorage("semana", semanaAtual), semanaAtual),
+      mes: normalizarMes(getStorage("dashboard_mes", mesAtual), mesAtual),
+      ano: normalizarAno(getStorage("dashboard_ano", anoAtual), anoAtual),
 
       // visão e escopo visual
-      visao: getStorage("dashboard_visao", "regional"),
-      classe: getStorage("dashboard_classe", "TODAS"),
-      indicador: getStorage("dashboard_indicador", "TODOS"),
-      regional: getStorage("dashboard_regional", "TODAS"),
-      loja: getStorage("dashboard_loja", "TODAS"),
+      visao: normalizarVisao(getStorage("dashboard_visao", "regional")),
+      classe: getStorage("dashboard_classe", "TODAS") || "TODAS",
+      indicador: getStorage("dashboard_indicador", "TODOS") || "TODOS",
+      regional: getStorage("dashboard_regional", "TODAS") || "TODAS",
+      loja: getStorage("dashboard_loja", "TODAS") || "TODAS",
 
       // período principal do dashboard
       periodoDashboard: normalizarPeriodo(
@@ -66,13 +131,23 @@ window.DashboardBI = window.DashboardBI || {};
         getStorage("dashboard_periodo_ranking", "MENSAL"),
         "MENSAL"
       ),
+
+      // suporte a ranking configurável por campo
+      campoRankingRegional: normalizarCampoRankingRegional(
+        getStorage("dashboard_campo_ranking_regional", "valor"),
+        "valor"
+      ),
     };
+
+    logInfo("State inicial construído", state);
+    return state;
   }
 
   DashboardBI.STATE = DashboardBI.STATE || construirStateInicial();
 
   DashboardBI.CONSTS = DashboardBI.CONSTS || {
     LIMITE_RANKING: 12,
+    LIMITE_RANKING_REGIONAL: null,
     PERIODOS_VALIDOS: ["SEMANAL", "MENSAL", "ANUAL"],
   };
 
@@ -95,11 +170,11 @@ window.DashboardBI = window.DashboardBI || {};
   DashboardBI.persistState = function (state = null) {
     const s = state || DashboardBI.STATE || {};
 
-    setStorage("semana", s.semana || semanaAtual);
-    setStorage("dashboard_mes", s.mes || mesAtual);
-    setStorage("dashboard_ano", s.ano || anoAtual);
+    setStorage("semana", normalizarSemana(s.semana, semanaAtual));
+    setStorage("dashboard_mes", normalizarMes(s.mes, mesAtual));
+    setStorage("dashboard_ano", normalizarAno(s.ano, anoAtual));
 
-    setStorage("dashboard_visao", s.visao || "regional");
+    setStorage("dashboard_visao", normalizarVisao(s.visao, "regional"));
     setStorage("dashboard_classe", s.classe || "TODAS");
     setStorage("dashboard_indicador", s.indicador || "TODOS");
     setStorage("dashboard_regional", s.regional || "TODAS");
@@ -115,7 +190,12 @@ window.DashboardBI = window.DashboardBI || {};
       normalizarPeriodo(s.periodoRanking, "MENSAL")
     );
 
-    console.log("💾 DashboardBI.STATE persistido no localStorage:", s);
+    setStorage(
+      "dashboard_campo_ranking_regional",
+      normalizarCampoRankingRegional(s.campoRankingRegional, "valor")
+    );
+
+    logInfo("DashboardBI.STATE persistido no localStorage", s);
     return s;
   };
 
@@ -141,24 +221,25 @@ window.DashboardBI = window.DashboardBI || {};
       "MENSAL"
     );
 
-    proximoState.semana = String(proximoState.semana || semanaAtual).padStart(
-      2,
-      "0"
-    );
-    proximoState.mes = String(proximoState.mes || mesAtual).padStart(2, "0");
-    proximoState.ano = String(proximoState.ano || anoAtual);
+    proximoState.semana = normalizarSemana(proximoState.semana, semanaAtual);
+    proximoState.mes = normalizarMes(proximoState.mes, mesAtual);
+    proximoState.ano = normalizarAno(proximoState.ano, anoAtual);
 
-    proximoState.visao = proximoState.visao || "regional";
+    proximoState.visao = normalizarVisao(proximoState.visao, "regional");
     proximoState.classe = proximoState.classe || "TODAS";
     proximoState.indicador = proximoState.indicador || "TODOS";
     proximoState.regional = proximoState.regional || "TODAS";
     proximoState.loja = proximoState.loja || "TODAS";
+    proximoState.campoRankingRegional = normalizarCampoRankingRegional(
+      proximoState.campoRankingRegional,
+      "valor"
+    );
 
     DashboardBI.STATE = proximoState;
 
     DashboardBI.persistState(proximoState);
 
-    console.log("🧠 DashboardBI.STATE atualizado:", DashboardBI.STATE);
+    logInfo("DashboardBI.STATE atualizado", DashboardBI.STATE);
     return DashboardBI.STATE;
   };
 
@@ -170,7 +251,7 @@ window.DashboardBI = window.DashboardBI || {};
 
     DashboardBI.persistState(DashboardBI.STATE);
 
-    console.log("🔄 DashboardBI.STATE resetado:", DashboardBI.STATE);
+    logInfo("DashboardBI.STATE resetado", DashboardBI.STATE);
     return DashboardBI.STATE;
   };
 
@@ -186,11 +267,12 @@ window.DashboardBI = window.DashboardBI || {};
       indicador: "TODOS",
       regional: "TODAS",
       loja: "TODAS",
+      campoRankingRegional: "valor",
     };
 
     DashboardBI.persistState(DashboardBI.STATE);
 
-    console.log("🔄 Filtros visuais do dashboard resetados:", DashboardBI.STATE);
+    logInfo("Filtros visuais do dashboard resetados", DashboardBI.STATE);
     return DashboardBI.STATE;
   };
 
@@ -211,8 +293,29 @@ window.DashboardBI = window.DashboardBI || {};
 
     DashboardBI.persistState(DashboardBI.STATE);
 
-    console.log("🔄 Períodos do dashboard resetados:", DashboardBI.STATE);
+    logInfo("Períodos do dashboard resetados", DashboardBI.STATE);
     return DashboardBI.STATE;
+  };
+
+  // ==========================
+  // 🧹 LIMPAR STORAGE DO DASHBOARD
+  // ==========================
+  DashboardBI.clearStorage = function () {
+    [
+      "semana",
+      "dashboard_mes",
+      "dashboard_ano",
+      "dashboard_visao",
+      "dashboard_classe",
+      "dashboard_indicador",
+      "dashboard_regional",
+      "dashboard_loja",
+      "dashboard_periodo",
+      "dashboard_periodo_ranking",
+      "dashboard_campo_ranking_regional",
+    ].forEach(removerStorage);
+
+    logInfo("Storage do dashboard limpo");
   };
 
   // ==========================
@@ -221,19 +324,37 @@ window.DashboardBI = window.DashboardBI || {};
   DashboardBI.stateUtils = DashboardBI.stateUtils || {};
 
   DashboardBI.stateUtils.normalizarPeriodo = normalizarPeriodo;
+  DashboardBI.stateUtils.normalizarVisao = normalizarVisao;
+  DashboardBI.stateUtils.normalizarSemana = normalizarSemana;
+  DashboardBI.stateUtils.normalizarMes = normalizarMes;
+  DashboardBI.stateUtils.normalizarAno = normalizarAno;
+  DashboardBI.stateUtils.normalizarCampoRankingRegional =
+    normalizarCampoRankingRegional;
+
   DashboardBI.stateUtils.getSemanaAtual = function () {
     return semanaAtual;
   };
+
   DashboardBI.stateUtils.getMesAtual = function () {
     return mesAtual;
   };
+
   DashboardBI.stateUtils.getAnoAtual = function () {
     return anoAtual;
   };
 
-  console.log("✅ dashboard-state.js pronto", {
+  DashboardBI.stateUtils.getDefaults = function () {
+    return {
+      semanaAtual,
+      mesAtual,
+      anoAtual,
+    };
+  };
+
+  logInfo("dashboard-state.js pronto", {
     state: DashboardBI.STATE,
     limiteRanking: DashboardBI.CONSTS.LIMITE_RANKING,
+    limiteRankingRegional: DashboardBI.CONSTS.LIMITE_RANKING_REGIONAL,
     periodosValidos: DashboardBI.CONSTS.PERIODOS_VALIDOS,
     charts: Object.keys(window.dashboardCharts || {}),
   });

@@ -288,28 +288,100 @@ DashboardBI.helpers = DashboardBI.helpers || {};
     return classeSelecionada || "Outros";
   };
 
+  // ==========================
+  // 📊 REGRAS PERCENTUAIS / FAIXA / MÉDIA
+  // ==========================
   DashboardBI.helpers.rankingEhAuditoria = function (
     indicador = null,
-    classe = null
+    classe = null,
+    tipo = null
   ) {
-    const indicadorFinal = indicador || getIndicadorAtualSeguro();
-    const classeSelecionada = getClasseSelecionadaReal(classe);
-    const classeReal = DashboardBI.helpers.getClasseRealDoIndicador(
-      indicadorFinal,
-      classeSelecionada
+    const indicadorFinal = DashboardBI.helpers.normalizarTextoUpper(
+      indicador || getIndicadorAtualSeguro()
     );
 
-    const classeNorm = DashboardBI.helpers.normalizarTextoUpper(classeReal);
-    const ehAuditoria = classeNorm === "AUDITORIA";
+    const classeSelecionadaBruta =
+      classe !== null && classe !== undefined
+        ? classe
+        : DashboardBI.STATE?.classe || "";
 
-    logInfo("Ranking auditoria avaliado", {
+    const classeSelecionadaNorm = DashboardBI.helpers.normalizarTextoUpper(
+      classeSelecionadaBruta
+    );
+
+    const tipoNorm = DashboardBI.helpers.normalizarTextoLower(tipo || "");
+
+    // ✅ classe Auditoria
+    if (classeSelecionadaNorm === "AUDITORIA") {
+      logInfo("Regra percentual/faixa ativada pela classe selecionada", {
+        indicadorFinal,
+        classeSelecionadaBruta,
+        tipoNorm,
+        ativo: true,
+      });
+      return true;
+    }
+
+    // ✅ indicadores com faixa percentual obrigatória
+    if (indicadorFinal === "RUPTURA FINAL" || indicadorFinal === "ETIQUETA") {
+      logInfo("Regra percentual/faixa ativada pelo indicador", {
+        indicadorFinal,
+        classeSelecionadaBruta,
+        tipoNorm,
+        ativo: true,
+      });
+      return true;
+    }
+
+    // ✅ fallback por tipo percentual
+    if (DashboardBI.helpers.tipoPercentual(tipoNorm)) {
+      logInfo("Regra percentual/faixa ativada pelo tipo percentual", {
+        indicadorFinal,
+        classeSelecionadaBruta,
+        tipoNorm,
+        ativo: true,
+      });
+      return true;
+    }
+
+    logInfo("Regra percentual/faixa não ativada", {
       indicadorFinal,
-      classeSelecionada,
-      classeReal,
-      ehAuditoria,
+      classeSelecionadaBruta,
+      tipoNorm,
+      ativo: false,
     });
 
-    return ehAuditoria;
+    return false;
+  };
+
+  DashboardBI.helpers.rankingUsaMediaPercentual = function (
+    indicador = null,
+    classe = null,
+    tipo = null
+  ) {
+    const usa = DashboardBI.helpers.rankingEhAuditoria(indicador, classe, tipo);
+
+    logInfo("Ranking usa média percentual", {
+      indicador: indicador || getIndicadorAtualSeguro(),
+      classe: classe || getClasseAtualSeguro(),
+      tipo,
+      usa,
+    });
+
+    return usa;
+  };
+
+  DashboardBI.helpers.rankingUsaSoma = function (tipo) {
+    const usa =
+      DashboardBI.helpers.tipoMoeda(tipo) ||
+      DashboardBI.helpers.tipoInteiro(tipo);
+
+    logInfo("Ranking usa soma", {
+      tipo,
+      usa,
+    });
+
+    return usa;
   };
 
   DashboardBI.helpers.rankingEhBancoHoras = function (indicador = null) {
@@ -329,6 +401,9 @@ DashboardBI.helpers = DashboardBI.helpers || {};
     return campo === "valor2" ? "mediaValor2" : "mediaValor";
   };
 
+  // ==========================
+  // 🏷️ CAMPO / TIPO
+  // ==========================
   DashboardBI.helpers.getCampo = function (
     indicador,
     campoKey = "valor",
@@ -337,7 +412,7 @@ DashboardBI.helpers = DashboardBI.helpers || {};
     const indicadorNorm = DashboardBI.helpers.normalizarTextoUpper(indicador);
     const campoNorm = DashboardBI.helpers.normalizarTextoLower(campoKey);
 
-    // ✅ Regras fixas e prioritárias para não depender de configs externas
+    // ✅ Regras fixas de SELF-CHECKOUT
     if (indicadorNorm === "SELF-CHECKOUT") {
       if (campoNorm === "valor") {
         const cfg = {
@@ -495,14 +570,15 @@ DashboardBI.helpers = DashboardBI.helpers || {};
   } = {}) {
     const indicadorNorm = DashboardBI.helpers.normalizarTextoUpper(indicador);
     const classeSelecionada = getClasseSelecionadaReal(classe);
-    const ehAuditoria = DashboardBI.helpers.rankingEhAuditoria(
+    const ehAuditoriaOuPercentual = DashboardBI.helpers.rankingEhAuditoria(
       indicadorNorm,
-      classeSelecionada
+      classeSelecionada,
+      tipo
     );
 
-    // ✅ AUDITORIA: sempre menor para maior
-    if (ehAuditoria) {
-      logInfo("Regra de ordem especial aplicada: Auditoria ascendente", {
+    // ✅ percentual / auditoria / ruptura final / etiqueta => menor para maior
+    if (ehAuditoriaOuPercentual) {
+      logInfo("Regra de ordem especial aplicada: percentual ascendente", {
         indicadorNorm,
         classeSelecionada,
         campo,
@@ -512,8 +588,10 @@ DashboardBI.helpers = DashboardBI.helpers || {};
     }
 
     // ✅ BANCO DE HORAS -
-    // mais negativo primeiro: -5200, -5199, -5198
-    if (DashboardBI.helpers.rankingEhBancoHoras(indicadorNorm) && campo === "mediaValor2") {
+    if (
+      DashboardBI.helpers.rankingEhBancoHoras(indicadorNorm) &&
+      campo === "mediaValor2"
+    ) {
       logInfo("Regra de ordem especial aplicada: Banco de Horas - ascendente", {
         indicadorNorm,
         campo,
@@ -523,7 +601,10 @@ DashboardBI.helpers = DashboardBI.helpers || {};
     }
 
     // ✅ BANCO DE HORAS +
-    if (DashboardBI.helpers.rankingEhBancoHoras(indicadorNorm) && campo === "mediaValor") {
+    if (
+      DashboardBI.helpers.rankingEhBancoHoras(indicadorNorm) &&
+      campo === "mediaValor"
+    ) {
       logInfo("Regra de ordem especial aplicada: Banco de Horas + descendente", {
         indicadorNorm,
         campo,
@@ -532,42 +613,7 @@ DashboardBI.helpers = DashboardBI.helpers || {};
       return "desc";
     }
 
-    // ✅ Percentuais fora de auditoria respeitam config / fallback asc
-    if (DashboardBI.helpers.tipoPercentual(tipo)) {
-      try {
-        const cfgOrdem = DashboardBI.helpers.getOrdemRanking(
-          indicadorNorm,
-          classeSelecionada
-        );
-
-        if (cfgOrdem === "asc" || cfgOrdem === "desc") {
-          logInfo("Regra percentual via configuração", {
-            indicadorNorm,
-            classeSelecionada,
-            campo,
-            tipo,
-            cfgOrdem,
-          });
-          return cfgOrdem;
-        }
-      } catch (erro) {
-        logWarn("Falha ao obter regra percentual via configuração", {
-          indicadorNorm,
-          classeSelecionada,
-          erro,
-        });
-      }
-
-      logInfo("Regra percentual fallback asc aplicada", {
-        indicadorNorm,
-        classeSelecionada,
-        campo,
-        tipo,
-      });
-      return "asc";
-    }
-
-    // ✅ valor / moeda / número / inteiro => maior para menor
+    // ✅ valores monetários / inteiros / números => maior para menor
     logInfo("Regra padrão descendente aplicada", {
       indicadorNorm,
       classeSelecionada,
@@ -595,6 +641,37 @@ DashboardBI.helpers = DashboardBI.helpers || {};
     return "background:#ffebee;color:#b71c1c;font-weight:700;";
   };
 
+  // ==========================
+  // 📝 JUSTIFICATIVAS
+  // ==========================
+  DashboardBI.helpers.linhaTemJustificativa = function (linha = {}) {
+    const tem = Object.keys(linha || {}).some((chave) => {
+      if (!String(chave || "").startsWith("justificativa_")) return false;
+
+      const valor = DashboardBI.helpers.normalizarTexto(linha[chave]);
+      return valor !== "";
+    });
+
+    return tem;
+  };
+
+  DashboardBI.helpers.extrairJustificativasLinha = function (linha = {}) {
+    return Object.entries(linha || {})
+      .filter(([chave, valor]) => {
+        if (!String(chave || "").startsWith("justificativa_")) return false;
+
+        const motivo = DashboardBI.helpers.normalizarTexto(valor);
+        return motivo !== "";
+      })
+      .map(([chave, valor]) => ({
+        campo: chave,
+        motivo: DashboardBI.helpers.normalizarTexto(valor),
+      }));
+  };
+
+  // ==========================
+  // 🎨 FORMATAÇÃO FINAL
+  // ==========================
   DashboardBI.helpers.formatarKpi = function (
     valor,
     { percentual = false, casas = 2, tipo = "numero" } = {}
@@ -639,7 +716,6 @@ DashboardBI.helpers = DashboardBI.helpers || {};
     const numero = Number(valor);
     if (isNaN(numero)) return "-";
 
-    // ✅ formatação determinística local (não depender de outro módulo)
     if (DashboardBI.helpers.tipoMoeda(tipo)) {
       return DashboardBI.helpers.formatarMoeda(numero);
     }

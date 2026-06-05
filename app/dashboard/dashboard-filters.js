@@ -4,8 +4,61 @@ window.DashboardBI = window.DashboardBI || {};
 DashboardBI.filters = DashboardBI.filters || {};
 
 (function inicializarDashboardFilters() {
+  const LOG_PREFIX = "🎛️ DashboardFilters";
+  const STORAGE_ANOS_VISIVEIS = "dashboard_anos_visiveis";
+
+  function logInfo(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.log(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.log(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function logWarn(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function logError(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.error(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.error(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
   function getState() {
     return DashboardBI.STATE || {};
+  }
+
+  function listaSegura(lista) {
+    return Array.isArray(lista) ? lista : [];
+  }
+
+  function textoSeguro(valor, fallback = "") {
+    const texto = (valor || "").toString().trim();
+    return texto || fallback;
+  }
+
+  function anoValido(valor) {
+    const texto = textoSeguro(valor);
+    return /^\d{4}$/.test(texto);
+  }
+
+  function getAnoAtualDashboard() {
+    try {
+      if (DashboardBI.stateUtils?.getAnoAtual) {
+        return String(DashboardBI.stateUtils.getAnoAtual());
+      }
+    } catch (erro) {
+      logWarn("Falha ao obter ano atual via stateUtils", erro);
+    }
+
+    return String(new Date().getFullYear());
   }
 
   function getPeriodoNormalizado(valor, fallback = "MENSAL") {
@@ -13,7 +66,7 @@ DashboardBI.filters = DashboardBI.filters || {};
       return DashboardBI.stateUtils.normalizarPeriodo(valor, fallback);
     }
 
-    const texto = (valor || "").toString().trim().toUpperCase();
+    const texto = textoSeguro(valor).toUpperCase();
     if (["SEMANAL", "MENSAL", "ANUAL"].includes(texto)) return texto;
     return fallback;
   }
@@ -24,10 +77,99 @@ DashboardBI.filters = DashboardBI.filters || {};
         return window.getContextoDashboardUsuario();
       }
     } catch (erro) {
-      console.error("❌ Erro ao obter contexto atual do dashboard:", erro);
+      logError("Erro ao obter contexto atual do dashboard", erro);
     }
 
     return null;
+  }
+
+  function carregarAnosVisiveisSalvos() {
+    try {
+      const bruto = localStorage.getItem(STORAGE_ANOS_VISIVEIS);
+      if (!bruto) return [];
+
+      const lista = JSON.parse(bruto);
+      if (!Array.isArray(lista)) return [];
+
+      return lista
+        .map((ano) => String(ano))
+        .filter((ano, idx, arr) => anoValido(ano) && arr.indexOf(ano) === idx);
+    } catch (erro) {
+      logWarn("Falha ao carregar anos visíveis salvos", erro);
+      return [];
+    }
+  }
+
+  function salvarAnosVisiveis(lista = []) {
+    try {
+      const anos = listaSegura(lista)
+        .map((ano) => String(ano))
+        .filter((ano, idx, arr) => anoValido(ano) && arr.indexOf(ano) === idx)
+        .sort((a, b) => Number(b) - Number(a));
+
+      localStorage.setItem(STORAGE_ANOS_VISIVEIS, JSON.stringify(anos));
+
+      logInfo("Anos visíveis salvos", anos);
+      return anos;
+    } catch (erro) {
+      logWarn("Falha ao salvar anos visíveis", erro);
+      return lista;
+    }
+  }
+
+  function getAnosDisponiveisDashboard() {
+    const anoAtual = getAnoAtualDashboard();
+    const state = getState();
+    const anoSelecionado = textoSeguro(state.ano, anoAtual);
+
+    const salvos = carregarAnosVisiveisSalvos();
+
+    const anos = [anoAtual];
+
+    if (anoValido(anoSelecionado) && !anos.includes(anoSelecionado)) {
+      anos.push(anoSelecionado);
+    }
+
+    salvos.forEach((ano) => {
+      if (!anos.includes(ano)) anos.push(ano);
+    });
+
+    const final = anos
+      .filter((ano, idx, arr) => anoValido(ano) && arr.indexOf(ano) === idx)
+      .sort((a, b) => Number(b) - Number(a));
+
+    logInfo("Anos disponíveis no filtro resolvidos", {
+      anoAtual,
+      anoSelecionado,
+      final,
+    });
+
+    return final;
+  }
+
+  function garantirAnoVisivel(ano) {
+    const anoNorm = String(ano || "").trim();
+    if (!anoValido(anoNorm)) return;
+
+    const salvos = carregarAnosVisiveisSalvos();
+    if (!salvos.includes(anoNorm)) {
+      salvos.push(anoNorm);
+      salvarAnosVisiveis(salvos);
+    }
+  }
+
+  function atualizarSelectAnosSeExistir() {
+    const select = document.getElementById("dashAno");
+    if (!select) return;
+
+    const state = getState();
+    select.innerHTML = DashboardBI.filters.gerarOptionsAnosDashboard();
+    select.value = String(state.ano || getAnoAtualDashboard());
+
+    logInfo("Select de anos atualizado na tela", {
+      selecionado: select.value,
+      options: getAnosDisponiveisDashboard(),
+    });
   }
 
   function recarregarDashboardViaDados() {
@@ -35,9 +177,7 @@ DashboardBI.filters = DashboardBI.filters || {};
       const contexto = getContextoAtualDashboard();
 
       if (!contexto) {
-        console.warn(
-          "⚠️ Contexto do dashboard não encontrado ao recarregar filtros"
-        );
+        logWarn("Contexto do dashboard não encontrado ao recarregar filtros");
         return;
       }
 
@@ -49,11 +189,9 @@ DashboardBI.filters = DashboardBI.filters || {};
         return DashboardBI.data.carregarDadosDashboard(contexto);
       }
 
-      console.warn(
-        "⚠️ DashboardBI.data.carregarDadosDashboard ainda não disponível"
-      );
+      logWarn("DashboardBI.data.carregarDadosDashboard ainda não disponível");
     } catch (erro) {
-      console.error("❌ Erro ao recarregar dashboard via filtros:", erro);
+      logError("Erro ao recarregar dashboard via filtros", erro);
     }
   }
 
@@ -67,9 +205,9 @@ DashboardBI.filters = DashboardBI.filters || {};
         return DashboardBI.views.telaDashboard();
       }
 
-      console.warn("⚠️ DashboardBI.views.telaDashboard ainda não disponível");
+      logWarn("DashboardBI.views.telaDashboard ainda não disponível");
     } catch (erro) {
-      console.error("❌ Erro ao reconstruir tela do dashboard:", erro);
+      logError("Erro ao reconstruir tela do dashboard", erro);
     }
   }
 
@@ -78,19 +216,6 @@ DashboardBI.filters = DashboardBI.filters || {};
     const perfil = (contexto?.usuario?.perfil || "").toString().toLowerCase();
 
     return escopo.tipo === "global" || perfil === "master";
-  }
-
-  function getAnosDisponiveisDashboard() {
-    const anoAtual = Number(
-      DashboardBI.stateUtils?.getAnoAtual?.() || new Date().getFullYear()
-    );
-
-    const anos = [];
-    for (let ano = anoAtual - 3; ano <= anoAtual + 1; ano++) {
-      anos.push(String(ano));
-    }
-
-    return anos;
   }
 
   // ==========================
@@ -177,12 +302,14 @@ DashboardBI.filters = DashboardBI.filters || {};
 
   // ==========================
   // 🗓️ OPTIONS MESES
+  // ✅ agora permite "Escolher mês"
   // ==========================
   DashboardBI.filters.gerarOptionsMesesDashboard = function () {
     const state = getState();
-    const mesAtual = String(state.mes || "01").padStart(2, "0");
+    const mesAtual = String(state.mes || "");
 
     const meses = [
+      { valor: "", nome: "Escolher mês" },
       { valor: "01", nome: "Janeiro" },
       { valor: "02", nome: "Fevereiro" },
       { valor: "03", nome: "Março" },
@@ -212,7 +339,7 @@ DashboardBI.filters = DashboardBI.filters || {};
   // ==========================
   DashboardBI.filters.gerarOptionsAnosDashboard = function () {
     const state = getState();
-    const anoAtual = String(state.ano || new Date().getFullYear());
+    const anoAtual = String(state.ano || getAnoAtualDashboard());
     const anos = getAnosDisponiveisDashboard();
 
     return anos
@@ -231,14 +358,14 @@ DashboardBI.filters = DashboardBI.filters || {};
   DashboardBI.filters.popularSelectLojasDashboard = function (lojas) {
     const select = document.getElementById("dashLoja");
     if (!select) {
-      console.log("ℹ️ Select dashLoja não encontrado");
+      logInfo("Select dashLoja não encontrado");
       return;
     }
 
     const state = getState();
     let html = `<option value="TODAS">Todas as lojas</option>`;
 
-    (lojas || []).forEach((loja) => {
+    listaSegura(lojas).forEach((loja) => {
       const chave = DashboardBI.helpers.getChaveLoja(loja);
       html += `<option value="${chave}" ${
         state.loja === chave ? "selected" : ""
@@ -247,46 +374,27 @@ DashboardBI.filters = DashboardBI.filters || {};
 
     select.innerHTML = html;
 
-    console.log("🏬 Select de lojas populado:", {
-      totalLojas: (lojas || []).length,
+    logInfo("Select de lojas populado", {
+      totalLojas: listaSegura(lojas).length,
       lojaSelecionada: state.loja,
     });
   };
 
   // ==========================
   // 🎯 ESCOPO BASE
+  // sem bloqueio por perfil/contexto
   // ==========================
   DashboardBI.filters.aplicarEscopoBaseLojasDashboard = function (
     lojas,
     contexto
   ) {
-    let lista = [...(lojas || [])];
-    const state = getState();
+    const lista = [...listaSegura(lojas)];
 
-    if (!contexto) return lista;
-
-    if (usuarioEhGlobal(contexto)) {
-      console.log("🌐 Usuário global/master no dashboard: sem filtro base de escopo");
-      return lista;
-    }
-
-    if (state.visao === "regional") {
-      if (contexto.escopo?.regional) {
-        lista = lista.filter(
-          (l) =>
-            DashboardBI.helpers.normalizarTextoUpper(l.regional) ===
-            DashboardBI.helpers.normalizarTextoUpper(contexto.escopo.regional)
-        );
-      }
-
-      return lista;
-    }
-
-    if (contexto.escopo?.loja) {
-      return lista.filter(
-        (l) => DashboardBI.helpers.getChaveLoja(l) === contexto.escopo.loja
-      );
-    }
+    logInfo("Escopo base de lojas liberado sem restrição por perfil", {
+      total: lista.length,
+      visao: getState().visao,
+      contexto,
+    });
 
     return lista;
   };
@@ -295,7 +403,7 @@ DashboardBI.filters = DashboardBI.filters || {};
   // 🎛 APLICAR FILTROS VISUAIS
   // ==========================
   DashboardBI.filters.aplicarFiltrosVisuaisLojasDashboard = function (lojas) {
-    let lista = [...(lojas || [])];
+    let lista = [...listaSegura(lojas)];
     const state = getState();
 
     if (state.visao === "regional") {
@@ -325,21 +433,39 @@ DashboardBI.filters = DashboardBI.filters || {};
   DashboardBI.filters.dashboardAlterarSemana = async function (semana) {
     DashboardBI.setState({ semana });
 
-    console.log("📅 Dashboard semana alterada:", semana);
+    logInfo("Dashboard semana alterada", { semana });
     await recarregarDashboardViaDados();
   };
 
   DashboardBI.filters.dashboardAlterarMes = async function (mes) {
-    DashboardBI.setState({ mes: String(mes).padStart(2, "0") });
+    const valorFinal = mes ? String(mes).padStart(2, "0") : "";
 
-    console.log("🗓️ Dashboard mês alterado:", mes);
+    DashboardBI.setState({ mes: valorFinal });
+
+    logInfo("Dashboard mês alterado", {
+      mes: valorFinal || "(sem mês selecionado)",
+    });
+
     await recarregarDashboardViaDados();
   };
 
   DashboardBI.filters.dashboardAlterarAno = async function (ano) {
-    DashboardBI.setState({ ano: String(ano) });
+    const anoNorm = String(ano || "").trim();
 
-    console.log("🗓️ Dashboard ano alterado:", ano);
+    if (!anoValido(anoNorm)) {
+      logWarn("Ano inválido ignorado", { ano });
+      return;
+    }
+
+    garantirAnoVisivel(anoNorm);
+    DashboardBI.setState({ ano: anoNorm });
+
+    logInfo("Dashboard ano alterado", {
+      ano: anoNorm,
+      anosVisiveis: getAnosDisponiveisDashboard(),
+    });
+
+    atualizarSelectAnosSeExistir();
     await recarregarDashboardViaDados();
   };
 
@@ -350,7 +476,7 @@ DashboardBI.filters = DashboardBI.filters || {};
 
     DashboardBI.setState({ periodoDashboard: periodo });
 
-    console.log("⏱️ Período principal do dashboard alterado:", periodo);
+    logInfo("Período principal do dashboard alterado", { periodo });
     await recarregarDashboardViaDados();
   };
 
@@ -361,7 +487,7 @@ DashboardBI.filters = DashboardBI.filters || {};
 
     DashboardBI.setState({ periodoRanking: periodo });
 
-    console.log("🏆 Período do ranking alterado:", periodo);
+    logInfo("Período do ranking alterado", { periodo });
     await recarregarDashboardViaDados();
   };
 
@@ -371,7 +497,7 @@ DashboardBI.filters = DashboardBI.filters || {};
       indicador: "TODOS",
     });
 
-    console.log("📂 Dashboard classe alterada:", classe);
+    logInfo("Dashboard classe alterada", { classe });
 
     const selIndicador = document.getElementById("dashIndicador");
     if (selIndicador) {
@@ -386,43 +512,39 @@ DashboardBI.filters = DashboardBI.filters || {};
   DashboardBI.filters.dashboardAlterarIndicador = async function (indicador) {
     DashboardBI.setState({ indicador });
 
-    console.log("📊 Dashboard indicador alterado:", indicador);
+    logInfo("Dashboard indicador alterado", { indicador });
     await recarregarDashboardViaDados();
   };
 
   DashboardBI.filters.dashboardAlterarRegional = async function (regional) {
     DashboardBI.setState({ regional });
 
-    console.log("🌍 Dashboard regional alterada:", regional);
+    logInfo("Dashboard regional alterada", { regional });
     await recarregarDashboardViaDados();
   };
 
   DashboardBI.filters.dashboardAlterarLoja = async function (loja) {
     DashboardBI.setState({ loja });
 
-    console.log("🏬 Dashboard loja alterada:", loja);
+    logInfo("Dashboard loja alterada", { loja });
     await recarregarDashboardViaDados();
   };
 
   DashboardBI.filters.dashboardAlterarVisao = async function (visao) {
-    console.log("ℹ️ dashboardAlterarVisao chamado:", visao);
-
-    const contexto = getContextoAtualDashboard();
-    const ehGlobal = usuarioEhGlobal(contexto);
+    logInfo("dashboardAlterarVisao chamado", { visao });
 
     const novoState = {
       visao: visao || getState().visao || "regional",
     };
 
-    // quando muda a visão, zera os filtros dependentes
     if (novoState.visao === "regional") {
       novoState.loja = "TODAS";
-      if (ehGlobal) novoState.regional = "TODAS";
+      novoState.regional = "TODAS";
     }
 
     if (novoState.visao === "gerencial") {
       novoState.regional = "TODAS";
-      if (ehGlobal) novoState.loja = "TODAS";
+      novoState.loja = "TODAS";
     }
 
     DashboardBI.setState(novoState);
@@ -469,7 +591,9 @@ DashboardBI.filters = DashboardBI.filters || {};
   window.dashboardAlterarLoja = DashboardBI.filters.dashboardAlterarLoja;
   window.dashboardAlterarVisao = DashboardBI.filters.dashboardAlterarVisao;
 
-  console.log("✅ dashboard-filters.js pronto", {
+  garantirAnoVisivel(getAnoAtualDashboard());
+
+  logInfo("dashboard-filters.js pronto", {
     gerarOptionsClassesDashboard:
       typeof DashboardBI.filters.gerarOptionsClassesDashboard,
     gerarOptionsIndicadoresDashboard:
@@ -500,5 +624,6 @@ DashboardBI.filters = DashboardBI.filters || {};
       typeof DashboardBI.filters.dashboardAlterarRegional,
     dashboardAlterarLoja: typeof DashboardBI.filters.dashboardAlterarLoja,
     dashboardAlterarVisao: typeof DashboardBI.filters.dashboardAlterarVisao,
+    anosVisiveis: getAnosDisponiveisDashboard(),
   });
 })();

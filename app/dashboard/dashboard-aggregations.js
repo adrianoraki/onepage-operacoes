@@ -156,6 +156,257 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
     return filtrada;
   }
 
+  function extrairAnoMesLinha(resultado = {}) {
+    const linha = resultado || {};
+
+    const possiveisCamposAno = [
+      linha.ano,
+      linha.ano_referencia,
+      linha.ano_ref,
+      linha.exercicio,
+    ];
+
+    const possiveisCamposMes = [
+      linha.mes,
+      linha.mes_referencia,
+      linha.mes_ref,
+    ];
+
+    let ano = possiveisCamposAno.find(
+      (v) => v !== null && v !== undefined && v !== ""
+    );
+    let mes = possiveisCamposMes.find(
+      (v) => v !== null && v !== undefined && v !== ""
+    );
+
+    if (ano) ano = String(ano).padStart(4, "0");
+    if (mes) mes = String(mes).padStart(2, "0");
+
+    const dataBruta =
+      linha.data_referencia ||
+      linha.data ||
+      linha.created_at ||
+      linha.updated_at ||
+      null;
+
+    if ((!ano || !mes) && dataBruta) {
+      const d = new Date(dataBruta);
+      if (!isNaN(d.getTime())) {
+        ano = ano || String(d.getFullYear());
+        mes = mes || String(d.getMonth() + 1).padStart(2, "0");
+      }
+    }
+
+    return {
+      ano: ano || "",
+      mes: mes || "",
+    };
+  }
+
+  function agruparValoresPorMes(linhas = [], campoBase = "valor") {
+    const mapa = {};
+
+    listaSegura(linhas).forEach((r) => {
+      const ref = extrairAnoMesLinha(r);
+      const chaveMes = `${ref.ano}-${ref.mes}`;
+
+      if (!ref.ano || !ref.mes) return;
+
+      if (!mapa[chaveMes]) {
+        mapa[chaveMes] = [];
+      }
+
+      mapa[chaveMes].push(numeroSeguro(r?.[campoBase]));
+    });
+
+    return mapa;
+  }
+
+  function calcularValorAgregadoPorPeriodo({
+    linhas = [],
+    campoBase = "valor",
+    tipoCampo = "numero",
+    periodo = "MENSAL",
+    indicador = "",
+    classe = "",
+  }) {
+    const lista = listaSegura(linhas);
+    const usaMediaPercentual = DashboardBI.helpers.rankingUsaMediaPercentual(
+      indicador,
+      classe,
+      tipoCampo
+    );
+    const usaSoma = DashboardBI.helpers.rankingUsaSoma(tipoCampo);
+
+    let valorFinal = 0;
+
+    // ==========================
+    // PERCENTUAL / FAIXA
+    // ==========================
+    if (usaMediaPercentual) {
+      if (periodo === "SEMANAL") {
+        // resultados já chegam da semana escolhida
+        valorFinal = DashboardBI.helpers.calcularMedia(
+          lista.map((r) => numeroSeguro(r?.[campoBase]))
+        );
+      } else if (periodo === "MENSAL") {
+        // média de todas as semanas do mês
+        valorFinal = DashboardBI.helpers.calcularMedia(
+          lista.map((r) => numeroSeguro(r?.[campoBase]))
+        );
+      } else if (periodo === "ANUAL") {
+        // média das médias mensais
+        const porMes = agruparValoresPorMes(lista, campoBase);
+        const mediasMensais = Object.values(porMes).map((listaMes) =>
+          DashboardBI.helpers.calcularMedia(listaMes)
+        );
+
+        valorFinal = DashboardBI.helpers.calcularMedia(mediasMensais);
+      } else {
+        valorFinal = DashboardBI.helpers.calcularMedia(
+          lista.map((r) => numeroSeguro(r?.[campoBase]))
+        );
+      }
+
+      logInfo("Valor agregado calculado por média percentual", {
+        indicador,
+        classe,
+        campoBase,
+        tipoCampo,
+        periodo,
+        valorFinal,
+        totalLinhas: lista.length,
+      });
+
+      return valorFinal;
+    }
+
+    // ==========================
+    // SOMA (R$ / INTEIRO)
+    // ==========================
+    if (usaSoma) {
+      valorFinal = lista.reduce(
+        (acc, r) => acc + numeroSeguro(r?.[campoBase]),
+        0
+      );
+
+      logInfo("Valor agregado calculado por soma", {
+        indicador,
+        classe,
+        campoBase,
+        tipoCampo,
+        periodo,
+        valorFinal,
+        totalLinhas: lista.length,
+      });
+
+      return valorFinal;
+    }
+
+    // ==========================
+    // NÚMERO PADRÃO
+    // ==========================
+    valorFinal = DashboardBI.helpers.calcularMedia(
+      lista.map((r) => numeroSeguro(r?.[campoBase]))
+    );
+
+    logInfo("Valor agregado calculado por média padrão", {
+      indicador,
+      classe,
+      campoBase,
+      tipoCampo,
+      periodo,
+      valorFinal,
+      totalLinhas: lista.length,
+    });
+
+    return valorFinal;
+  }
+
+  function agregarPorChaveEPeriodo({
+    resultados = [],
+    chave = "loja",
+    campoOrdenacao = "mediaValor",
+  }) {
+    const state = getState();
+    const periodo = normalizarPeriodo(
+      state.periodoRanking || state.periodoDashboard,
+      "MENSAL"
+    );
+
+    const campoBase = campoOrdenacao === "mediaValor2" ? "valor2" : "valor";
+    const tipoCampo = getTipoCampoAtual(campoOrdenacao);
+
+    const mapa = {};
+
+    listaSegura(resultados).forEach((r) => {
+      const chaveValor = r?.[chave];
+      if (!chaveValor) return;
+
+      if (!mapa[chaveValor]) {
+        mapa[chaveValor] = {
+          chave: chaveValor,
+          linhas: [],
+        };
+      }
+
+      mapa[chaveValor].linhas.push(r);
+    });
+
+    const lista = Object.values(mapa).map((item) => {
+      const linhas = listaSegura(item.linhas);
+
+      const valorPrincipal = calcularValorAgregadoPorPeriodo({
+        linhas,
+        campoBase,
+        tipoCampo,
+        periodo,
+        indicador: state.indicador,
+        classe: state.classe,
+      });
+
+      const tipoValor1 = getTipoCampoAtual("mediaValor");
+      const tipoValor2 = getTipoCampoAtual("mediaValor2");
+
+      const mediaValor = calcularValorAgregadoPorPeriodo({
+        linhas,
+        campoBase: "valor",
+        tipoCampo: tipoValor1,
+        periodo,
+        indicador: state.indicador,
+        classe: state.classe,
+      });
+
+      const mediaValor2 = calcularValorAgregadoPorPeriodo({
+        linhas,
+        campoBase: "valor2",
+        tipoCampo: tipoValor2,
+        periodo,
+        indicador: state.indicador,
+        classe: state.classe,
+      });
+
+      return {
+        chave: item.chave,
+        mediaValor:
+          campoOrdenacao === "mediaValor" ? valorPrincipal : mediaValor,
+        mediaValor2:
+          campoOrdenacao === "mediaValor2" ? valorPrincipal : mediaValor2,
+        qtd: linhas.length,
+      };
+    });
+
+    logInfo("Agregação por chave e período concluída", {
+      chave,
+      campoOrdenacao,
+      periodo,
+      tipoCampo,
+      total: lista.length,
+    });
+
+    return lista;
+  }
+
   function montarMediaPorChave(resultados = [], chave = "loja") {
     const mapa = {};
 
@@ -188,7 +439,7 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
       qtd: item.qtd,
     }));
 
-    logInfo("Médias por chave calculadas", {
+    logInfo("Médias por chave calculadas (base simples)", {
       chave,
       total: lista.length,
     });
@@ -329,7 +580,7 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
       };
     });
 
-    logInfo("Média primeira/última semana calculada", {
+    logInfo("Média primeira/última semana calculada (compat legado)", {
       chave,
       total: lista.length,
       semanasInfo,
@@ -348,14 +599,16 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
     const campoOrdenacao = options?.campo || "mediaValor";
     const limite = options?.limite;
 
-    const listaBase = montarMediaPorChave(resultadosMes, "indicador").map(
-      (item) => ({
-        indicador: item.chave,
-        mediaValor: item.mediaValor,
-        mediaValor2: item.mediaValor2,
-        qtd: item.qtd,
-      })
-    );
+    const listaBase = agregarPorChaveEPeriodo({
+      resultados: resultadosMes,
+      chave: "indicador",
+      campoOrdenacao,
+    }).map((item) => ({
+      indicador: item.chave,
+      mediaValor: item.mediaValor,
+      mediaValor2: item.mediaValor2,
+      qtd: item.qtd,
+    }));
 
     const lista = aplicarLimiteRanking(
       ordenarListaPorRegra(
@@ -377,100 +630,25 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
 
   // ==========================
   // 🏆 AGRUPAR RANKING DE LOJAS (COMPAT)
-  // média = (primeira semana + última semana) / 2
   // ==========================
   DashboardBI.aggregations.agruparLojasRankingDashboard = function (
     resultadosMes,
     semanasMesInfo,
     options = {}
   ) {
-    let listaBase = [];
-
-    if (semanasMesInfo?.primeira && semanasMesInfo?.ultima) {
-      const primeira = normalizarSemana(semanasMesInfo.primeira);
-      const ultima = normalizarSemana(semanasMesInfo.ultima);
-      const mapa = {};
-
-      listaSegura(resultadosMes).forEach((r) => {
-        if (!mapa[r.loja]) {
-          mapa[r.loja] = {
-            loja: r.loja,
-            primeiraSemanaValores: [],
-            ultimaSemanaValores: [],
-            primeiraSemanaValores2: [],
-            ultimaSemanaValores2: [],
-          };
-        }
-
-        const semanaAtual = normalizarSemana(r.semana);
-
-        if (semanaAtual === primeira) {
-          mapa[r.loja].primeiraSemanaValores.push(numeroSeguro(r.valor));
-          mapa[r.loja].primeiraSemanaValores2.push(numeroSeguro(r.valor2));
-        }
-
-        if (semanaAtual === ultima) {
-          mapa[r.loja].ultimaSemanaValores.push(numeroSeguro(r.valor));
-          mapa[r.loja].ultimaSemanaValores2.push(numeroSeguro(r.valor2));
-        }
-      });
-
-      listaBase = Object.values(mapa).map((item) => {
-        const mediaPrimeira = DashboardBI.helpers.calcularMedia(
-          item.primeiraSemanaValores
-        );
-        const mediaUltima = DashboardBI.helpers.calcularMedia(
-          item.ultimaSemanaValores
-        );
-
-        const mediaPrimeira2 = DashboardBI.helpers.calcularMedia(
-          item.primeiraSemanaValores2
-        );
-        const mediaUltima2 = DashboardBI.helpers.calcularMedia(
-          item.ultimaSemanaValores2
-        );
-
-        let mediaValor = 0;
-        let mediaValor2 = 0;
-
-        const temPrimeira = item.primeiraSemanaValores.length > 0;
-        const temUltima = item.ultimaSemanaValores.length > 0;
-        const temPrimeira2 = item.primeiraSemanaValores2.length > 0;
-        const temUltima2 = item.ultimaSemanaValores2.length > 0;
-
-        if (temPrimeira && temUltima) {
-          mediaValor = (mediaPrimeira + mediaUltima) / 2;
-        } else if (temPrimeira) {
-          mediaValor = mediaPrimeira;
-        } else if (temUltima) {
-          mediaValor = mediaUltima;
-        }
-
-        if (temPrimeira2 && temUltima2) {
-          mediaValor2 = (mediaPrimeira2 + mediaUltima2) / 2;
-        } else if (temPrimeira2) {
-          mediaValor2 = mediaPrimeira2;
-        } else if (temUltima2) {
-          mediaValor2 = mediaUltima2;
-        }
-
-        return {
-          loja: item.loja,
-          mediaValor,
-          mediaValor2,
-        };
-      });
-    } else {
-      listaBase = montarMediaPorChave(resultadosMes, "loja").map((item) => ({
-        loja: item.chave,
-        mediaValor: item.mediaValor,
-        mediaValor2: item.mediaValor2,
-        qtd: item.qtd,
-      }));
-    }
-
     const campoOrdenacao = options?.campo || "mediaValor";
     const limite = options?.limite;
+
+    const listaBase = agregarPorChaveEPeriodo({
+      resultados: resultadosMes,
+      chave: "loja",
+      campoOrdenacao,
+    }).map((item) => ({
+      loja: item.chave,
+      mediaValor: item.mediaValor,
+      mediaValor2: item.mediaValor2,
+      qtd: item.qtd,
+    }));
 
     const final = aplicarLimiteRanking(
       ordenarListaPorRegra(
@@ -491,8 +669,10 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
   };
 
   // ==========================
-  // 🏆 NOVO RANKING DE LOJAS POR PERÍODO
-  // semanal / mensal / anual
+  // 🏆 RANKING DE LOJAS POR PERÍODO
+  // regra final:
+  // percentual -> semanal média da semana / mensal média das semanas / anual média das médias mensais
+  // moeda + inteiro -> soma do período
   // ==========================
   DashboardBI.aggregations.agruparRankingLojasPorPeriodoDashboard = function (
     resultadosPeriodo,
@@ -505,49 +685,19 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
       "MENSAL"
     );
 
-    let listaBase = [];
-
-    // Mantemos tratamento explícito por período
-    if (periodo === "SEMANAL") {
-      listaBase = montarMediaPorChave(resultadosPeriodo, "loja").map(
-        (item) => ({
-          loja: item.chave,
-          mediaValor: item.mediaValor,
-          mediaValor2: item.mediaValor2,
-          qtd: item.qtd,
-        })
-      );
-    } else if (periodo === "MENSAL") {
-      listaBase = montarMediaPorChave(resultadosPeriodo, "loja").map(
-        (item) => ({
-          loja: item.chave,
-          mediaValor: item.mediaValor,
-          mediaValor2: item.mediaValor2,
-          qtd: item.qtd,
-        })
-      );
-    } else if (periodo === "ANUAL") {
-      listaBase = montarMediaPorChave(resultadosPeriodo, "loja").map(
-        (item) => ({
-          loja: item.chave,
-          mediaValor: item.mediaValor,
-          mediaValor2: item.mediaValor2,
-          qtd: item.qtd,
-        })
-      );
-    } else {
-      listaBase = montarMediaPorChave(resultadosPeriodo, "loja").map(
-        (item) => ({
-          loja: item.chave,
-          mediaValor: item.mediaValor,
-          mediaValor2: item.mediaValor2,
-          qtd: item.qtd,
-        })
-      );
-    }
-
     const campoOrdenacao = options?.campo || "mediaValor";
     const limite = options?.limite;
+
+    const listaBase = agregarPorChaveEPeriodo({
+      resultados: resultadosPeriodo,
+      chave: "loja",
+      campoOrdenacao,
+    }).map((item) => ({
+      loja: item.chave,
+      mediaValor: item.mediaValor,
+      mediaValor2: item.mediaValor2,
+      qtd: item.qtd,
+    }));
 
     const final = aplicarLimiteRanking(
       ordenarListaPorRegra(
@@ -570,8 +720,8 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
   };
 
   // ==========================
-  // 📦 NOVO RANKING DE INDICADORES POR PERÍODO
-  // semanal / mensal / anual
+  // 📦 RANKING DE INDICADORES POR PERÍODO
+  // segue mesma regra do ranking por loja
   // ==========================
   DashboardBI.aggregations.agruparRankingIndicadoresPorPeriodoDashboard =
     function (resultadosPeriodo, infoPeriodo = {}, options = {}) {
@@ -584,14 +734,16 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
       const campoOrdenacao = options?.campo || "mediaValor";
       const limite = options?.limite;
 
-      const listaBase = montarMediaPorChave(resultadosPeriodo, "indicador").map(
-        (item) => ({
-          indicador: item.chave,
-          mediaValor: item.mediaValor,
-          mediaValor2: item.mediaValor2,
-          qtd: item.qtd,
-        })
-      );
+      const listaBase = agregarPorChaveEPeriodo({
+        resultados: resultadosPeriodo,
+        chave: "indicador",
+        campoOrdenacao,
+      }).map((item) => ({
+        indicador: item.chave,
+        mediaValor: item.mediaValor,
+        mediaValor2: item.mediaValor2,
+        qtd: item.qtd,
+      }));
 
       const final = aplicarLimiteRanking(
         ordenarListaPorRegra(
@@ -660,44 +812,40 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
 
   // ==========================
   // 🧩 RANKING POR SUBCLASSE
-  // mantido apenas por compatibilidade
   // ==========================
   DashboardBI.aggregations.agruparRankingSubclassesDashboard = function (
     resultadosMes,
     options = {}
   ) {
+    const campoOrdenacao = options?.campo || "mediaValor";
+    const limite = options?.limite;
+
     const mapa = {};
 
     listaSegura(resultadosMes).forEach((r) => {
       const subclasse = r.subclasse || r.classe || "Sem subclasse";
 
       if (!mapa[subclasse]) {
-        mapa[subclasse] = {
-          subclasse,
-          valores: [],
-          valores2: [],
-          qtd: 0,
-        };
+        mapa[subclasse] = [];
       }
 
-      mapa[subclasse].valores.push(numeroSeguro(r.valor));
-      mapa[subclasse].valores2.push(numeroSeguro(r.valor2));
-      mapa[subclasse].qtd += 1;
+      mapa[subclasse].push(r);
     });
 
-    const lista = Object.values(mapa).map((item) => ({
-      subclasse: item.subclasse,
-      qtd: item.qtd,
-      mediaValor: item.qtd
-        ? DashboardBI.helpers.calcularMedia(item.valores)
-        : 0,
-      mediaValor2: item.qtd
-        ? DashboardBI.helpers.calcularMedia(item.valores2)
-        : 0,
-    }));
+    const lista = Object.entries(mapa).map(([subclasse, linhas]) => {
+      const agregado = agregarPorChaveEPeriodo({
+        resultados: linhas.map((r) => ({ ...r, __tmpSubclasse: subclasse })),
+        chave: "__tmpSubclasse",
+        campoOrdenacao,
+      })[0];
 
-    const campoOrdenacao = options?.campo || "mediaValor";
-    const limite = options?.limite;
+      return {
+        subclasse,
+        qtd: listaSegura(linhas).length,
+        mediaValor: agregado?.mediaValor || 0,
+        mediaValor2: agregado?.mediaValor2 || 0,
+      };
+    });
 
     const ordenada = aplicarLimiteRanking(
       ordenarListaPorRegra(
@@ -707,7 +855,7 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
       limite
     );
 
-    logInfo("Ranking por subclasse agregado (compat)", {
+    logInfo("Ranking por subclasse agregado", {
       campoOrdenacao,
       limite,
       total: ordenada.length,
@@ -724,18 +872,16 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
     resultadosMes,
     tipoValorPrincipal
   ) {
-    const mapa = {};
-
-    listaSegura(resultadosMes).forEach((r) => {
-      if (!mapa[r.loja]) {
-        mapa[r.loja] = [];
+    const lista = DashboardBI.aggregations.agruparRankingLojasPorPeriodoDashboard(
+      resultadosMes,
+      {},
+      {
+        limite: null,
+        campo: "mediaValor",
       }
-      mapa[r.loja].push(numeroSeguro(r.valor));
-    });
-
-    const lista = Object.entries(mapa).map(([loja, valores]) => ({
-      loja,
-      media: DashboardBI.helpers.calcularMedia(valores),
+    ).map((item) => ({
+      loja: item.loja,
+      media: item.mediaValor,
     }));
 
     if (!lista.length) {
@@ -803,6 +949,7 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
 
   // ==========================
   // 🌍 MÉDIA PRIMEIRA / ÚLTIMA / MENSAL
+  // (mantido para KPI legado)
   // ==========================
   DashboardBI.aggregations.calcularMediasMensaisDashboard = function (
     resultadosMes,
@@ -842,7 +989,7 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
       mediaMensal,
     };
 
-    logInfo("Médias mensais calculadas", resultado);
+    logInfo("Médias mensais calculadas (KPI legado)", resultado);
 
     return resultado;
   };
@@ -885,11 +1032,20 @@ DashboardBI.aggregations = DashboardBI.aggregations || {};
   // 🔧 HELPERS EXPOSTOS
   // ==========================
   DashboardBI.aggregations._private = DashboardBI.aggregations._private || {};
-  DashboardBI.aggregations._private.getInfoSemanasNormalizada = getInfoSemanasNormalizada;
-  DashboardBI.aggregations._private.extrairPrimeiraEUltimaSemana = extrairPrimeiraEUltimaSemana;
-  DashboardBI.aggregations._private.montarMediaPrimeiraEUltimaSemana = montarMediaPrimeiraEUltimaSemana;
-  DashboardBI.aggregations._private.ordenarListaPorRegra = ordenarListaPorRegra;
-  DashboardBI.aggregations._private.aplicarLimiteRanking = aplicarLimiteRanking;
+  DashboardBI.aggregations._private.getInfoSemanasNormalizada =
+    getInfoSemanasNormalizada;
+  DashboardBI.aggregations._private.extrairPrimeiraEUltimaSemana =
+    extrairPrimeiraEUltimaSemana;
+  DashboardBI.aggregations._private.montarMediaPrimeiraEUltimaSemana =
+    montarMediaPrimeiraEUltimaSemana;
+  DashboardBI.aggregations._private.ordenarListaPorRegra =
+    ordenarListaPorRegra;
+  DashboardBI.aggregations._private.aplicarLimiteRanking =
+    aplicarLimiteRanking;
+  DashboardBI.aggregations._private.calcularValorAgregadoPorPeriodo =
+    calcularValorAgregadoPorPeriodo;
+  DashboardBI.aggregations._private.agregarPorChaveEPeriodo =
+    agregarPorChaveEPeriodo;
 
   logInfo("dashboard-aggregations.js pronto", {
     agruparIndicadoresPorMediaDashboard:

@@ -4,6 +4,59 @@ window.DashboardBI = window.DashboardBI || {};
 DashboardBI.bootstrap = DashboardBI.bootstrap || {};
 
 (function inicializarDashboardBootstrap() {
+  const LOG_PREFIX = "🚀 DashboardBootstrap";
+
+  function logInfo(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.log(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.log(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function logWarn(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function logError(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.error(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.error(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function listaSegura(lista) {
+    return Array.isArray(lista) ? lista : [];
+  }
+
+  function textoSeguro(valor, fallback = "") {
+    const texto = (valor || "").toString().trim();
+    return texto || fallback;
+  }
+
+  function getAlvoConteudo() {
+    return document.getElementById("conteudo");
+  }
+
+  function renderErroPainel(mensagem) {
+    const alvo = getAlvoConteudo();
+    if (!alvo) return;
+
+    alvo.innerHTML = `
+      <div class="pagina-container">
+        <div class="card-conteudo">
+          <h3>❌ Erro ao abrir Dashboard</h3>
+          <p>${textoSeguro(mensagem, "Falha ao carregar módulos do dashboard.")}</p>
+        </div>
+      </div>
+    `;
+  }
+
   // ==========================
   // 🧪 VALIDAÇÃO DE MÓDULOS
   // ==========================
@@ -22,11 +75,15 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
     if (!DashboardBI.fullscreen) faltando.push("DashboardBI.fullscreen");
 
     if (faltando.length) {
-      console.error("❌ Módulos essenciais do dashboard ausentes:", faltando);
-      return {
+      const resultado = {
         ok: false,
         faltando,
+        invalidas: [],
       };
+
+      DashboardBI.ultimaValidacao = resultado;
+      logError("Módulos essenciais do dashboard ausentes", resultado);
+      return resultado;
     }
 
     const funcoesCriticas = [
@@ -48,21 +105,70 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
       },
     ];
 
-    const invalidas = funcoesCriticas.filter((f) => !f.ok).map((f) => f.nome);
+    const invalidas = funcoesCriticas
+      .filter((f) => !f.ok)
+      .map((f) => f.nome);
 
     if (invalidas.length) {
-      console.error("❌ Funções críticas do dashboard ausentes:", invalidas);
-      return {
+      const resultado = {
         ok: false,
-        faltando: invalidas,
+        faltando: [],
+        invalidas,
       };
+
+      DashboardBI.ultimaValidacao = resultado;
+      logError("Funções críticas do dashboard ausentes", resultado);
+      return resultado;
     }
 
-    console.log("✅ Todos os módulos essenciais do dashboard foram validados");
-    return {
+    const resultado = {
       ok: true,
       faltando: [],
+      invalidas: [],
     };
+
+    DashboardBI.ultimaValidacao = resultado;
+    logInfo("Todos os módulos essenciais do dashboard foram validados", resultado);
+    return resultado;
+  }
+
+  function garantirDashboardValido() {
+    const validacao = verificarModulosEssenciais();
+
+    if (!validacao.ok) {
+      const listaProblemas = [
+        ...listaSegura(validacao.faltando),
+        ...listaSegura(validacao.invalidas),
+      ];
+
+      throw new Error(
+        `Módulos do dashboard incompletos: ${listaProblemas.join(", ")}`
+      );
+    }
+
+    return true;
+  }
+
+  async function executarAcaoDashboard(nomeAcao, acao, { mostrarFalhaVisual = false } = {}) {
+    try {
+      garantirDashboardValido();
+
+      logInfo(`Executando ação do dashboard: ${nomeAcao}`);
+      return await acao();
+    } catch (erro) {
+      logError(`Falha na ação do dashboard: ${nomeAcao}`, erro);
+
+      const mensagem =
+        erro?.message || "Falha ao carregar módulos do dashboard.";
+
+      if (typeof window.mostrarErro === "function") {
+        window.mostrarErro(mensagem);
+      } else if (mostrarFalhaVisual) {
+        renderErroPainel(mensagem);
+      }
+
+      return null;
+    }
   }
 
   // ==========================
@@ -70,72 +176,30 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
   // ==========================
   function exporFuncoesGlobaisDashboard() {
     window.telaDashboard = async function () {
-      try {
-        const validacao = verificarModulosEssenciais();
-        if (!validacao.ok) {
-          throw new Error(
-            `Módulos do dashboard incompletos: ${validacao.faltando.join(", ")}`
-          );
-        }
-
-        console.log("📊 Abrindo dashboard pela função global...");
-        return DashboardBI.views.telaDashboard();
-      } catch (erro) {
-        console.error("❌ Falha ao abrir dashboard:", erro);
-
-        if (typeof window.mostrarErro === "function") {
-          window.mostrarErro(
-            erro.message || "Falha ao carregar módulos do dashboard."
-          );
-        } else {
-          const alvo = document.getElementById("conteudo");
-          if (alvo) {
-            alvo.innerHTML = `
-              <div class="pagina-container">
-                <div class="card-conteudo">
-                  <h3>❌ Erro ao abrir Dashboard</h3>
-                  <p>${erro.message || "Falha ao carregar módulos do dashboard."}</p>
-                </div>
-              </div>
-            `;
-          }
-        }
-      }
+      return executarAcaoDashboard(
+        "telaDashboard",
+        async () => DashboardBI.views.telaDashboard(),
+        { mostrarFalhaVisual: true }
+      );
     };
 
     window.abrirDashboardTelaCheia = async function () {
-      try {
-        const validacao = verificarModulosEssenciais();
-        if (!validacao.ok) {
-          throw new Error(
-            `Módulos do dashboard incompletos: ${validacao.faltando.join(", ")}`
-          );
-        }
-
-        console.log("🖥️ Abrindo dashboard em tela cheia...");
-        return DashboardBI.fullscreen.abrirDashboardTelaCheia();
-      } catch (erro) {
-        console.error("❌ Falha ao abrir dashboard em tela cheia:", erro);
-      }
+      return executarAcaoDashboard(
+        "abrirDashboardTelaCheia",
+        async () => DashboardBI.fullscreen.abrirDashboardTelaCheia(),
+        { mostrarFalhaVisual: false }
+      );
     };
 
     window.sairDashboardTelaCheia = async function () {
-      try {
-        const validacao = verificarModulosEssenciais();
-        if (!validacao.ok) {
-          throw new Error(
-            `Módulos do dashboard incompletos: ${validacao.faltando.join(", ")}`
-          );
-        }
-
-        console.log("↩ Saindo do modo tela cheia do dashboard...");
-        return DashboardBI.fullscreen.sairDashboardTelaCheia();
-      } catch (erro) {
-        console.error("❌ Falha ao sair do dashboard em tela cheia:", erro);
-      }
+      return executarAcaoDashboard(
+        "sairDashboardTelaCheia",
+        async () => DashboardBI.fullscreen.sairDashboardTelaCheia(),
+        { mostrarFalhaVisual: false }
+      );
     };
 
-    console.log("✅ Funções globais do dashboard expostas:", {
+    logInfo("Funções globais do dashboard expostas", {
       telaDashboard: typeof window.telaDashboard,
       abrirDashboardTelaCheia: typeof window.abrirDashboardTelaCheia,
       sairDashboardTelaCheia: typeof window.sairDashboardTelaCheia,
@@ -146,19 +210,11 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
   // 🔁 RELOAD CONTROLADO
   // ==========================
   function recarregarDashboardAtual() {
-    try {
-      const validacao = verificarModulosEssenciais();
-      if (!validacao.ok) {
-        throw new Error(
-          `Módulos do dashboard incompletos: ${validacao.faltando.join(", ")}`
-        );
-      }
-
-      console.log("🔄 Recarregando dashboard atual...");
-      return DashboardBI.views.telaDashboard();
-    } catch (erro) {
-      console.error("❌ Erro ao recarregar dashboard:", erro);
-    }
+    return executarAcaoDashboard(
+      "recarregarDashboardAtual",
+      async () => DashboardBI.views.telaDashboard(),
+      { mostrarFalhaVisual: false }
+    );
   }
 
   // ==========================
@@ -168,9 +224,21 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
     DashboardBI.pronto = true;
     DashboardBI.inicializadoEm = new Date().toISOString();
 
-    console.log("✅ DashboardBI marcado como pronto", {
+    logInfo("DashboardBI marcado como pronto", {
       pronto: DashboardBI.pronto,
       inicializadoEm: DashboardBI.inicializadoEm,
+      ultimaValidacao: DashboardBI.ultimaValidacao || null,
+    });
+  }
+
+  function marcarDashboardComFalha(validacao = null) {
+    DashboardBI.pronto = false;
+    DashboardBI.inicializadoEm = DashboardBI.inicializadoEm || null;
+    DashboardBI.ultimaValidacao = validacao || DashboardBI.ultimaValidacao || null;
+
+    logWarn("DashboardBI marcado como não pronto", {
+      pronto: DashboardBI.pronto,
+      ultimaValidacao: DashboardBI.ultimaValidacao,
     });
   }
 
@@ -178,13 +246,13 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
   // 🚀 INIT
   // ==========================
   DashboardBI.bootstrap.init = function () {
-    console.log("🚀 Inicializando bootstrap do dashboard...");
+    logInfo("Inicializando bootstrap do dashboard...");
 
     const validacao = verificarModulosEssenciais();
 
     if (!validacao.ok) {
-      console.error("❌ Bootstrap do dashboard falhou na validação:", validacao);
-      DashboardBI.pronto = false;
+      marcarDashboardComFalha(validacao);
+      logError("Bootstrap do dashboard falhou na validação", validacao);
       return false;
     }
 
@@ -198,13 +266,14 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
   DashboardBI.bootstrap.exporFuncoesGlobaisDashboard =
     exporFuncoesGlobaisDashboard;
   DashboardBI.bootstrap.recarregarDashboardAtual = recarregarDashboardAtual;
+  DashboardBI.bootstrap.garantirDashboardValido = garantirDashboardValido;
 
   // ==========================
   // ▶️ AUTO INIT
   // ==========================
   const sucessoInit = DashboardBI.bootstrap.init();
 
-  console.log("✅ dashboard-bootstrap.js pronto", {
+  logInfo("dashboard-bootstrap.js pronto", {
     init: typeof DashboardBI.bootstrap.init,
     verificarModulosEssenciais:
       typeof DashboardBI.bootstrap.verificarModulosEssenciais,
@@ -212,7 +281,10 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
       typeof DashboardBI.bootstrap.exporFuncoesGlobaisDashboard,
     recarregarDashboardAtual:
       typeof DashboardBI.bootstrap.recarregarDashboardAtual,
+    garantirDashboardValido:
+      typeof DashboardBI.bootstrap.garantirDashboardValido,
     pronto: DashboardBI.pronto === true,
     sucessoInit,
+    ultimaValidacao: DashboardBI.ultimaValidacao || null,
   });
 })();
