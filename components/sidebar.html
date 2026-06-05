@@ -148,7 +148,7 @@
     position: relative;
     background: linear-gradient(
       90deg,
-      rgba(212, 175, 55, 0.10),
+      rgba(212, 175, 55, 0.1),
       rgba(255, 215, 0, 0.06)
     );
     border: 1px solid rgba(212, 175, 55, 0.22);
@@ -158,11 +158,11 @@
     background: linear-gradient(
       90deg,
       rgba(212, 175, 55, 0.18),
-      rgba(255, 215, 0, 0.10)
+      rgba(255, 215, 0, 0.1)
     );
     border-color: rgba(244, 197, 66, 0.34);
     box-shadow:
-      0 8px 20px rgba(212, 175, 55, 0.10),
+      0 8px 20px rgba(212, 175, 55, 0.1),
       inset 0 0 0 1px rgba(255, 215, 0, 0.06);
   }
 
@@ -260,7 +260,9 @@
     margin-bottom: 12px;
     border-radius: 12px;
     cursor: pointer;
-    transition: background 0.2s ease, transform 0.16s ease;
+    transition:
+      background 0.2s ease,
+      transform 0.16s ease;
   }
 
   .config-btn:hover {
@@ -293,51 +295,70 @@
 
   .user-info {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 14px;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.035)
+    );
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.03),
+      0 8px 18px rgba(0, 0, 0, 0.18);
   }
 
   .avatar {
-    width: 42px;
-    height: 42px;
-    min-width: 42px;
-    border-radius: 50%;
+    width: 58px;
+    height: 58px;
+    min-width: 58px;
+    border-radius: 16px;
     background: linear-gradient(180deg, #1e6091 0%, #0a3d62 100%);
     color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
+    font-size: 18px;
     font-weight: 800;
-    box-shadow: 0 6px 14px rgba(10, 61, 98, 0.26);
+    box-shadow: 0 8px 18px rgba(10, 61, 98, 0.3);
   }
 
   .dados {
+    flex: 1;
     display: flex;
     flex-direction: column;
+    gap: 6px;
     min-width: 0;
   }
 
-  .dados .nome {
-    font-size: 13px;
-    font-weight: 700;
-    color: #ffffff;
-    line-height: 1.2;
+  .dado-linha {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1.35;
+    min-width: 0;
   }
 
-  .dados .matricula,
-  .dados .email {
-    font-size: 11px;
+  .dado-label {
+    min-width: 64px;
+    color: #c7d2de;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .dado-valor {
+    color: #ffffff;
+    font-weight: 600;
+    word-break: break-word;
+    min-width: 0;
+  }
+
+  .dado-valor.email {
     color: #b8c5d3;
-    line-height: 1.25;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 180px;
+    font-weight: 500;
   }
 
   /* ==========================
@@ -345,7 +366,7 @@
   ========================== */
   .btn-logout {
     width: 100%;
-    min-height: 42px;
+    min-height: 44px;
     border: none;
     border-radius: 12px;
     background: linear-gradient(90deg, #b91c1c, #dc2626);
@@ -397,6 +418,18 @@
       font-size: 9px;
       padding: 3px 7px;
     }
+
+    .user-info {
+      padding: 12px;
+      gap: 12px;
+    }
+
+    .avatar {
+      width: 54px;
+      height: 54px;
+      min-width: 54px;
+      font-size: 16px;
+    }
   }
 
   @media (max-width: 1024px) {
@@ -404,8 +437,12 @@
       font-size: 16px;
     }
 
-    .dados .email {
-      max-width: 150px;
+    .dado-label {
+      min-width: 58px;
+    }
+
+    .dado-linha {
+      font-size: 11px;
     }
   }
 
@@ -437,9 +474,26 @@
       display: none;
     }
 
-    .dados .matricula,
-    .dados .email {
-      max-width: 120px;
+    .user-info {
+      padding: 11px;
+      gap: 10px;
+    }
+
+    .avatar {
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      border-radius: 14px;
+      font-size: 15px;
+    }
+
+    .dado-label {
+      min-width: 54px;
+    }
+
+    .dado-linha {
+      gap: 4px;
+      font-size: 10.5px;
     }
 
     .btn-logout span {
@@ -466,13 +520,18 @@
       font-size: 14px;
     }
 
-    .dados .nome {
-      font-size: 14px;
+    .user-info {
+      padding: 15px;
     }
 
-    .dados .matricula,
-    .dados .email {
-      font-size: 12px;
+    .avatar {
+      width: 60px;
+      height: 60px;
+      min-width: 60px;
+    }
+
+    .dado-linha {
+      font-size: 12.5px;
     }
   }
 
@@ -600,13 +659,28 @@
           <div class="avatar" id="avatar"></div>
 
           <div class="dados">
-            <span class="nome" id="nomeUsuario"></span>
-            <span class="matricula" id="matriculaUsuario"></span>
-            <span class="email" id="emailUsuario"></span>
+            <div class="dado-linha">
+              <span class="dado-label">Nome:</span>
+              <span class="dado-valor" id="nomeUsuario"></span>
+            </div>
+
+            <div class="dado-linha">
+              <span class="dado-label">Matrícula:</span>
+              <span class="dado-valor" id="matriculaUsuario"></span>
+            </div>
+
+            <div class="dado-linha">
+              <span class="dado-label">Função:</span>
+              <span class="dado-valor" id="funcaoUsuario"></span>
+            </div>
+
+            <div class="dado-linha">
+              <span class="dado-label">E-mail:</span>
+              <span class="dado-valor email" id="emailUsuario"></span>
+            </div>
           </div>
         </div>
 
-        <!-- LOGOUT -->
         <button
           type="button"
           class="btn-logout"

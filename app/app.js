@@ -22,6 +22,35 @@ const APP_STATE = {
 };
 
 // ==========================
+// 🪵 HELPERS DE LOG
+// ==========================
+const APP_LOG_PREFIX = "🧩 APP";
+
+function appLogInfo(mensagem, payload = null) {
+  if (payload !== null && payload !== undefined) {
+    console.log(`${APP_LOG_PREFIX} | ${mensagem}`, payload);
+  } else {
+    console.log(`${APP_LOG_PREFIX} | ${mensagem}`);
+  }
+}
+
+function appLogWarn(mensagem, payload = null) {
+  if (payload !== null && payload !== undefined) {
+    console.warn(`${APP_LOG_PREFIX} | ${mensagem}`, payload);
+  } else {
+    console.warn(`${APP_LOG_PREFIX} | ${mensagem}`);
+  }
+}
+
+function appLogError(mensagem, payload = null) {
+  if (payload !== null && payload !== undefined) {
+    console.error(`${APP_LOG_PREFIX} | ${mensagem}`, payload);
+  } else {
+    console.error(`${APP_LOG_PREFIX} | ${mensagem}`);
+  }
+}
+
+// ==========================
 // 🗂️ HELPERS STORAGE
 // ==========================
 const STORAGE_KEYS = {
@@ -33,9 +62,18 @@ const STORAGE_KEYS = {
 
 function getUsuarioLocal() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.usuario));
+    const valor = localStorage.getItem(STORAGE_KEYS.usuario);
+    const usuario = JSON.parse(valor);
+
+    appLogInfo("Usuário local lido com sucesso", {
+      existe: !!usuario,
+      auth_user_id: usuario?.auth_user_id || null,
+      email: usuario?.email || null,
+    });
+
+    return usuario;
   } catch (e) {
-    console.error("❌ Erro ao ler usuário local:", e);
+    appLogError("Erro ao ler usuário local", e);
     return null;
   }
 }
@@ -43,8 +81,14 @@ function getUsuarioLocal() {
 function setUsuarioLocal(usuario) {
   try {
     localStorage.setItem(STORAGE_KEYS.usuario, JSON.stringify(usuario));
+
+    appLogInfo("Usuário local salvo", {
+      auth_user_id: usuario?.auth_user_id || null,
+      email: usuario?.email || null,
+      perfil: usuario?.perfil || null,
+    });
   } catch (e) {
-    console.error("❌ Erro ao salvar usuário local:", e);
+    appLogError("Erro ao salvar usuário local", e);
   }
 }
 
@@ -52,6 +96,8 @@ function limparSessaoLocal() {
   localStorage.removeItem(STORAGE_KEYS.usuario);
   localStorage.removeItem(STORAGE_KEYS.indicador);
   localStorage.removeItem(STORAGE_KEYS.classeSelecionada);
+
+  appLogInfo("Sessão local limpa");
 }
 
 // ==========================
@@ -103,7 +149,7 @@ function chamarFuncaoGlobal(nome, ...args) {
   const fn = getFuncaoGlobal(nome);
 
   if (!fn) {
-    console.error(`❌ Função global não encontrada: ${nome}`);
+    appLogError(`Função global não encontrada: ${nome}`);
     return null;
   }
 
@@ -123,11 +169,11 @@ function validarBootstrapPerfil() {
   );
 
   if (faltando.length) {
-    console.error("❌ Funções de perfil ausentes:", faltando);
+    appLogError("Funções de perfil ausentes", faltando);
     return false;
   }
 
-  console.log("✅ Bootstrap de perfil carregado com sucesso");
+  appLogInfo("Bootstrap de perfil carregado com sucesso");
   return true;
 }
 
@@ -155,8 +201,8 @@ function obterSemanaAtualApp() {
     try {
       return window.getSemanaAtual();
     } catch (erro) {
-      console.warn(
-        "⚠️ Falha ao usar getSemanaAtual global, usando fallback:",
+      appLogWarn(
+        "Falha ao usar getSemanaAtual global, usando fallback",
         erro
       );
     }
@@ -166,10 +212,55 @@ function obterSemanaAtualApp() {
 }
 
 // ==========================
+// 👤 HELPERS DE USUÁRIO / SIDEBAR
+// ==========================
+function montarNomeCompletoUsuario(usuario = {}) {
+  const nomeCompleto = [usuario.nome, usuario.sobrenome]
+    .map((parte) => normalizarTextoApp(parte))
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  return nomeCompleto || normalizarTextoApp(usuario.nome) || "-";
+}
+
+function gerarIniciaisUsuario(usuario = {}) {
+  const nome = normalizarTextoApp(usuario.nome);
+  const sobrenome = normalizarTextoApp(usuario.sobrenome);
+
+  let iniciais = (
+    (nome?.[0] || "") + (sobrenome?.[0] || "")
+  ).toUpperCase();
+
+  if (!iniciais) {
+    const nomeCompleto = montarNomeCompletoUsuario(usuario);
+    iniciais = nomeCompleto
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((parte) => parte[0]?.toUpperCase() || "")
+      .join("");
+  }
+
+  return iniciais || "U";
+}
+
+function getElementoSeguro(id) {
+  const el = document.getElementById(id);
+
+  if (!el) {
+    appLogWarn(`Elemento não encontrado: #${id}`);
+    return null;
+  }
+
+  return el;
+}
+
+// ==========================
 // 👤 MONTAR USUÁRIO LOCAL
 // ==========================
 function montarUsuarioLocalAPartirDoPerfil(data) {
-  return {
+  const usuario = {
     id: data.id,
     auth_user_id: data.auth_user_id || null,
     nome: data.nome || "",
@@ -186,8 +277,20 @@ function montarUsuarioLocalAPartirDoPerfil(data) {
     regional_vinculada: data.regional_vinculada || null,
     subregional_vinculada: data.subregional_vinculada || null,
 
-    regionais_vinculadas: normalizarListaRegionaisApp(data.regionais_vinculadas),
+    regionais_vinculadas: normalizarListaRegionaisApp(
+      data.regionais_vinculadas
+    ),
   };
+
+  appLogInfo("Usuário local montado a partir do perfil", {
+    id: usuario.id,
+    auth_user_id: usuario.auth_user_id,
+    email: usuario.email,
+    perfil: usuario.perfil,
+    funcao: usuario.funcao,
+  });
+
+  return usuario;
 }
 
 // ==========================
@@ -222,8 +325,8 @@ function montarPerfilFallbackApp(authUser) {
     regionais_vinculadas: [],
   };
 
-  console.warn(
-    "⚠️ [APP] Perfil não encontrado em usuarios. Usando fallback local:",
+  appLogWarn(
+    "Perfil não encontrado em usuarios. Usando fallback local",
     perfilFallback
   );
 
@@ -236,12 +339,12 @@ function montarPerfilFallbackApp(authUser) {
 function initSupabase() {
   try {
     if (!window.supabase || !window.supabase.createClient) {
-      console.error("❌ Biblioteca do Supabase não carregada");
+      appLogError("Biblioteca do Supabase não carregada");
       return false;
     }
 
     if (supabaseClient) {
-      console.log("✅ Supabase já inicializado");
+      appLogInfo("Supabase já inicializado");
       return true;
     }
 
@@ -257,10 +360,10 @@ function initSupabase() {
 
     window.db = supabaseClient;
 
-    console.log("✅ Supabase inicializado");
+    appLogInfo("Supabase inicializado");
     return true;
   } catch (erro) {
-    console.error("❌ Erro ao iniciar Supabase:", erro);
+    appLogError("Erro ao iniciar Supabase", erro);
     return false;
   }
 }
@@ -284,25 +387,25 @@ async function verificarSessao() {
     } = await supabaseClient.auth.getSession();
 
     if (error) {
-      console.error("❌ Erro ao verificar sessão:", error);
+      appLogError("Erro ao verificar sessão", error);
       window.location.replace("login.html");
       return false;
     }
 
     if (!session?.user) {
-      console.warn("⚠️ Sessão não encontrada");
+      appLogWarn("Sessão não encontrada");
       window.location.replace("login.html");
       return false;
     }
 
-    console.log("✅ Sessão válida:", {
+    appLogInfo("Sessão válida", {
       auth_user_id: session.user.id,
       email: session.user.email,
     });
 
     return session.user;
   } catch (erro) {
-    console.error("❌ Erro ao verificar sessão:", erro);
+    appLogError("Erro ao verificar sessão", erro);
     window.location.replace("login.html");
     return false;
   }
@@ -313,7 +416,7 @@ async function verificarSessao() {
 // ==========================
 async function buscarPerfilPorAuthIdApp(authUserId) {
   try {
-    console.log("🔎 [APP] Buscando perfil por auth_user_id:", authUserId);
+    appLogInfo("Buscando perfil por auth_user_id", { authUserId });
 
     const { data, error } = await window.db
       .from("usuarios")
@@ -322,21 +425,24 @@ async function buscarPerfilPorAuthIdApp(authUserId) {
       .maybeSingle();
 
     if (error) {
-      console.warn("⚠️ [APP] Erro ao buscar perfil por auth_user_id:", error);
+      appLogWarn("Erro ao buscar perfil por auth_user_id", error);
       return null;
     }
 
     if (!data) {
-      console.warn("⚠️ [APP] Nenhum perfil encontrado por auth_user_id");
+      appLogWarn("Nenhum perfil encontrado por auth_user_id");
       return null;
     }
 
+    appLogInfo("Perfil encontrado por auth_user_id", {
+      id: data.id,
+      email: data.email,
+      perfil: data.perfil,
+    });
+
     return data;
   } catch (erro) {
-    console.error(
-      "❌ [APP] Falha inesperada em buscarPerfilPorAuthIdApp:",
-      erro
-    );
+    appLogError("Falha inesperada em buscarPerfilPorAuthIdApp", erro);
     return null;
   }
 }
@@ -346,7 +452,7 @@ async function buscarPerfilPorAuthIdApp(authUserId) {
 // ==========================
 async function buscarPerfilPorEmailApp(email) {
   try {
-    console.log("🔎 [APP] Buscando perfil por e-mail:", email);
+    appLogInfo("Buscando perfil por e-mail", { email });
 
     const { data, error } = await window.db
       .from("usuarios")
@@ -355,21 +461,24 @@ async function buscarPerfilPorEmailApp(email) {
       .maybeSingle();
 
     if (error) {
-      console.warn("⚠️ [APP] Erro ao buscar perfil por e-mail:", error);
+      appLogWarn("Erro ao buscar perfil por e-mail", error);
       return null;
     }
 
     if (!data) {
-      console.warn("⚠️ [APP] Nenhum perfil encontrado por e-mail");
+      appLogWarn("Nenhum perfil encontrado por e-mail");
       return null;
     }
 
+    appLogInfo("Perfil encontrado por e-mail", {
+      id: data.id,
+      email: data.email,
+      perfil: data.perfil,
+    });
+
     return data;
   } catch (erro) {
-    console.error(
-      "❌ [APP] Falha inesperada em buscarPerfilPorEmailApp:",
-      erro
-    );
+    appLogError("Falha inesperada em buscarPerfilPorEmailApp", erro);
     return null;
   }
 }
@@ -380,26 +489,22 @@ async function buscarPerfilPorEmailApp(email) {
 async function vincularAuthUserIdAoPerfilApp(perfil, authUser) {
   try {
     if (!perfil || !authUser?.id) {
-      console.warn("⚠️ [APP] Dados insuficientes para vincular auth_user_id");
+      appLogWarn("Dados insuficientes para vincular auth_user_id");
       return null;
     }
 
     if (perfil.auth_user_id) {
-      console.log(
-        "ℹ️ [APP] Perfil já possui auth_user_id:",
-        perfil.auth_user_id
-      );
+      appLogInfo("Perfil já possui auth_user_id", {
+        auth_user_id: perfil.auth_user_id,
+      });
       return perfil;
     }
 
-    console.log(
-      "🔗 [APP] Vinculando auth_user_id ao perfil encontrado por e-mail...",
-      {
-        usuario: perfil.nome,
-        email: perfil.email,
-        novoAuthId: authUser.id,
-      }
-    );
+    appLogInfo("Vinculando auth_user_id ao perfil encontrado por e-mail", {
+      usuario: perfil.nome,
+      email: perfil.email,
+      novoAuthId: authUser.id,
+    });
 
     const { data, error } = await window.db
       .from("usuarios")
@@ -411,18 +516,18 @@ async function vincularAuthUserIdAoPerfilApp(perfil, authUser) {
       .single();
 
     if (error || !data) {
-      console.error("❌ [APP] Erro ao vincular auth_user_id:", error);
+      appLogError("Erro ao vincular auth_user_id", error);
       return null;
     }
 
-    console.log("✅ [APP] auth_user_id vinculado com sucesso:", {
+    appLogInfo("auth_user_id vinculado com sucesso", {
       usuario: data.nome,
       auth_user_id: data.auth_user_id,
     });
 
     return data;
   } catch (erro) {
-    console.error("❌ [APP] Falha inesperada ao vincular auth_user_id:", erro);
+    appLogError("Falha inesperada ao vincular auth_user_id", erro);
     return null;
   }
 }
@@ -439,11 +544,11 @@ async function garantirPerfilLocal(authUser) {
       usuarioLocal.auth_user_id &&
       String(usuarioLocal.auth_user_id) === String(authUser.id)
     ) {
-      console.log("✅ Perfil local já sincronizado");
+      appLogInfo("Perfil local já sincronizado");
       return usuarioLocal;
     }
 
-    console.log("🔄 [APP] Resolvendo perfil do usuário no banco...");
+    appLogInfo("Resolvendo perfil do usuário no banco");
 
     let perfil = await buscarPerfilPorAuthIdApp(authUser.id);
 
@@ -451,7 +556,7 @@ async function garantirPerfilLocal(authUser) {
       const emailAuth = normalizarTextoAppLower(authUser.email);
 
       if (!emailAuth) {
-        console.error("❌ [APP] Usuário auth sem e-mail para fallback");
+        appLogError("Usuário auth sem e-mail para fallback");
         limparSessaoLocal();
         window.location.replace("login.html");
         return null;
@@ -460,8 +565,8 @@ async function garantirPerfilLocal(authUser) {
       const perfilPorEmail = await buscarPerfilPorEmailApp(emailAuth);
 
       if (!perfilPorEmail) {
-        console.warn(
-          "⚠️ [APP] Perfil não encontrado por auth_user_id nem por e-mail. Entrando com fallback local."
+        appLogWarn(
+          "Perfil não encontrado por auth_user_id nem por e-mail. Entrando com fallback local."
         );
 
         const usuarioFallback = montarPerfilFallbackApp(authUser);
@@ -474,17 +579,15 @@ async function garantirPerfilLocal(authUser) {
         perfil = await vincularAuthUserIdAoPerfilApp(perfilPorEmail, authUser);
 
         if (!perfil) {
-          console.error(
-            "❌ [APP] Falha ao vincular auth_user_id automaticamente"
-          );
+          appLogError("Falha ao vincular auth_user_id automaticamente");
           limparSessaoLocal();
           window.location.replace("login.html");
           return null;
         }
       } else {
         if (String(perfilPorEmail.auth_user_id) !== String(authUser.id)) {
-          console.error(
-            "❌ [APP] Perfil por e-mail já está vinculado a outro auth_user_id",
+          appLogError(
+            "Perfil por e-mail já está vinculado a outro auth_user_id",
             {
               email: perfilPorEmail.email,
               auth_user_id_tabela: perfilPorEmail.auth_user_id,
@@ -505,10 +608,16 @@ async function garantirPerfilLocal(authUser) {
 
     setUsuarioLocal(usuario);
 
-    console.log("✅ Perfil local sincronizado:", usuario);
+    appLogInfo("Perfil local sincronizado", {
+      auth_user_id: usuario.auth_user_id,
+      email: usuario.email,
+      perfil: usuario.perfil,
+      funcao: usuario.funcao,
+    });
+
     return usuario;
   } catch (erro) {
-    console.error("❌ Erro ao sincronizar perfil local:", erro);
+    appLogError("Erro ao sincronizar perfil local", erro);
     limparSessaoLocal();
     window.location.replace("login.html");
     return null;
@@ -520,7 +629,7 @@ async function garantirPerfilLocal(authUser) {
 // ==========================
 async function logout() {
   try {
-    console.log("🔒 Logout iniciado");
+    appLogInfo("Logout iniciado");
 
     pararAtualizacaoSilenciosa();
 
@@ -538,7 +647,7 @@ async function logout() {
 
     window.location.replace("login.html");
   } catch (erro) {
-    console.error("❌ Erro no logout:", erro);
+    appLogError("Erro no logout", erro);
   }
 }
 
@@ -603,7 +712,7 @@ function getUsuarioEfetivoApp() {
       return window.getUsuarioLogado();
     }
   } catch (erro) {
-    console.warn("⚠️ Falha ao usar getUsuarioLogado no app:", erro);
+    appLogWarn("Falha ao usar getUsuarioLogado no app", erro);
   }
 
   return getUsuarioLocal();
@@ -617,7 +726,7 @@ function getPermissoesSistemaEfetivasApp(user = null) {
       return window.getPermissoesSistemaUsuario(usuario);
     }
   } catch (erro) {
-    console.warn("⚠️ Falha ao usar getPermissoesSistemaUsuario no app:", erro);
+    appLogWarn("Falha ao usar getPermissoesSistemaUsuario no app", erro);
   }
 
   return {
@@ -645,7 +754,7 @@ function getPermissoesIndicadoresApp(user = null) {
       : [],
   };
 
-  console.log("🎯 Permissões de indicadores do app:", resultado);
+  appLogInfo("Permissões de indicadores do app", resultado);
   return resultado;
 }
 
@@ -658,7 +767,7 @@ function getMetaIndicadorApp(indicador, classeFallback = "") {
         subclasse: normalizarTextoAppUpper(meta?.subclasse || "GERAL"),
       };
     } catch (erro) {
-      console.warn("⚠️ Falha ao usar getMetaIndicadorPermissao:", erro);
+      appLogWarn("Falha ao usar getMetaIndicadorPermissao", erro);
     }
   }
 
@@ -675,7 +784,7 @@ function getTokenSubclasseApp(classe, subclasse) {
         window.getTokenSubclasse(classe, subclasse)
       );
     } catch (erro) {
-      console.warn("⚠️ Falha ao usar getTokenSubclasse:", erro);
+      appLogWarn("Falha ao usar getTokenSubclasse", erro);
     }
   }
 
@@ -700,7 +809,7 @@ function usuarioTemAcessoIndicadorApp(indicador, classe = "", user = null) {
     permissoes.indicadores.includes("TODAS AS TABELAS") ||
     permissoes.indicadores.includes("TODOS OS INDICADORES");
 
-  console.log("🎯 Checagem de acesso ao indicador:", {
+  appLogInfo("Checagem de acesso ao indicador", {
     indicador,
     indicadorNorm,
     classe,
@@ -728,7 +837,7 @@ function usuarioPodeAbrirTelaApp(tela, user = null) {
     permitido = permissoes.pode_ver_comparativos === true;
   }
 
-  console.log("🧭 Checagem de acesso à tela:", {
+  appLogInfo("Checagem de acesso à tela", {
     tela: telaNorm,
     permitido,
     permissoes,
@@ -752,7 +861,7 @@ function resolverPrimeiraTelaPermitidaApp(user = null) {
         localStorage.setItem(STORAGE_KEYS.classeSelecionada, classe);
         localStorage.setItem(STORAGE_KEYS.indicador, valor);
 
-        console.log("📌 Primeira tela permitida resolvida por indicador:", {
+        appLogInfo("Primeira tela permitida resolvida por indicador", {
           classe,
           indicador: valor,
         });
@@ -762,7 +871,7 @@ function resolverPrimeiraTelaPermitidaApp(user = null) {
     }
   }
 
-  console.warn("⚠️ Nenhuma tela permitida encontrada. Usando configurações.");
+  appLogWarn("Nenhuma tela permitida encontrada. Usando configurações.");
   return "configuracoes";
 }
 
@@ -824,9 +933,9 @@ function aplicarPermissoesMenuPrincipal() {
       }
     });
 
-    console.log("🧭 Permissões aplicadas ao menu principal:", permissoes);
+    appLogInfo("Permissões aplicadas ao menu principal", permissoes);
   } catch (erro) {
-    console.warn("⚠️ Falha ao aplicar permissões ao menu principal:", erro);
+    appLogWarn("Falha ao aplicar permissões ao menu principal", erro);
   }
 }
 
@@ -838,19 +947,19 @@ async function carregarSidebar() {
     const el = document.getElementById("sidebar");
 
     if (!el) {
-      console.warn("⚠️ Sidebar não encontrado");
+      appLogWarn("Sidebar não encontrado");
       return;
     }
 
     if (el.dataset.loaded === "true") {
-      console.warn("⚠️ Sidebar já carregado - não recarregar");
+      appLogWarn("Sidebar já carregado - não recarregar");
       preencherUsuario();
       montarMenuIndicadores();
       aplicarPermissoesMenuPrincipal();
       return;
     }
 
-    console.log("📦 Carregando sidebar...");
+    appLogInfo("Carregando sidebar...");
 
     const res = await fetch("components/sidebar.html");
     const html = await res.text();
@@ -858,7 +967,7 @@ async function carregarSidebar() {
     el.innerHTML = html;
     el.dataset.loaded = "true";
 
-    console.log("✅ Sidebar carregado");
+    appLogInfo("Sidebar carregado com sucesso");
 
     preencherUsuario();
     montarMenuIndicadores();
@@ -872,40 +981,61 @@ async function carregarSidebar() {
     ) {
       btnLogout.addEventListener("click", logout);
       btnLogout.dataset.bound = "true";
+
+      appLogInfo("Botão de logout vinculado via addEventListener");
     }
   } catch (erro) {
-    console.error("❌ Erro sidebar:", erro);
+    appLogError("Erro ao carregar sidebar", erro);
     mostrarErro("Erro ao carregar menu");
   }
 }
 
 // ==========================
 // 👤 PREENCHER USUÁRIO
+// ✅ ajustado para suportar função no novo card
 // ==========================
 function preencherUsuario() {
-  const usuario = getUsuarioLocal();
-  if (!usuario) return;
+  try {
+    const usuario = getUsuarioLocal();
 
-  const nomeEl = document.getElementById("nomeUsuario");
-  const emailEl = document.getElementById("emailUsuario");
-  const matriculaEl = document.getElementById("matriculaUsuario");
-  const avatarEl = document.getElementById("avatar");
+    if (!usuario) {
+      appLogWarn("Nenhum usuário local encontrado para preencher sidebar");
+      return;
+    }
 
-  const nomeCompleto = [usuario.nome, usuario.sobrenome]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
+    const nomeEl = document.getElementById("nomeUsuario");
+    const emailEl = document.getElementById("emailUsuario");
+    const matriculaEl = document.getElementById("matriculaUsuario");
+    const funcaoEl = document.getElementById("funcaoUsuario");
+    const avatarEl = document.getElementById("avatar");
 
-  if (nomeEl) nomeEl.textContent = nomeCompleto || usuario.nome || "-";
-  if (emailEl) emailEl.textContent = usuario.email || "-";
-  if (matriculaEl) matriculaEl.textContent = usuario.matricula || "-";
+    const nomeCompleto = montarNomeCompletoUsuario(usuario);
+    const funcao = normalizarTextoApp(usuario.funcao) || "-";
+    const email = normalizarTextoApp(usuario.email) || "-";
+    const matricula = normalizarTextoApp(usuario.matricula) || "-";
+    const iniciais = gerarIniciaisUsuario(usuario);
 
-  if (avatarEl) {
-    const iniciais = (
-      (usuario.nome?.[0] || "") + (usuario.sobrenome?.[0] || "")
-    ).toUpperCase();
+    if (nomeEl) nomeEl.textContent = nomeCompleto;
+    if (emailEl) emailEl.textContent = email;
+    if (matriculaEl) matriculaEl.textContent = matricula;
+    if (funcaoEl) funcaoEl.textContent = funcao;
 
-    avatarEl.textContent = iniciais || "U";
+    if (avatarEl) {
+      avatarEl.textContent = iniciais;
+      avatarEl.setAttribute("title", nomeCompleto);
+      avatarEl.setAttribute("aria-label", `Avatar de ${nomeCompleto}`);
+    }
+
+    appLogInfo("Usuário preenchido na sidebar", {
+      nomeCompleto,
+      matricula,
+      funcao,
+      email,
+      iniciais,
+      temCampoFuncao: !!funcaoEl,
+    });
+  } catch (erro) {
+    appLogError("Erro ao preencher usuário na sidebar", erro);
   }
 }
 
@@ -917,6 +1047,10 @@ function limparItensDinamicosMenu(menu) {
 
   const dinamicos = menu.querySelectorAll("[data-menu-dinamico='true']");
   dinamicos.forEach((el) => el.remove());
+
+  appLogInfo("Itens dinâmicos do menu removidos", {
+    totalRemovido: dinamicos.length,
+  });
 }
 
 // ==========================
@@ -944,7 +1078,7 @@ function montarMenuIndicadores() {
     });
 
     if (!itensPermitidos.length) {
-      console.log("🚫 Classe sem acesso, não exibida no menu:", classe);
+      appLogInfo("Classe sem acesso, não exibida no menu", { classe });
       continue;
     }
 
@@ -963,7 +1097,7 @@ function montarMenuIndicadores() {
     `;
 
     liClasse.onclick = () => {
-      console.log("📂 Classe:", classe);
+      appLogInfo("Classe clicada", { classe });
       toggleClasse(id);
     };
 
@@ -984,7 +1118,10 @@ function montarMenuIndicadores() {
       li.textContent = nome;
 
       li.onclick = () => {
-        console.log("📊 Indicador permitido clicado:", valor, "| Classe:", classe);
+        appLogInfo("Indicador permitido clicado", {
+          indicador: valor,
+          classe,
+        });
         localStorage.setItem(STORAGE_KEYS.classeSelecionada, classe);
         selecionarIndicador(valor);
       };
@@ -998,7 +1135,7 @@ function montarMenuIndicadores() {
     index++;
   }
 
-  console.log("✅ Menu de indicadores montado com permissões:", {
+  appLogInfo("Menu de indicadores montado com permissões", {
     totalClassesMontadas,
     totalIndicadoresMontados,
   });
@@ -1018,6 +1155,11 @@ function toggleClasse(id) {
   });
 
   submenu.style.display = aberto ? "none" : "block";
+
+  appLogInfo("Toggle submenu executado", {
+    submenuId: id,
+    abertoFinal: !aberto,
+  });
 }
 
 // ==========================
@@ -1029,7 +1171,7 @@ function selecionarIndicador(indicador) {
   const classe = localStorage.getItem(STORAGE_KEYS.classeSelecionada) || "";
 
   if (!usuarioTemAcessoIndicadorApp(indicador, classe, usuario)) {
-    console.warn("🚫 Usuário sem acesso ao indicador selecionado:", {
+    appLogWarn("Usuário sem acesso ao indicador selecionado", {
       indicador,
       classe,
     });
@@ -1038,7 +1180,7 @@ function selecionarIndicador(indicador) {
     return;
   }
 
-  console.log("✅ Indicador autorizado:", indicador);
+  appLogInfo("Indicador autorizado", { indicador, classe });
 
   localStorage.setItem(STORAGE_KEYS.indicador, indicador);
   APP_STATE.indicadorAtivo = indicador;
@@ -1048,7 +1190,7 @@ function selecionarIndicador(indicador) {
   if (typeof window.carregarTabela === "function") {
     window.carregarTabela();
   } else {
-    console.error("❌ carregarTabela não encontrada");
+    appLogError("carregarTabela não encontrada");
   }
 
   document.querySelectorAll(".submenu").forEach((el) => {
@@ -1102,21 +1244,21 @@ function mostrarErro(msg) {
 async function testarConexao() {
   try {
     if (!supabaseClient) {
-      console.warn("⚠️ Supabase não inicializado ao testar conexão");
+      appLogWarn("Supabase não inicializado ao testar conexão");
       return false;
     }
 
     const { error } = await supabaseClient.from("lojas").select("*").limit(1);
 
     if (error) {
-      console.warn("⚠️ Erro ao testar conexão:", error);
+      appLogWarn("Erro ao testar conexão", error);
       return false;
     }
 
-    console.log("✅ Conexão com banco testada");
+    appLogInfo("Conexão com banco testada com sucesso");
     return true;
   } catch (erro) {
-    console.error("❌ Falha ao testar conexão:", erro);
+    appLogError("Falha ao testar conexão", erro);
     return false;
   }
 }
@@ -1125,7 +1267,7 @@ async function testarConexao() {
 // 📌 MENU LOG
 // ==========================
 function logMenu(acao) {
-  console.log("📌 Menu clicado:", acao);
+  appLogInfo("Menu clicado", { acao });
 }
 
 // ==========================
@@ -1142,7 +1284,7 @@ function definirTelaAtiva(tela, extras = {}) {
     APP_STATE.classeAtiva = extras.classe;
   }
 
-  console.log("🧠 Tela ativa atualizada:", {
+  appLogInfo("Tela ativa atualizada", {
     telaAtiva: APP_STATE.telaAtiva,
     indicadorAtivo: APP_STATE.indicadorAtivo,
     classeAtiva: APP_STATE.classeAtiva,
@@ -1156,7 +1298,7 @@ function definirTelaAtiva(tela, extras = {}) {
 async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
   try {
     if (!nomeTela) {
-      console.warn("⚠️ Tela não informada");
+      appLogWarn("Tela não informada");
       return;
     }
 
@@ -1168,11 +1310,14 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     const container = document.getElementById("conteudo");
 
     if (!container) {
-      console.error("❌ #conteudo não encontrado");
+      appLogError("#conteudo não encontrado");
       return;
     }
 
-    console.log("🧭 Abrindo tela:", telaNormalizada, "| silent:", silent);
+    appLogInfo("Abrindo tela", {
+      tela: telaNormalizada,
+      silent,
+    });
 
     const usuario = getUsuarioEfetivoApp();
 
@@ -1194,7 +1339,7 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
       if (typeof window.abrirConfiguracoes === "function") {
         window.abrirConfiguracoes();
       } else {
-        console.error("❌ abrirConfiguracoes não encontrada");
+        appLogError("abrirConfiguracoes não encontrada");
       }
 
       return;
@@ -1205,7 +1350,7 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     // ======================
     if (telaNormalizada === "dashboard") {
       if (!usuarioPodeAbrirTelaApp("dashboard", usuario)) {
-        console.warn("🚫 Acesso negado ao dashboard");
+        appLogWarn("Acesso negado ao dashboard");
         definirTelaAtiva("dashboard");
         renderAcessoNegadoTela("Dashboard");
         return;
@@ -1227,7 +1372,7 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     // ======================
     if (telaNormalizada === "analises") {
       if (!usuarioPodeAbrirTelaApp("analises", usuario)) {
-        console.warn("🚫 Acesso negado às análises");
+        appLogWarn("Acesso negado às análises");
         definirTelaAtiva("analises");
         renderAcessoNegadoTela("Análises");
         return;
@@ -1254,7 +1399,7 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     // ======================
     if (telaNormalizada === "comparativos") {
       if (!usuarioPodeAbrirTelaApp("comparativos", usuario)) {
-        console.warn("🚫 Acesso negado aos comparativos");
+        appLogWarn("Acesso negado aos comparativos");
         definirTelaAtiva("comparativos");
         renderAcessoNegadoTela("Comparativos");
         return;
@@ -1280,19 +1425,19 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     // 📊 INDICADORES
     // ======================
     if (telaNormalizada === "indicadores") {
-      console.log("📊 Indicadores (compatibilidade)");
+      appLogInfo("Indicadores (compatibilidade)");
 
       const indicadorAtual = localStorage.getItem(STORAGE_KEYS.indicador);
       const classeAtual = localStorage.getItem(STORAGE_KEYS.classeSelecionada);
 
       if (!indicadorAtual) {
-        console.warn("⚠️ Nenhum indicador selecionado");
+        appLogWarn("Nenhum indicador selecionado");
         mostrarErro("Nenhum indicador foi selecionado.");
         return;
       }
 
       if (!usuarioTemAcessoIndicadorApp(indicadorAtual, classeAtual, usuario)) {
-        console.warn("🚫 Acesso negado ao indicador pelo app:", {
+        appLogWarn("Acesso negado ao indicador pelo app", {
           classeAtual,
           indicadorAtual,
         });
@@ -1309,14 +1454,14 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
       if (typeof window.carregarTabela === "function") {
         await window.carregarTabela();
       } else {
-        console.error("❌ carregarTabela não encontrada");
+        appLogError("carregarTabela não encontrada");
         mostrarErro("Função carregarTabela não encontrada");
       }
 
       return;
     }
 
-    console.warn("⚠️ Tela não mapeada:", telaNormalizada);
+    appLogWarn("Tela não mapeada", { telaNormalizada });
 
     container.innerHTML = `
       <div class="card-conteudo">
@@ -1325,7 +1470,7 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
       </div>
     `;
   } catch (erro) {
-    console.error("❌ Erro ao abrir tela:", erro);
+    appLogError("Erro ao abrir tela", erro);
 
     const conteudo = document.getElementById("conteudo");
     if (!conteudo) return;
@@ -1353,11 +1498,11 @@ function abrirConfiguracoesMenu() {
   const user = getUsuarioLocal();
 
   if (!user) {
-    console.warn("⚠️ usuário não encontrado");
+    appLogWarn("Usuário não encontrado");
     return;
   }
 
-  console.log("⚙️ Acesso ao menu de configurações");
+  appLogInfo("Acesso ao menu de configurações");
   mostrar("configuracoes");
 }
 
@@ -1385,7 +1530,7 @@ function existeEdicaoAtivaNoConteudo() {
 
     return true;
   } catch (erro) {
-    console.warn("⚠️ Falha ao avaliar edição ativa:", erro);
+    appLogWarn("Falha ao avaliar edição ativa", erro);
     return false;
   }
 }
@@ -1393,31 +1538,31 @@ function existeEdicaoAtivaNoConteudo() {
 async function sincronizarPerfilSilenciosamente() {
   try {
     if (typeof window.sincronizarUsuarioLocalDoBanco === "function") {
-      console.log("🔄 Sincronizando perfil local silenciosamente...");
+      appLogInfo("Sincronizando perfil local silenciosamente...");
       await window.sincronizarUsuarioLocalDoBanco();
       preencherUsuario();
       montarMenuIndicadores();
       aplicarPermissoesMenuPrincipal();
     }
   } catch (erro) {
-    console.warn("⚠️ Falha ao sincronizar perfil local silenciosamente:", erro);
+    appLogWarn("Falha ao sincronizar perfil local silenciosamente", erro);
   }
 }
 
 async function atualizarTelaSilenciosamente() {
   if (APP_STATE.silentRefreshRunning) {
-    console.log("⏳ Atualização silenciosa já em andamento - ignorando ciclo");
+    appLogInfo("Atualização silenciosa já em andamento - ignorando ciclo");
     return;
   }
 
   if (window.dashboardModoApresentacao) {
-    console.log("🖥️ Modo apresentação ativo - refresh silencioso bloqueado");
+    appLogInfo("Modo apresentação ativo - refresh silencioso bloqueado");
     return;
   }
 
   if (existeEdicaoAtivaNoConteudo()) {
-    console.log(
-      "⌨️ Usuário está interagindo com um campo - refresh silencioso adiado"
+    appLogInfo(
+      "Usuário está interagindo com um campo - refresh silencioso adiado"
     );
     return;
   }
@@ -1425,7 +1570,7 @@ async function atualizarTelaSilenciosamente() {
   APP_STATE.silentRefreshRunning = true;
 
   try {
-    console.log("🔄 Iniciando atualização silenciosa:", {
+    appLogInfo("Iniciando atualização silenciosa", {
       telaAtiva: APP_STATE.telaAtiva,
       horario: new Date().toLocaleTimeString("pt-BR"),
     });
@@ -1434,20 +1579,20 @@ async function atualizarTelaSilenciosamente() {
 
     switch (APP_STATE.telaAtiva) {
       case "dashboard":
-        console.log(
-          "📊 Dashboard ativo - atualização silenciosa desabilitada para não atrapalhar apresentação"
+        appLogInfo(
+          "Dashboard ativo - atualização silenciosa desabilitada para não atrapalhar apresentação"
         );
         break;
 
       case "analises":
-        console.log(
-          "📈 Análises ativa - atualização silenciosa desabilitada para não atrapalhar uso e apresentação"
+        appLogInfo(
+          "Análises ativa - atualização silenciosa desabilitada para não atrapalhar uso e apresentação"
         );
         break;
 
       case "comparativos":
-        console.log(
-          "📊 Comparativos ativo - atualização silenciosa desabilitada para não atrapalhar uso e apresentação"
+        appLogInfo(
+          "Comparativos ativo - atualização silenciosa desabilitada para não atrapalhar uso e apresentação"
         );
         break;
 
@@ -1458,22 +1603,21 @@ async function atualizarTelaSilenciosamente() {
         break;
 
       case "configuracoes":
-        console.log("⚙️ Configurações ativa - refresh silencioso ignorado");
+        appLogInfo("Configurações ativa - refresh silencioso ignorado");
         break;
 
       default:
-        console.log(
-          "ℹ️ Nenhuma tela compatível com refresh silencioso:",
-          APP_STATE.telaAtiva
-        );
+        appLogInfo("Nenhuma tela compatível com refresh silencioso", {
+          telaAtiva: APP_STATE.telaAtiva,
+        });
         break;
     }
 
     APP_STATE.ultimoSilentRefresh = new Date().toISOString();
 
-    console.log("✅ Atualização silenciosa concluída");
+    appLogInfo("Atualização silenciosa concluída");
   } catch (erro) {
-    console.error("❌ Erro na atualização silenciosa:", erro);
+    appLogError("Erro na atualização silenciosa", erro);
   } finally {
     APP_STATE.silentRefreshRunning = false;
   }
@@ -1483,8 +1627,8 @@ function iniciarAtualizacaoSilenciosa() {
   try {
     pararAtualizacaoSilenciosa();
 
-    console.log(
-      `🔄 Iniciando atualização silenciosa automática a cada ${
+    appLogInfo(
+      `Iniciando atualização silenciosa automática a cada ${
         APP_STATE.silentRefreshMs / 1000
       }s`
     );
@@ -1493,7 +1637,7 @@ function iniciarAtualizacaoSilenciosa() {
       await atualizarTelaSilenciosamente();
     }, APP_STATE.silentRefreshMs);
   } catch (erro) {
-    console.error("❌ Falha ao iniciar atualização silenciosa:", erro);
+    appLogError("Falha ao iniciar atualização silenciosa", erro);
   }
 }
 
@@ -1501,7 +1645,7 @@ function pararAtualizacaoSilenciosa() {
   if (APP_STATE.silentRefreshTimer) {
     clearInterval(APP_STATE.silentRefreshTimer);
     APP_STATE.silentRefreshTimer = null;
-    console.log("⏹️ Atualização silenciosa parada");
+    appLogInfo("Atualização silenciosa parada");
   }
 }
 
@@ -1511,14 +1655,14 @@ function pararAtualizacaoSilenciosa() {
 document.addEventListener("visibilitychange", async () => {
   try {
     if (document.hidden) {
-      console.log("🙈 Aba oculta - mantendo timer, mas sem refresh imediato");
+      appLogInfo("Aba oculta - mantendo timer, mas sem refresh imediato");
       return;
     }
 
-    console.log("👀 Aba voltou ao foco - disparando refresh silencioso");
+    appLogInfo("Aba voltou ao foco - disparando refresh silencioso");
     await atualizarTelaSilenciosamente();
   } catch (erro) {
-    console.error("❌ Erro no visibilitychange do app:", erro);
+    appLogError("Erro no visibilitychange do app", erro);
   }
 });
 
@@ -1526,7 +1670,7 @@ document.addEventListener("visibilitychange", async () => {
 // 🚀 INIT APP
 // ==========================
 document.addEventListener("DOMContentLoaded", async () => {
-  console.log("🚀 Sistema iniciado");
+  appLogInfo("Sistema iniciado");
 
   // 1) inicia Supabase
   if (!initSupabase()) {
@@ -1556,7 +1700,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   APP_STATE.indicadorAtivo = null;
   APP_STATE.classeAtiva = null;
 
-  console.log("📅 Semana inicial forçada para a semana atual:", semanaAtual);
+  appLogInfo("Semana inicial forçada para a semana atual", { semanaAtual });
 
   // 6) carrega sidebar
   await carregarSidebar();
@@ -1575,7 +1719,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 10) abre primeira tela permitida
   const telaInicialPermitida = resolverPrimeiraTelaPermitidaApp(perfilLocal);
 
-  console.log("🧭 Tela inicial permitida resolvida:", telaInicialPermitida);
+  appLogInfo("Tela inicial permitida resolvida", { telaInicialPermitida });
 
   if (telaInicialPermitida === "indicadores") {
     await abrirTelaInterna("indicadores", { silent: false });
@@ -1618,7 +1762,7 @@ window.APP_STATE = APP_STATE;
 // ==========================
 // ✅ LOG FINAL DE BOOTSTRAP
 // ==========================
-console.log("✅ app.js pronto", {
+appLogInfo("app.js pronto", {
   getUsuarioLocal: typeof window.getUsuarioLocal,
   setUsuarioLocal: typeof window.setUsuarioLocal,
   mostrar: typeof window.mostrar,
