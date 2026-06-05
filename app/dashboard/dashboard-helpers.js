@@ -4,6 +4,64 @@ window.DashboardBI = window.DashboardBI || {};
 DashboardBI.helpers = DashboardBI.helpers || {};
 
 (function inicializarDashboardHelpers() {
+  const LOG_PREFIX = "📊 DashboardHelpers";
+
+  function logInfo(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.log(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.log(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function logWarn(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function logError(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.error(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.error(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function numeroSeguroInterno(valor, fallback = 0) {
+    const numero = Number(valor);
+    return Number.isFinite(numero) ? numero : fallback;
+  }
+
+  function stringVazia(valor) {
+    return (valor || "").toString().trim() === "";
+  }
+
+  function getStateSeguro() {
+    return DashboardBI.STATE || {};
+  }
+
+  function getIndicadorAtualSeguro() {
+    return getStateSeguro()?.indicador || "";
+  }
+
+  function getClasseAtualSeguro() {
+    return getStateSeguro()?.classe || "";
+  }
+
+  function getClasseSelecionadaReal(overrideClasse = null) {
+    const state = getStateSeguro();
+    const classeBruta =
+      overrideClasse !== null && overrideClasse !== undefined
+        ? overrideClasse
+        : state?.classe || "";
+
+    if (classeBruta === "TODAS") return null;
+    return classeBruta || null;
+  }
+
   // ==========================
   // 🔠 TEXTO
   // ==========================
@@ -26,10 +84,51 @@ DashboardBI.helpers = DashboardBI.helpers || {};
     const numero = Number(valor);
     if (!isFinite(numero)) return "-";
 
+    if (Number.isInteger(numero)) {
+      return numero.toLocaleString("pt-BR", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      });
+    }
+
     return numero.toLocaleString("pt-BR", {
       minimumFractionDigits: casas,
       maximumFractionDigits: casas,
     });
+  };
+
+  DashboardBI.helpers.formatarInteiro = function (valor) {
+    const numero = Number(valor);
+    if (!isFinite(numero)) return "-";
+
+    return numero.toLocaleString("pt-BR", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+  };
+
+  DashboardBI.helpers.formatarMoeda = function (valor) {
+    const numero = Number(valor);
+    if (!isFinite(numero)) return "-";
+
+    return numero.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  DashboardBI.helpers.formatarPercentual = function (valor, casas = 2) {
+    const numero = Number(valor);
+    if (!isFinite(numero)) return "-";
+
+    return (
+      numero.toLocaleString("pt-BR", {
+        minimumFractionDigits: casas,
+        maximumFractionDigits: casas,
+      }) + "%"
+    );
   };
 
   DashboardBI.helpers.calcularMedia = function (lista = []) {
@@ -130,7 +229,7 @@ DashboardBI.helpers = DashboardBI.helpers || {};
   };
 
   // ==========================
-  // 🎯 EXIBIÇÃO KPI / TIPO
+  // 🎯 TIPOS / CLASSE / REGRA
   // ==========================
   DashboardBI.helpers.tipoPercentual = function (tipo) {
     const tipoNorm = DashboardBI.helpers.normalizarTextoLower(tipo);
@@ -141,43 +240,199 @@ DashboardBI.helpers = DashboardBI.helpers || {};
     );
   };
 
-  DashboardBI.helpers.formatarKpi = function (
-    valor,
-    { percentual = false, casas = 2 } = {}
-  ) {
-    const numero = Number(valor);
-    if (!isFinite(numero)) return "-";
-
-    const texto = DashboardBI.helpers.formatarNumero(numero, casas);
-    return percentual ? `${texto}%` : texto;
+  DashboardBI.helpers.tipoMoeda = function (tipo) {
+    const tipoNorm = DashboardBI.helpers.normalizarTextoLower(tipo);
+    return (
+      tipoNorm === "moeda" ||
+      tipoNorm === "r$" ||
+      tipoNorm === "currency" ||
+      tipoNorm === "monetario" ||
+      tipoNorm === "monetário" ||
+      tipoNorm === "valor"
+    );
   };
 
-  DashboardBI.helpers.menorEhMelhor = function (tipoValorPrincipal) {
-    if (DashboardBI.helpers.tipoPercentual(tipoValorPrincipal)) return true;
+  DashboardBI.helpers.tipoInteiro = function (tipo) {
+    const tipoNorm = DashboardBI.helpers.normalizarTextoLower(tipo);
+    return (
+      tipoNorm === "inteiro" ||
+      tipoNorm === "numero-inteiro" ||
+      tipoNorm === "int"
+    );
+  };
+
+  DashboardBI.helpers.indicadorAtualNormalizado = function () {
+    return DashboardBI.helpers.normalizarTextoUpper(getIndicadorAtualSeguro());
+  };
+
+  DashboardBI.helpers.classeAtualNormalizada = function () {
+    return DashboardBI.helpers.normalizarTextoUpper(getClasseAtualSeguro());
+  };
+
+  DashboardBI.helpers.getClasseRealDoIndicador = function (
+    indicador,
+    classeSelecionada = null
+  ) {
+    try {
+      if (typeof getClasseIndicador === "function") {
+        return getClasseIndicador(indicador, classeSelecionada);
+      }
+    } catch (erro) {
+      logWarn("Falha ao obter classe real do indicador", {
+        indicador,
+        classeSelecionada,
+        erro,
+      });
+    }
+
+    return classeSelecionada || "Outros";
+  };
+
+  DashboardBI.helpers.rankingEhAuditoria = function (
+    indicador = null,
+    classe = null
+  ) {
+    const indicadorFinal = indicador || getIndicadorAtualSeguro();
+    const classeSelecionada = getClasseSelecionadaReal(classe);
+    const classeReal = DashboardBI.helpers.getClasseRealDoIndicador(
+      indicadorFinal,
+      classeSelecionada
+    );
+
+    const classeNorm = DashboardBI.helpers.normalizarTextoUpper(classeReal);
+    const ehAuditoria = classeNorm === "AUDITORIA";
+
+    logInfo("Ranking auditoria avaliado", {
+      indicadorFinal,
+      classeSelecionada,
+      classeReal,
+      ehAuditoria,
+    });
+
+    return ehAuditoria;
+  };
+
+  DashboardBI.helpers.rankingEhBancoHoras = function (indicador = null) {
+    const indicadorNorm = DashboardBI.helpers.normalizarTextoUpper(
+      indicador || getIndicadorAtualSeguro()
+    );
+
+    const ehBancoHoras =
+      indicadorNorm === "BANCOS DE HORAS" ||
+      indicadorNorm === "BANCO DE HORAS" ||
+      indicadorNorm === "RH / OPERACIONAL";
+
+    return ehBancoHoras;
+  };
+
+  DashboardBI.helpers.getCampoMediaPorChave = function (campo = "valor") {
+    return campo === "valor2" ? "mediaValor2" : "mediaValor";
+  };
+
+  DashboardBI.helpers.getCampo = function (
+    indicador,
+    campoKey = "valor",
+    classeSelecionada = null
+  ) {
+    const indicadorNorm = DashboardBI.helpers.normalizarTextoUpper(indicador);
+    const campoNorm = DashboardBI.helpers.normalizarTextoLower(campoKey);
+
+    // ✅ Regras fixas e prioritárias para não depender de configs externas
+    if (indicadorNorm === "SELF-CHECKOUT") {
+      if (campoNorm === "valor") {
+        const cfg = {
+          key: "valor",
+          label: "Participação de Vendas",
+          tipo: "moeda",
+        };
+
+        logInfo("Campo forçado para SELF-CHECKOUT valor", cfg);
+        return cfg;
+      }
+
+      if (campoNorm === "valor2") {
+        const cfg = {
+          key: "valor2",
+          label: "Qtd Passantes",
+          tipo: "inteiro",
+        };
+
+        logInfo("Campo forçado para SELF-CHECKOUT valor2", cfg);
+        return cfg;
+      }
+    }
 
     try {
-      const state = DashboardBI.STATE || {};
-      if (state.indicador && state.indicador !== "TODOS") {
-        if (typeof getIndicadorConfig === "function") {
-          const cfg = getIndicadorConfig(
-            state.indicador,
-            state.classe === "TODAS" ? null : state.classe
-          );
+      if (typeof getCampoConfig === "function") {
+        const cfg = getCampoConfig(indicador, campoKey, classeSelecionada);
 
-          if (cfg?.ordemRanking === "asc") return true;
-          if (cfg?.ordemRanking === "desc") return false;
+        if (cfg && typeof cfg === "object") {
+          const normalizado = {
+            key: cfg.key || campoKey,
+            label:
+              cfg.label ||
+              (campoKey === "valor2" ? "Valor 2" : "Resultado"),
+            tipo: cfg.tipo || "numero",
+          };
+
+          logInfo("Campo obtido via getCampoConfig", {
+            indicador,
+            campoKey,
+            classeSelecionada,
+            normalizado,
+          });
+
+          return normalizado;
         }
       }
     } catch (erro) {
-      console.warn("⚠️ Falha ao avaliar menorEhMelhor no helper:", erro);
+      logWarn("Falha ao obter campo via getCampoConfig", {
+        indicador,
+        campoKey,
+        classeSelecionada,
+        erro,
+      });
     }
 
-    return false;
+    const fallback = {
+      key: campoKey,
+      label: campoKey === "valor2" ? "Valor 2" : "Resultado",
+      tipo: "numero",
+    };
+
+    logInfo("Campo fallback utilizado", {
+      indicador,
+      campoKey,
+      classeSelecionada,
+      fallback,
+    });
+
+    return fallback;
   };
 
-  // ==========================
-  // 🏷️ INDICADOR / CAMPO
-  // ==========================
+  DashboardBI.helpers.getTipoCampo = function (
+    indicador,
+    campoKey = "valor",
+    classeSelecionada = null
+  ) {
+    const campo = DashboardBI.helpers.getCampo(
+      indicador,
+      campoKey,
+      classeSelecionada
+    );
+
+    const tipoFinal = campo?.tipo || "numero";
+
+    logInfo("Tipo de campo resolvido", {
+      indicador,
+      campoKey,
+      classeSelecionada,
+      tipoFinal,
+    });
+
+    return tipoFinal;
+  };
+
   DashboardBI.helpers.getNomeIndicador = function (
     indicador,
     classeSelecionada = null
@@ -211,49 +466,6 @@ DashboardBI.helpers = DashboardBI.helpers || {};
     return classeSelecionada || "Outros";
   };
 
-  DashboardBI.helpers.getCampo = function (
-    indicador,
-    campoKey = "valor",
-    classeSelecionada = null
-  ) {
-    if (typeof getCampoConfig === "function") {
-      return getCampoConfig(indicador, campoKey, classeSelecionada);
-    }
-
-    return {
-      key: campoKey,
-      label: campoKey === "valor2" ? "Valor 2" : "Resultado",
-      tipo: "numero",
-    };
-  };
-
-  DashboardBI.helpers.getTipoCampo = function (
-    indicador,
-    campoKey = "valor",
-    classeSelecionada = null
-  ) {
-    const campo = DashboardBI.helpers.getCampo(
-      indicador,
-      campoKey,
-      classeSelecionada
-    );
-
-    return campo?.tipo || "numero";
-  };
-
-  DashboardBI.helpers.formatarValor = function (valor, tipo = "numero") {
-    if (valor === null || valor === undefined || valor === "") return "-";
-
-    const numero = Number(valor);
-    if (isNaN(numero)) return "-";
-
-    if (typeof formatarValorExibicao === "function") {
-      return formatarValorExibicao(numero, tipo);
-    }
-
-    return DashboardBI.helpers.formatarNumero(numero, 2);
-  };
-
   DashboardBI.helpers.getOrdemRanking = function (
     indicador,
     classeSelecionada = null
@@ -265,17 +477,192 @@ DashboardBI.helpers = DashboardBI.helpers || {};
         if (cfg?.ordemRanking === "desc") return "desc";
       }
     } catch (erro) {
-      console.warn("⚠️ Não foi possível avaliar ordem do ranking:", erro);
+      logWarn("Não foi possível avaliar ordem do ranking", {
+        indicador,
+        classeSelecionada,
+        erro,
+      });
     }
 
     return "desc";
+  };
+
+  DashboardBI.helpers.getOrdemEspecialDashboard = function ({
+    indicador = "",
+    classe = "",
+    campo = "mediaValor",
+    tipo = "numero",
+  } = {}) {
+    const indicadorNorm = DashboardBI.helpers.normalizarTextoUpper(indicador);
+    const classeSelecionada = getClasseSelecionadaReal(classe);
+    const ehAuditoria = DashboardBI.helpers.rankingEhAuditoria(
+      indicadorNorm,
+      classeSelecionada
+    );
+
+    // ✅ AUDITORIA: sempre menor para maior
+    if (ehAuditoria) {
+      logInfo("Regra de ordem especial aplicada: Auditoria ascendente", {
+        indicadorNorm,
+        classeSelecionada,
+        campo,
+        tipo,
+      });
+      return "asc";
+    }
+
+    // ✅ BANCO DE HORAS -
+    // mais negativo primeiro: -5200, -5199, -5198
+    if (DashboardBI.helpers.rankingEhBancoHoras(indicadorNorm) && campo === "mediaValor2") {
+      logInfo("Regra de ordem especial aplicada: Banco de Horas - ascendente", {
+        indicadorNorm,
+        campo,
+        tipo,
+      });
+      return "asc";
+    }
+
+    // ✅ BANCO DE HORAS +
+    if (DashboardBI.helpers.rankingEhBancoHoras(indicadorNorm) && campo === "mediaValor") {
+      logInfo("Regra de ordem especial aplicada: Banco de Horas + descendente", {
+        indicadorNorm,
+        campo,
+        tipo,
+      });
+      return "desc";
+    }
+
+    // ✅ Percentuais fora de auditoria respeitam config / fallback asc
+    if (DashboardBI.helpers.tipoPercentual(tipo)) {
+      try {
+        const cfgOrdem = DashboardBI.helpers.getOrdemRanking(
+          indicadorNorm,
+          classeSelecionada
+        );
+
+        if (cfgOrdem === "asc" || cfgOrdem === "desc") {
+          logInfo("Regra percentual via configuração", {
+            indicadorNorm,
+            classeSelecionada,
+            campo,
+            tipo,
+            cfgOrdem,
+          });
+          return cfgOrdem;
+        }
+      } catch (erro) {
+        logWarn("Falha ao obter regra percentual via configuração", {
+          indicadorNorm,
+          classeSelecionada,
+          erro,
+        });
+      }
+
+      logInfo("Regra percentual fallback asc aplicada", {
+        indicadorNorm,
+        classeSelecionada,
+        campo,
+        tipo,
+      });
+      return "asc";
+    }
+
+    // ✅ valor / moeda / número / inteiro => maior para menor
+    logInfo("Regra padrão descendente aplicada", {
+      indicadorNorm,
+      classeSelecionada,
+      campo,
+      tipo,
+    });
+    return "desc";
+  };
+
+  DashboardBI.helpers.getEstiloFaixaAuditoria = function (valor) {
+    const numero = Number(valor);
+
+    if (!Number.isFinite(numero)) {
+      return "";
+    }
+
+    if (numero <= 2.49) {
+      return "background:#e8f5e9;color:#1b5e20;font-weight:700;";
+    }
+
+    if (numero >= 2.5 && numero <= 2.99) {
+      return "background:#fff8e1;color:#8d6e00;font-weight:700;";
+    }
+
+    return "background:#ffebee;color:#b71c1c;font-weight:700;";
+  };
+
+  DashboardBI.helpers.formatarKpi = function (
+    valor,
+    { percentual = false, casas = 2, tipo = "numero" } = {}
+  ) {
+    const numero = Number(valor);
+    if (!isFinite(numero)) return "-";
+
+    if (DashboardBI.helpers.tipoMoeda(tipo)) {
+      return DashboardBI.helpers.formatarMoeda(numero);
+    }
+
+    if (percentual || DashboardBI.helpers.tipoPercentual(tipo)) {
+      return DashboardBI.helpers.formatarPercentual(numero, casas);
+    }
+
+    if (DashboardBI.helpers.tipoInteiro(tipo)) {
+      return DashboardBI.helpers.formatarInteiro(numero);
+    }
+
+    return DashboardBI.helpers.formatarNumero(numero, casas);
+  };
+
+  DashboardBI.helpers.menorEhMelhor = function (
+    tipoValorPrincipal,
+    campo = "mediaValor"
+  ) {
+    const state = DashboardBI.STATE || {};
+
+    const ordem = DashboardBI.helpers.getOrdemEspecialDashboard({
+      indicador: state.indicador,
+      classe: state.classe,
+      campo,
+      tipo: tipoValorPrincipal,
+    });
+
+    return ordem === "asc";
+  };
+
+  DashboardBI.helpers.formatarValor = function (valor, tipo = "numero") {
+    if (valor === null || valor === undefined || valor === "") return "-";
+
+    const numero = Number(valor);
+    if (isNaN(numero)) return "-";
+
+    // ✅ formatação determinística local (não depender de outro módulo)
+    if (DashboardBI.helpers.tipoMoeda(tipo)) {
+      return DashboardBI.helpers.formatarMoeda(numero);
+    }
+
+    if (DashboardBI.helpers.tipoPercentual(tipo)) {
+      return DashboardBI.helpers.formatarPercentual(numero, 2);
+    }
+
+    if (DashboardBI.helpers.tipoInteiro(tipo)) {
+      return DashboardBI.helpers.formatarInteiro(numero);
+    }
+
+    return DashboardBI.helpers.formatarNumero(numero, 2);
   };
 
   // ==========================
   // 📂 CLASSES / INDICADORES
   // ==========================
   DashboardBI.helpers.getClassesDisponiveis = function () {
-    if (typeof window.classesIndicadores === "object" && window.classesIndicadores) {
+    if (
+      typeof window.classesIndicadores === "object" &&
+      window.classesIndicadores
+    ) {
       return Object.keys(window.classesIndicadores);
     }
 
@@ -304,23 +691,34 @@ DashboardBI.helpers = DashboardBI.helpers || {};
         });
       });
 
+      logInfo("Indicadores por classe (TODAS) carregados", {
+        total: lista.length,
+      });
+
       return lista;
     }
 
     const itens = classesIndicadores?.[classe] || [];
 
-    return itens.map((item) => ({
+    const lista = itens.map((item) => ({
       nome: item?.nome || item,
       valor: item?.valor || item,
       classe,
     }));
+
+    logInfo("Indicadores por classe carregados", {
+      classe,
+      total: lista.length,
+    });
+
+    return lista;
   };
 
   // ==========================
   // 📈 CHARTS
   // ==========================
   DashboardBI.helpers.destruirGraficos = function () {
-    console.log("🧹 Destruindo gráficos antigos do dashboard...");
+    logInfo("Destruindo gráficos antigos do dashboard...");
 
     try {
       if (window.dashboardCharts?.evolucao) {
@@ -338,14 +736,14 @@ DashboardBI.helpers = DashboardBI.helpers || {};
         window.dashboardCharts.classes = null;
       }
     } catch (erro) {
-      console.error("❌ Erro ao destruir gráficos do dashboard:", erro);
+      logError("Erro ao destruir gráficos do dashboard", erro);
     }
   };
 
   DashboardBI.helpers.chartJsDisponivel = function () {
     const ok = typeof Chart !== "undefined";
     if (!ok) {
-      console.error("❌ Chart.js não encontrado no dashboard");
+      logError("Chart.js não encontrado no dashboard");
     }
     return ok;
   };
@@ -365,15 +763,21 @@ DashboardBI.helpers = DashboardBI.helpers || {};
       );
 
       canvas.parentElement.style.height = `${alturaCalculada}px`;
+
+      logInfo("Altura do chart ajustada", {
+        canvasId,
+        quantidade,
+        alturaCalculada,
+      });
     } catch (erro) {
-      console.warn("⚠️ Não foi possível ajustar altura do gráfico:", {
+      logWarn("Não foi possível ajustar altura do gráfico", {
         canvasId,
         erro,
       });
     }
   };
 
-  console.log("✅ dashboard-helpers.js pronto", {
+  logInfo("dashboard-helpers.js pronto", {
     helpers: Object.keys(DashboardBI.helpers || {}),
   });
 })();

@@ -564,14 +564,15 @@ function getConfigTabelaEspecial(indicador, classeSelecionada = null) {
   }
 
   if (indicadorNorm === "SELF-CHECKOUT") {
-    return {
-      titulo: "SELF-CHECKOUT",
-      col1: "Participação de Vendas",
-      col2: "Qtd Passantes",
-      tipo1: "moeda",
-      tipo2: "numero",
-    };
-  }
+  return {
+    titulo: "SELF-CHECKOUT",
+    col1: "Participação de Vendas",
+    col2: "Qtd Passantes",
+    tipo1: "moeda",
+    tipo2: "inteiro",
+  };
+}
+
 
   return {
     titulo: indicadorNorm,

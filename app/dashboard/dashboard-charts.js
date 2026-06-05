@@ -4,6 +4,46 @@ window.DashboardBI = window.DashboardBI || {};
 DashboardBI.charts = DashboardBI.charts || {};
 
 (function inicializarDashboardCharts() {
+  const LOG_PREFIX = "📉 DashboardCharts";
+
+  function logInfo(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.log(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.log(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function logWarn(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function logError(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.error(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.error(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function listaSegura(lista) {
+    return Array.isArray(lista) ? lista : [];
+  }
+
+  function numeroSeguro(valor, fallback = 0) {
+    const numero = Number(valor);
+    return Number.isFinite(numero) ? numero : fallback;
+  }
+
+  function textoSeguro(valor, fallback = "") {
+    const texto = (valor || "").toString().trim();
+    return texto || fallback;
+  }
+
   function destruirGraficoSeguro(chave) {
     try {
       if (window.dashboardCharts?.[chave]) {
@@ -11,32 +51,62 @@ DashboardBI.charts = DashboardBI.charts || {};
         window.dashboardCharts[chave] = null;
       }
     } catch (erro) {
-      console.warn(`⚠️ Falha ao destruir gráfico "${chave}"`, erro);
+      logWarn(`Falha ao destruir gráfico "${chave}"`, erro);
     }
   }
 
-  function formatarValorTooltip(valor, tipo) {
-    const isPercentual = DashboardBI.helpers.tipoPercentual(tipo);
-
-    return DashboardBI.helpers.formatarKpi(valor, {
-      percentual: isPercentual,
-      casas: 2,
-    });
+  function normalizarTipo(tipo) {
+    return DashboardBI.helpers.normalizarTextoLower(tipo || "numero");
   }
 
-  function callbackTicksPorTipo(tipo) {
-    const isPercentual = DashboardBI.helpers.tipoPercentual(tipo);
+  function tiposSaoDiferentes(tipoA, tipoB) {
+    return normalizarTipo(tipoA) !== normalizarTipo(tipoB);
+  }
 
+  function formatarValorTooltip(valor, tipo) {
+    return DashboardBI.helpers.formatarValor(valor, tipo);
+  }
+
+  function formatarTickPorTipo(valor, tipo, casas = 1) {
+    const numero = Number(valor);
+    if (!Number.isFinite(numero)) return "-";
+
+    if (DashboardBI.helpers.tipoMoeda(tipo)) {
+      return DashboardBI.helpers.formatarMoeda(numero);
+    }
+
+    if (DashboardBI.helpers.tipoPercentual(tipo)) {
+      return DashboardBI.helpers.formatarPercentual(numero, casas);
+    }
+
+    if (DashboardBI.helpers.tipoInteiro(tipo)) {
+      return DashboardBI.helpers.formatarInteiro(numero);
+    }
+
+    return DashboardBI.helpers.formatarNumero(numero, casas);
+  }
+
+  function callbackTicksPorTipo(tipo, { neutro = false, casas = 1 } = {}) {
     return function (value) {
       const numero = Number(value);
       if (!isFinite(numero)) return "-";
 
-      const texto = DashboardBI.helpers.formatarNumero(numero, 1);
-      return isPercentual ? `${texto}%` : texto;
+      if (neutro) {
+        return DashboardBI.helpers.formatarNumero(numero, casas);
+      }
+
+      return formatarTickPorTipo(numero, tipo, casas);
     };
   }
 
-  function gerarDatasetBarra({ label, data, backgroundColor, borderColor }) {
+  function gerarDatasetBarra({
+    label,
+    data,
+    backgroundColor,
+    borderColor,
+    xAxisID = "x",
+    tipo = "numero",
+  }) {
     return {
       label,
       data,
@@ -47,6 +117,8 @@ DashboardBI.charts = DashboardBI.charts || {};
       maxBarThickness: 14,
       categoryPercentage: 0.82,
       barPercentage: 0.76,
+      xAxisID,
+      _tipoValor: tipo,
     };
   }
 
@@ -59,6 +131,8 @@ DashboardBI.charts = DashboardBI.charts || {};
     fill = false,
     pointRadius = 3,
     pointHoverRadius = 4,
+    yAxisID = "y",
+    tipo = "numero",
   }) {
     return {
       label,
@@ -70,6 +144,138 @@ DashboardBI.charts = DashboardBI.charts || {};
       fill,
       pointRadius,
       pointHoverRadius,
+      yAxisID,
+      _tipoValor: tipo,
+    };
+  }
+
+  function criarEscalasLinha({
+    tipoValorPrincipal = "numero",
+    tipoValorSecundario = "numero",
+    usarSegundoEixo = false,
+  }) {
+    const tiposDiferentes = tiposSaoDiferentes(
+      tipoValorPrincipal,
+      tipoValorSecundario
+    );
+
+    const scales = {
+      x: {
+        ticks: {
+          color: "#5a6872",
+          font: {
+            size: 12,
+          },
+        },
+        grid: {
+          color: "rgba(10, 61, 98, 0.06)",
+        },
+      },
+      y: {
+        beginAtZero: true,
+        ticks: {
+          color: "#5a6872",
+          font: {
+            size: 12,
+          },
+          callback: callbackTicksPorTipo(tipoValorPrincipal, {
+            neutro: usarSegundoEixo && tiposDiferentes,
+            casas: 1,
+          }),
+        },
+        grid: {
+          color: "rgba(10, 61, 98, 0.06)",
+        },
+      },
+    };
+
+    if (usarSegundoEixo && tiposDiferentes) {
+      scales.y1 = {
+        beginAtZero: true,
+        position: "right",
+        ticks: {
+          color: "#4CAF50",
+          font: {
+            size: 12,
+          },
+          callback: callbackTicksPorTipo(tipoValorSecundario, { casas: 1 }),
+        },
+        grid: {
+          drawOnChartArea: false,
+        },
+      };
+    }
+
+    return scales;
+  }
+
+  function criarEscalasBarraHorizontal({
+    tipoValorPrincipal = "numero",
+    tipoValorSecundario = "numero",
+    usarSegundoEixo = false,
+  }) {
+    const tiposDiferentes = tiposSaoDiferentes(
+      tipoValorPrincipal,
+      tipoValorSecundario
+    );
+
+    const scales = {
+      x: {
+        beginAtZero: true,
+        ticks: {
+          color: "#5a6872",
+          font: {
+            size: 12,
+          },
+          callback: callbackTicksPorTipo(tipoValorPrincipal, {
+            neutro: usarSegundoEixo && tiposDiferentes,
+            casas: 1,
+          }),
+        },
+        grid: {
+          color: "rgba(10, 61, 98, 0.06)",
+        },
+      },
+      y: {
+        ticks: {
+          color: "#5a6872",
+          font: {
+            size: 12,
+          },
+        },
+        grid: {
+          display: false,
+        },
+      },
+    };
+
+    if (usarSegundoEixo && tiposDiferentes) {
+      scales.x1 = {
+        beginAtZero: true,
+        position: "top",
+        ticks: {
+          color: "#4CAF50",
+          font: {
+            size: 12,
+          },
+          callback: callbackTicksPorTipo(tipoValorSecundario, { casas: 1 }),
+        },
+        grid: {
+          drawOnChartArea: false,
+        },
+      };
+    }
+
+    return scales;
+  }
+
+  function callbackTooltipPorDataset() {
+    return function (ctx) {
+      const datasetLabel = ctx.dataset?.label || "Valor";
+      const valor = ctx.raw;
+      const tipo = ctx.dataset?._tipoValor || "numero";
+
+      return `${datasetLabel}: ${formatarValorTooltip(valor, tipo)}`;
     };
   }
 
@@ -84,11 +290,11 @@ DashboardBI.charts = DashboardBI.charts || {};
     tipoValorSecundario,
     modoEvolucao = "padrao",
   }) {
-    console.log("📈 Renderizando gráficos do dashboard...", {
+    logInfo("Renderizando gráficos do dashboard...", {
       tipoRanking,
       modoEvolucao,
-      evolucaoQtd: evolucao?.length || 0,
-      rankingQtd: ranking?.length || 0,
+      evolucaoQtd: listaSegura(evolucao).length,
+      rankingQtd: listaSegura(ranking).length,
       tipoValorPrincipal,
       tipoValorSecundario,
     });
@@ -101,17 +307,17 @@ DashboardBI.charts = DashboardBI.charts || {};
           evolucao,
           tipoValorPrincipal,
           tipoValorSecundario,
-          modoEvolucao,
+          modoEvolucao
         );
 
         DashboardBI.charts.renderGraficoRankingDashboard(
           ranking,
           tipoRanking,
           tipoValorPrincipal,
-          tipoValorSecundario,
+          tipoValorSecundario
         );
       } catch (erro) {
-        console.error("❌ Erro ao renderizar gráficos do dashboard:", erro);
+        logError("Erro ao renderizar gráficos do dashboard", erro);
       }
     });
   };
@@ -120,155 +326,151 @@ DashboardBI.charts = DashboardBI.charts || {};
   // 📈 GRÁFICO DE EVOLUÇÃO
   // ==========================
   DashboardBI.charts.renderGraficoEvolucaoDashboard = function (
-  evolucao,
-  tipoValorPrincipal,
-  tipoValorSecundario,
-  modoEvolucao = "padrao"
-) {
-  const canvas = document.getElementById("graficoEvolucao");
-  if (!canvas) {
-    console.warn("⚠️ Canvas graficoEvolucao não encontrado");
-    return;
-  }
+    evolucao,
+    tipoValorPrincipal,
+    tipoValorSecundario,
+    modoEvolucao = "padrao"
+  ) {
+    const canvas = document.getElementById("graficoEvolucao");
+    if (!canvas) {
+      logWarn("Canvas graficoEvolucao não encontrado");
+      return;
+    }
 
-  destruirGraficoSeguro("evolucao");
+    destruirGraficoSeguro("evolucao");
 
-  const lista = evolucao || [];
-  const labels = lista.map((item) => `Sem ${item.semana}`);
+    const lista = listaSegura(evolucao);
+    const labels = lista.map((item) => `Sem ${item.semana}`);
 
-  let datasets = [];
+    let datasets = [];
+    let scales = {};
 
-  if (modoEvolucao === "regional-comparativo") {
-    const dadosNE1 = lista.map((item) => Number(item.mediaNE1 || 0));
-    const dadosNE2 = lista.map((item) => Number(item.mediaNE2 || 0));
+    if (modoEvolucao === "regional-comparativo") {
+      const dadosNE1 = lista.map((item) => numeroSeguro(item.mediaNE1));
+      const dadosNE2 = lista.map((item) => numeroSeguro(item.mediaNE2));
 
-    datasets = [
-      gerarDatasetLinha({
-        label: "Valor Regional NE1",
-        data: dadosNE1,
-        borderColor: "#1e6091",
-        backgroundColor: "rgba(30, 96, 145, 0.15)",
-        borderWidth: 3,
-        fill: false,
-        pointRadius: 4,
-        pointHoverRadius: 5,
-      }),
-      gerarDatasetLinha({
-        label: "Valor Regional NE2",
-        data: dadosNE2,
-        borderColor: "#4CAF50",
-        backgroundColor: "rgba(76, 175, 80, 0.15)",
-        borderWidth: 3,
-        fill: false,
-        pointRadius: 4,
-        pointHoverRadius: 5,
-      }),
-    ];
-  } else {
-    const dadosValor = lista.map((item) => Number(item.mediaValor || 0));
-    const dadosValor2 = lista.map((item) => Number(item.mediaValor2 || 0));
-    const temValor2 = dadosValor2.some((v) => v !== 0);
-
-    datasets = [
-      gerarDatasetLinha({
-        label: `Valor principal (${tipoValorPrincipal})`,
-        data: dadosValor,
-        borderColor: "#1e6091",
-        backgroundColor: "rgba(30, 96, 145, 0.15)",
-        borderWidth: 3,
-        fill: true,
-        pointRadius: 4,
-        pointHoverRadius: 5,
-      }),
-    ];
-
-    if (temValor2) {
-      datasets.push(
+      datasets = [
         gerarDatasetLinha({
-          label: `Valor 2 (${tipoValorSecundario})`,
-          data: dadosValor2,
+          label: "Valor Regional NE1",
+          data: dadosNE1,
+          borderColor: "#1e6091",
+          backgroundColor: "rgba(30, 96, 145, 0.15)",
+          borderWidth: 3,
+          fill: false,
+          pointRadius: 4,
+          pointHoverRadius: 5,
+          yAxisID: "y",
+          tipo: tipoValorPrincipal,
+        }),
+        gerarDatasetLinha({
+          label: "Valor Regional NE2",
+          data: dadosNE2,
           borderColor: "#4CAF50",
           backgroundColor: "rgba(76, 175, 80, 0.15)",
-          borderWidth: 2,
+          borderWidth: 3,
           fill: false,
-          pointRadius: 3,
-          pointHoverRadius: 4,
-        })
-      );
+          pointRadius: 4,
+          pointHoverRadius: 5,
+          yAxisID: "y",
+          tipo: tipoValorPrincipal,
+        }),
+      ];
+
+      scales = criarEscalasLinha({
+        tipoValorPrincipal,
+        tipoValorSecundario: tipoValorPrincipal,
+        usarSegundoEixo: false,
+      });
+    } else {
+      const dadosValor = lista.map((item) => numeroSeguro(item.mediaValor));
+      const dadosValor2 = lista.map((item) => numeroSeguro(item.mediaValor2));
+      const temValor2 = dadosValor2.some((v) => v !== 0);
+
+      const usarSegundoEixo = temValor2 && tiposSaoDiferentes(tipoValorPrincipal, tipoValorSecundario);
+
+      datasets = [
+        gerarDatasetLinha({
+          label: `Valor principal (${tipoValorPrincipal})`,
+          data: dadosValor,
+          borderColor: "#1e6091",
+          backgroundColor: "rgba(30, 96, 145, 0.15)",
+          borderWidth: 3,
+          fill: true,
+          pointRadius: 4,
+          pointHoverRadius: 5,
+          yAxisID: "y",
+          tipo: tipoValorPrincipal,
+        }),
+      ];
+
+      if (temValor2) {
+        datasets.push(
+          gerarDatasetLinha({
+            label: `Valor 2 (${tipoValorSecundario})`,
+            data: dadosValor2,
+            borderColor: "#4CAF50",
+            backgroundColor: "rgba(76, 175, 80, 0.15)",
+            borderWidth: 2,
+            fill: false,
+            pointRadius: 3,
+            pointHoverRadius: 4,
+            yAxisID: usarSegundoEixo ? "y1" : "y",
+            tipo: tipoValorSecundario,
+          })
+        );
+      }
+
+      scales = criarEscalasLinha({
+        tipoValorPrincipal,
+        tipoValorSecundario,
+        usarSegundoEixo,
+      });
     }
-  }
 
-  window.dashboardCharts.evolucao = new Chart(canvas, {
-    type: "line",
-    data: {
-      labels,
-      datasets,
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: true,
-          labels: {
-            font: {
-              size: 12,
+    window.dashboardCharts = window.dashboardCharts || {};
+
+    window.dashboardCharts.evolucao = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels,
+        datasets,
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            labels: {
+              font: {
+                size: 12,
+              },
+            },
+          },
+          tooltip: {
+            mode: "index",
+            intersect: false,
+            callbacks: {
+              label: callbackTooltipPorDataset(),
             },
           },
         },
-        tooltip: {
-          mode: "index",
+        interaction: {
+          mode: "nearest",
           intersect: false,
-          callbacks: {
-            label: function (ctx) {
-              const datasetLabel = ctx.dataset?.label || "Valor";
-              const valor = ctx.raw;
-              return `${datasetLabel}: ${DashboardBI.helpers.formatarKpi(valor, {
-                percentual: DashboardBI.helpers.tipoPercentual(tipoValorPrincipal),
-                casas: 2,
-              })}`;
-            },
-          },
         },
+        scales,
       },
-      interaction: {
-        mode: "nearest",
-        intersect: false,
-      },
-      scales: {
-        x: {
-          ticks: {
-            color: "#5a6872",
-            font: {
-              size: 12,
-            },
-          },
-          grid: {
-            color: "rgba(10, 61, 98, 0.06)",
-          },
-        },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            color: "#5a6872",
-            font: {
-              size: 12,
-            },
-            callback: callbackTicksPorTipo(tipoValorPrincipal),
-          },
-          grid: {
-            color: "rgba(10, 61, 98, 0.06)",
-          },
-        },
-      },
-    },
-  });
+    });
 
-  console.log("✅ Gráfico de evolução renderizado", {
-    modoEvolucao,
-    totalPontos: lista.length,
-  });
-};
+    logInfo("Gráfico de evolução renderizado", {
+      modoEvolucao,
+      totalPontos: lista.length,
+      totalDatasets: datasets.length,
+      tipoValorPrincipal,
+      tipoValorSecundario,
+    });
+  };
 
   // ==========================
   // 🏆 GRÁFICO DE RANKING
@@ -277,17 +479,17 @@ DashboardBI.charts = DashboardBI.charts || {};
     ranking,
     tipoRanking,
     tipoValorPrincipal,
-    tipoValorSecundario,
+    tipoValorSecundario
   ) {
     const canvas = document.getElementById("graficoRanking");
     if (!canvas) {
-      console.warn("⚠️ Canvas graficoRanking não encontrado");
+      logWarn("Canvas graficoRanking não encontrado");
       return;
     }
 
     destruirGraficoSeguro("ranking");
 
-    const lista = ranking || [];
+    const lista = listaSegura(ranking);
 
     DashboardBI.helpers.ajustarAlturaChartBox(
       "graficoRanking",
@@ -296,18 +498,20 @@ DashboardBI.charts = DashboardBI.charts || {};
         minimo: 220,
         maximo: 360,
         pxPorItem: 20,
-      },
+      }
     );
 
     let labels = [];
     let datasets = [];
+    let scales = {};
 
     if (tipoRanking === "lojas") {
       labels = lista.map((item) => item.loja);
 
-      const dadosValor = lista.map((item) => Number(item.mediaValor || 0));
-      const dadosValor2 = lista.map((item) => Number(item.mediaValor2 || 0));
+      const dadosValor = lista.map((item) => numeroSeguro(item.mediaValor));
+      const dadosValor2 = lista.map((item) => numeroSeguro(item.mediaValor2));
       const temValor2 = dadosValor2.some((v) => v !== 0);
+      const usarSegundoEixo = temValor2 && tiposSaoDiferentes(tipoValorPrincipal, tipoValorSecundario);
 
       datasets = [
         gerarDatasetBarra({
@@ -315,6 +519,8 @@ DashboardBI.charts = DashboardBI.charts || {};
           data: dadosValor,
           backgroundColor: "rgba(30, 96, 145, 0.78)",
           borderColor: "#1e6091",
+          xAxisID: "x",
+          tipo: tipoValorPrincipal,
         }),
       ];
 
@@ -325,15 +531,24 @@ DashboardBI.charts = DashboardBI.charts || {};
             data: dadosValor2,
             backgroundColor: "rgba(76, 175, 80, 0.78)",
             borderColor: "#4CAF50",
-          }),
+            xAxisID: usarSegundoEixo ? "x1" : "x",
+            tipo: tipoValorSecundario,
+          })
         );
       }
+
+      scales = criarEscalasBarraHorizontal({
+        tipoValorPrincipal,
+        tipoValorSecundario,
+        usarSegundoEixo,
+      });
     } else {
       labels = lista.map((item) => item.indicador);
 
-      const dadosValor = lista.map((item) => Number(item.mediaValor || 0));
-      const dadosValor2 = lista.map((item) => Number(item.mediaValor2 || 0));
+      const dadosValor = lista.map((item) => numeroSeguro(item.mediaValor));
+      const dadosValor2 = lista.map((item) => numeroSeguro(item.mediaValor2));
       const temValor2 = dadosValor2.some((v) => v !== 0);
+      const usarSegundoEixo = temValor2 && tiposSaoDiferentes(tipoValorPrincipal, tipoValorSecundario);
 
       datasets = [
         gerarDatasetBarra({
@@ -341,6 +556,8 @@ DashboardBI.charts = DashboardBI.charts || {};
           data: dadosValor,
           backgroundColor: "rgba(156, 39, 176, 0.78)",
           borderColor: "#9C27B0",
+          xAxisID: "x",
+          tipo: tipoValorPrincipal,
         }),
       ];
 
@@ -351,10 +568,20 @@ DashboardBI.charts = DashboardBI.charts || {};
             data: dadosValor2,
             backgroundColor: "rgba(76, 175, 80, 0.78)",
             borderColor: "#4CAF50",
-          }),
+            xAxisID: usarSegundoEixo ? "x1" : "x",
+            tipo: tipoValorSecundario,
+          })
         );
       }
+
+      scales = criarEscalasBarraHorizontal({
+        tipoValorPrincipal,
+        tipoValorSecundario,
+        usarSegundoEixo,
+      });
     }
+
+    window.dashboardCharts = window.dashboardCharts || {};
 
     window.dashboardCharts.ranking = new Chart(canvas, {
       type: "bar",
@@ -379,58 +606,24 @@ DashboardBI.charts = DashboardBI.charts || {};
           },
           tooltip: {
             callbacks: {
-              label: function (ctx) {
-                const datasetLabel = ctx.dataset?.label || "Valor";
-                const valor = ctx.raw;
-                const usaTipo =
-                  ctx.datasetIndex === 0
-                    ? tipoValorPrincipal
-                    : tipoValorSecundario;
-
-                return `${datasetLabel}: ${formatarValorTooltip(
-                  valor,
-                  usaTipo,
-                )}`;
-              },
+              label: callbackTooltipPorDataset(),
             },
           },
         },
-        scales: {
-          x: {
-            beginAtZero: true,
-            ticks: {
-              color: "#5a6872",
-              font: {
-                size: 12,
-              },
-              callback: callbackTicksPorTipo(tipoValorPrincipal),
-            },
-            grid: {
-              color: "rgba(10, 61, 98, 0.06)",
-            },
-          },
-          y: {
-            ticks: {
-              color: "#5a6872",
-              font: {
-                size: 12,
-              },
-            },
-            grid: {
-              display: false,
-            },
-          },
-        },
+        scales,
       },
     });
 
-    console.log("✅ Gráfico de ranking renderizado", {
+    logInfo("Gráfico de ranking renderizado", {
       tipoRanking,
       total: lista.length,
+      totalDatasets: datasets.length,
+      tipoValorPrincipal,
+      tipoValorSecundario,
     });
   };
 
-  console.log("✅ dashboard-charts.js pronto", {
+  logInfo("dashboard-charts.js pronto", {
     renderGraficosDashboard: typeof DashboardBI.charts.renderGraficosDashboard,
     renderGraficoEvolucaoDashboard:
       typeof DashboardBI.charts.renderGraficoEvolucaoDashboard,

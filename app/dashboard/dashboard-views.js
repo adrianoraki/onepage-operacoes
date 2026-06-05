@@ -4,12 +4,62 @@ window.DashboardBI = window.DashboardBI || {};
 DashboardBI.views = DashboardBI.views || {};
 
 (function inicializarDashboardViews() {
+  const LOG_PREFIX = "🖼️ DashboardViews";
+
+  function logInfo(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.log(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.log(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function logWarn(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function logError(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.error(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.error(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
   function getState() {
     return DashboardBI.STATE || {};
   }
 
   function getAlvoDashboard() {
     return document.getElementById("dashboardConteudo");
+  }
+
+  function listaSegura(lista) {
+    return Array.isArray(lista) ? lista : [];
+  }
+
+  function textoSeguro(valor, fallback = "") {
+    const texto = (valor || "").toString().trim();
+    return texto || fallback;
+  }
+
+  function numeroSeguro(valor, fallback = 0) {
+    const numero = Number(valor);
+    return Number.isFinite(numero) ? numero : fallback;
+  }
+
+  function escapeHtml(valor) {
+    return (valor || "")
+      .toString()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
   function getTipoValorPrincipalAtual() {
@@ -40,6 +90,25 @@ DashboardBI.views = DashboardBI.views || {};
     return "numero";
   }
 
+  function getCampoResultadoRegionalAtual() {
+    const state = getState();
+    const indicadorNorm = DashboardBI.helpers.normalizarTextoUpper(
+      state.indicador || ""
+    );
+
+    // ✅ Mantém o principal como padrão.
+    // Se futuramente houver seletor explícito para Horas -, o data.js pode passar mediaValor2.
+    if (
+      indicadorNorm === "BANCOS DE HORAS" ||
+      indicadorNorm === "BANCO DE HORAS" ||
+      indicadorNorm === "RH / OPERACIONAL"
+    ) {
+      return "mediaValor";
+    }
+
+    return "mediaValor";
+  }
+
   function getDescricaoPeriodoCurta(
     info = null,
     fallback = "período selecionado"
@@ -50,9 +119,7 @@ DashboardBI.views = DashboardBI.views || {};
 
   function usuarioEhGlobal(contexto) {
     const escopo = contexto?.escopo || {};
-    const perfil = (contexto?.usuario?.perfil || "")
-      .toString()
-      .toLowerCase();
+    const perfil = (contexto?.usuario?.perfil || "").toString().toLowerCase();
 
     return escopo.tipo === "global" || perfil === "master";
   }
@@ -90,7 +157,7 @@ DashboardBI.views = DashboardBI.views || {};
       loja: lojaFinal,
     });
 
-    console.log("🧠 Estado inicial do dashboard normalizado pelo contexto:", {
+    logInfo("Estado inicial do dashboard normalizado pelo contexto", {
       visaoFinal,
       escopoTipo,
       ehGlobal,
@@ -108,13 +175,64 @@ DashboardBI.views = DashboardBI.views || {};
     return `
       <div class="dashboard-card ${spanClass}">
         <div class="dashboard-card-header">
-          <span class="dashboard-card-titulo">${titulo}</span>
-          <span class="dashboard-card-subtitulo">${descricao}</span>
+          <span class="dashboard-card-titulo">${escapeHtml(titulo)}</span>
+          <span class="dashboard-card-subtitulo">${escapeHtml(descricao)}</span>
         </div>
-        <div class="dashboard-grafico-area" style="min-height:140px; display:flex; align-items:center; justify-content:center;">
+        <div
+          class="dashboard-grafico-area"
+          style="min-height:140px; display:flex; align-items:center; justify-content:center;"
+        >
           <span style="color:#6b7280; font-weight:600;">Nenhum dado encontrado.</span>
         </div>
       </div>
+    `;
+  }
+
+  function montarLinhaRanking({
+    idx,
+    item,
+    colunaNome,
+    tipoValor,
+    getNomeItem,
+    getResultado,
+    getQtd,
+    colorirFaixaAuditoria = false,
+    getLinhaStyle = null,
+    getLinhaClass = null,
+  }) {
+    const nomeItem = textoSeguro(getNomeItem(item), "-");
+    const resultado = numeroSeguro(getResultado(item), 0);
+    const qtd =
+      typeof getQtd === "function" ? numeroSeguro(getQtd(item), 0) : null;
+
+    const estiloAuditoria = colorirFaixaAuditoria
+      ? DashboardBI.helpers.getEstiloFaixaAuditoria(resultado)
+      : "";
+
+    const estiloExtra =
+      typeof getLinhaStyle === "function" ? getLinhaStyle(item, idx) : "";
+
+    const classeExtra =
+      typeof getLinhaClass === "function" ? getLinhaClass(item, idx) : "";
+
+    const estiloFinal = [estiloAuditoria, estiloExtra]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    return `
+      <tr ${classeExtra ? `class="${escapeHtml(classeExtra)}"` : ""} ${
+        estiloFinal ? `style="${escapeHtml(estiloFinal)}"` : ""
+      }>
+        <td>${idx + 1}</td>
+        <td>${escapeHtml(nomeItem)}</td>
+        <td>${escapeHtml(DashboardBI.helpers.formatarValor(resultado, tipoValor))}</td>
+        ${
+          typeof getQtd === "function"
+            ? `<td>${escapeHtml(String(qtd ?? 0))}</td>`
+            : ""
+        }
+      </tr>
     `;
   }
 
@@ -133,14 +251,26 @@ DashboardBI.views = DashboardBI.views || {};
     getResultado = (item) => item?.mediaValor ?? item?.media ?? 0,
     getQtd = null,
     spanClass = "span-6",
+    colorirFaixaAuditoria = false,
+    getLinhaStyle = null,
+    getLinhaClass = null,
   }) {
-    const isPercentual = DashboardBI.helpers.tipoPercentual(tipoValorPrincipal);
+    const dados = listaSegura(lista);
+    const colspan = typeof getQtd === "function" ? 4 : 3;
+
+    logInfo("Renderizando tabela de ranking padrão", {
+      titulo,
+      total: dados.length,
+      tipoValorPrincipal,
+      colorirFaixaAuditoria,
+      spanClass,
+    });
 
     return `
       <div class="dashboard-card ${spanClass}">
         <div class="dashboard-card-header">
-          <span class="dashboard-card-titulo">${titulo}</span>
-          <span class="dashboard-card-subtitulo">${subtitulo}</span>
+          <span class="dashboard-card-titulo">${escapeHtml(titulo)}</span>
+          <span class="dashboard-card-subtitulo">${escapeHtml(subtitulo)}</span>
         </div>
 
         <div class="tabela-container">
@@ -148,41 +278,33 @@ DashboardBI.views = DashboardBI.views || {};
             <thead>
               <tr>
                 <th>#</th>
-                <th>${colunaNome}</th>
-                <th>${colunaResultado}</th>
+                <th>${escapeHtml(colunaNome)}</th>
+                <th>${escapeHtml(colunaResultado)}</th>
                 ${typeof getQtd === "function" ? "<th>Qtd</th>" : ""}
               </tr>
             </thead>
             <tbody>
               ${
-                (lista || []).length
-                  ? (lista || [])
-                      .map((item, idx) => {
-                        const nomeItem = getNomeItem(item);
-                        const resultado = getResultado(item);
-                        const qtd =
-                          typeof getQtd === "function" ? getQtd(item) : null;
-
-                        return `
-                          <tr>
-                            <td>${idx + 1}</td>
-                            <td>${nomeItem}</td>
-                            <td>${DashboardBI.helpers.formatarKpi(resultado, {
-                              percentual: isPercentual,
-                              casas: 2,
-                            })}</td>
-                            ${
-                              typeof getQtd === "function"
-                                ? `<td>${qtd ?? 0}</td>`
-                                : ""
-                            }
-                          </tr>
-                        `;
-                      })
+                dados.length
+                  ? dados
+                      .map((item, idx) =>
+                        montarLinhaRanking({
+                          idx,
+                          item,
+                          colunaNome,
+                          tipoValor: tipoValorPrincipal,
+                          getNomeItem,
+                          getResultado,
+                          getQtd,
+                          colorirFaixaAuditoria,
+                          getLinhaStyle,
+                          getLinhaClass,
+                        })
+                      )
                       .join("")
                   : `
                     <tr>
-                      <td colspan="${typeof getQtd === "function" ? 4 : 3}">
+                      <td colspan="${colspan}">
                         Sem dados para exibir.
                       </td>
                     </tr>
@@ -225,7 +347,20 @@ DashboardBI.views = DashboardBI.views || {};
     tipoValorPrincipal = "numero",
     subtituloNE1 = "Lojas da regional NE1",
     subtituloNE2 = "Lojas da regional NE2",
+    campoResultado = "mediaValor",
+    getNomeItem = (item) => item?.loja || "-",
+    getQtd = null,
   }) {
+    const colorirFaixaAuditoria = DashboardBI.helpers.rankingEhAuditoria();
+
+    logInfo("Renderizando colunas de ranking regionais", {
+      totalNE1: listaSegura(rankingNE1).length,
+      totalNE2: listaSegura(rankingNE2).length,
+      tipoValorPrincipal,
+      campoResultado,
+      colorirFaixaAuditoria,
+    });
+
     return `
       ${DashboardBI.views.renderTabelaRankingPadrao({
         titulo: "Ranking NE1",
@@ -234,9 +369,11 @@ DashboardBI.views = DashboardBI.views || {};
         colunaResultado: "Resultado",
         lista: rankingNE1,
         tipoValorPrincipal,
-        getNomeItem: (item) => item?.loja || "-",
-        getResultado: (item) => item?.mediaValor ?? 0,
+        getNomeItem,
+        getResultado: (item) => item?.[campoResultado] ?? 0,
+        getQtd,
         spanClass: "span-6",
+        colorirFaixaAuditoria,
       })}
 
       ${DashboardBI.views.renderTabelaRankingPadrao({
@@ -246,9 +383,11 @@ DashboardBI.views = DashboardBI.views || {};
         colunaResultado: "Resultado",
         lista: rankingNE2,
         tipoValorPrincipal,
-        getNomeItem: (item) => item?.loja || "-",
-        getResultado: (item) => item?.mediaValor ?? 0,
+        getNomeItem,
+        getResultado: (item) => item?.[campoResultado] ?? 0,
+        getQtd,
         spanClass: "span-6",
+        colorirFaixaAuditoria,
       })}
     `;
   };
@@ -257,16 +396,16 @@ DashboardBI.views = DashboardBI.views || {};
   // 🧱 TELA BASE DO DASHBOARD
   // ==========================
   DashboardBI.views.telaDashboard = async function () {
-    console.log("📊 Iniciando DashboardBI.views.telaDashboard...");
+    logInfo("Iniciando DashboardBI.views.telaDashboard...");
 
     const container = document.getElementById("conteudo");
     if (!container) {
-      console.error("❌ #conteudo não encontrado para dashboard");
+      logError("#conteudo não encontrado para dashboard");
       return;
     }
 
     if (!window.db) {
-      console.error("❌ window.db não disponível no dashboard");
+      logError("window.db não disponível no dashboard");
       if (typeof window.mostrarErro === "function") {
         window.mostrarErro("Conexão com banco não iniciada");
       }
@@ -279,14 +418,14 @@ DashboardBI.views = DashboardBI.views || {};
         : null;
 
     if (!contexto) {
-      console.error("❌ Contexto do dashboard não encontrado");
+      logError("Contexto do dashboard não encontrado");
       if (typeof window.mostrarErro === "function") {
         window.mostrarErro("Usuário sem contexto de dashboard");
       }
       return;
     }
 
-    console.log("🧠 Contexto recebido no dashboard:", contexto);
+    logInfo("Contexto recebido no dashboard", contexto);
 
     normalizarEstadoInicialDashboard(contexto);
     const state = getState();
@@ -429,14 +568,14 @@ DashboardBI.views = DashboardBI.views || {};
     semanasMesInfo,
     usandoFallback,
   }) {
-    console.log("🏪 Renderizando visão gerencial...");
+    logInfo("Renderizando visão gerencial...");
 
     const alvo = getAlvoDashboard();
     if (!alvo) return;
 
     DashboardBI.filters.popularSelectLojasDashboard(lojasEscopoBase);
 
-    const resultadosMes = resultados || [];
+    const resultadosMes = listaSegura(resultados);
     const resultadosRankingBase = resultadosRanking || resultadosMes || [];
 
     const evolucao = DashboardBI.aggregations.agruparEvolucaoDashboard(
@@ -444,7 +583,7 @@ DashboardBI.views = DashboardBI.views || {};
       semanasJanela
     );
 
-    const listaRankingIndicadores = rankingIndicadores?.length
+    const listaRankingIndicadores = listaSegura(rankingIndicadores).length
       ? rankingIndicadores
       : DashboardBI.aggregations.agruparRankingIndicadoresPorPeriodoDashboard(
           resultadosRankingBase,
@@ -458,7 +597,7 @@ DashboardBI.views = DashboardBI.views || {};
       );
 
     const tituloLoja =
-      lojas?.length === 1
+      listaSegura(lojas).length === 1
         ? DashboardBI.helpers.getChaveLoja(lojas[0])
         : contexto?.escopo?.loja || "Visão Gerencial";
 
@@ -486,7 +625,7 @@ DashboardBI.views = DashboardBI.views || {};
     alvo.innerHTML = `
       ${DashboardBI.kpis.renderKPIsGerenciais({
         tituloLoja,
-        totalLojas: lojas?.length || 0,
+        totalLojas: listaSegura(lojas).length || 0,
         mediaPrimeira: mediasMensais.mediaPrimeira,
         mediaUltima: mediasMensais.mediaUltima,
         mediaMensal: mediasMensais.mediaMensal,
@@ -497,7 +636,7 @@ DashboardBI.views = DashboardBI.views || {};
       <div class="dashboard-card dashboard-grafico span-8">
         <div class="dashboard-card-header">
           <span class="dashboard-card-titulo">Evolução semanal</span>
-          <span class="dashboard-card-subtitulo">${descricaoPeriodoDashboard}</span>
+          <span class="dashboard-card-subtitulo">${escapeHtml(descricaoPeriodoDashboard)}</span>
         </div>
         <div class="dashboard-chart-box">
           <canvas id="graficoEvolucao"></canvas>
@@ -507,7 +646,7 @@ DashboardBI.views = DashboardBI.views || {};
       <div class="dashboard-card dashboard-grafico span-4">
         <div class="dashboard-card-header">
           <span class="dashboard-card-titulo">Ranking por indicador</span>
-          <span class="dashboard-card-subtitulo">${descricaoPeriodoRanking}</span>
+          <span class="dashboard-card-subtitulo">${escapeHtml(descricaoPeriodoRanking)}</span>
         </div>
         <div class="dashboard-chart-box">
           <canvas id="graficoRanking"></canvas>
@@ -529,6 +668,13 @@ DashboardBI.views = DashboardBI.views || {};
       tipoValorSecundario,
       modoEvolucao: "padrao",
     });
+
+    logInfo("Visão gerencial renderizada", {
+      totalResultados: resultadosMes.length,
+      totalRankingIndicadores: listaRankingIndicadores.length,
+      tipoValorPrincipal,
+      tipoValorSecundario,
+    });
   };
 
   // ==========================
@@ -549,23 +695,24 @@ DashboardBI.views = DashboardBI.views || {};
     rankingNE1 = [],
     rankingNE2 = [],
     evolucaoComparativaRegional = [],
+    campoResultadoRankingRegional = null,
+    tipoValorRankingRegional = null,
   }) {
-    console.log("🌍 Renderizando visão regional...");
+    logInfo("Renderizando visão regional...");
 
     const alvo = getAlvoDashboard();
     if (!alvo) return;
 
-    const resultadosMes = resultados || [];
-    const resultadosEscopoCompleto = resultadosEscopoBase || [];
+    const resultadosMes = listaSegura(resultados);
+    const resultadosEscopoCompleto = listaSegura(resultadosEscopoBase);
     const resultadosRankingBase = resultadosRanking || resultadosMes || [];
 
-    const evolucao =
-      evolucaoComparativaRegional?.length
-        ? evolucaoComparativaRegional
-        : DashboardBI.aggregations.agruparEvolucaoDashboard(
-            resultadosMes,
-            semanasJanela
-          );
+    const evolucao = listaSegura(evolucaoComparativaRegional).length
+      ? evolucaoComparativaRegional
+      : DashboardBI.aggregations.agruparEvolucaoDashboard(
+          resultadosMes,
+          semanasJanela
+        );
 
     const rankingConsolidado =
       DashboardBI.aggregations.agruparRankingLojasPorPeriodoDashboard(
@@ -575,6 +722,15 @@ DashboardBI.views = DashboardBI.views || {};
 
     const tipoValorPrincipal = getTipoValorPrincipalAtual();
     const tipoValorSecundario = getTipoValorSecundarioAtual();
+
+    const campoResultadoRegional =
+      campoResultadoRankingRegional || getCampoResultadoRegionalAtual();
+
+    const tipoValorRegional =
+      tipoValorRankingRegional ||
+      (campoResultadoRegional === "mediaValor2"
+        ? tipoValorSecundario
+        : tipoValorPrincipal);
 
     const descricaoPeriodoDashboard = getDescricaoPeriodoCurta(
       periodoDashboardInfo,
@@ -586,23 +742,21 @@ DashboardBI.views = DashboardBI.views || {};
       "período do ranking"
     );
 
-    console.log("📊 Dados regionais preparados:", {
+    logInfo("Dados regionais preparados", {
       resultadosMes: resultadosMes.length,
       resultadosEscopoCompleto: resultadosEscopoCompleto.length,
       rankingConsolidado: rankingConsolidado.length,
-      rankingNE1: (rankingNE1 || []).length,
-      rankingNE2: (rankingNE2 || []).length,
+      rankingNE1: listaSegura(rankingNE1).length,
+      rankingNE2: listaSegura(rankingNE2).length,
       semanasJanela,
       semanasMesInfo,
       descricaoPeriodoDashboard,
       descricaoPeriodoRanking,
+      campoResultadoRegional,
+      tipoValorRegional,
     });
 
-    if (
-      !resultadosMes.length &&
-      !(rankingNE1 || []).length &&
-      !(rankingNE2 || []).length
-    ) {
+    if (!resultadosMes.length && !listaSegura(rankingNE1).length && !listaSegura(rankingNE2).length) {
       alvo.innerHTML = renderMensagemSemDados(
         "Sem dados regionais",
         "Nenhum resultado regional encontrado para os filtros aplicados."
@@ -617,7 +771,7 @@ DashboardBI.views = DashboardBI.views || {};
         <div class="dashboard-card-header">
           <span class="dashboard-card-titulo">Evolução semanal</span>
           <span class="dashboard-card-subtitulo">
-            Comparativo NE1 x NE2 • ${descricaoPeriodoDashboard}
+            Comparativo NE1 x NE2 • ${escapeHtml(descricaoPeriodoDashboard)}
           </span>
         </div>
         <div class="dashboard-chart-box">
@@ -628,7 +782,7 @@ DashboardBI.views = DashboardBI.views || {};
       <div class="dashboard-card dashboard-grafico span-4">
         <div class="dashboard-card-header">
           <span class="dashboard-card-titulo">Ranking consolidado</span>
-          <span class="dashboard-card-subtitulo">${descricaoPeriodoRanking}</span>
+          <span class="dashboard-card-subtitulo">${escapeHtml(descricaoPeriodoRanking)}</span>
         </div>
         <div class="dashboard-chart-box">
           <canvas id="graficoRanking"></canvas>
@@ -638,9 +792,10 @@ DashboardBI.views = DashboardBI.views || {};
       ${DashboardBI.views.renderColunasRankingRegionais({
         rankingNE1,
         rankingNE2,
-        tipoValorPrincipal,
+        tipoValorPrincipal: tipoValorRegional,
         subtituloNE1: `${descricaoPeriodoRanking} • lojas NE1`,
         subtituloNE2: `${descricaoPeriodoRanking} • lojas NE2`,
+        campoResultado: campoResultadoRegional,
       })}
     `;
 
@@ -652,9 +807,17 @@ DashboardBI.views = DashboardBI.views || {};
       tipoValorSecundario,
       modoEvolucao: "regional-comparativo",
     });
+
+    logInfo("Visão regional renderizada", {
+      totalResultados: resultadosMes.length,
+      rankingNE1: listaSegura(rankingNE1).length,
+      rankingNE2: listaSegura(rankingNE2).length,
+      campoResultadoRegional,
+      tipoValorRegional,
+    });
   };
 
-  console.log("✅ dashboard-views.js pronto", {
+  logInfo("dashboard-views.js pronto", {
     telaDashboard: typeof DashboardBI.views.telaDashboard,
     renderDashboardGerencial: typeof DashboardBI.views.renderDashboardGerencial,
     renderDashboardRegional: typeof DashboardBI.views.renderDashboardRegional,

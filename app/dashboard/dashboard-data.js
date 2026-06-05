@@ -4,8 +4,47 @@ window.DashboardBI = window.DashboardBI || {};
 DashboardBI.data = DashboardBI.data || {};
 
 (function inicializarDashboardData() {
+  const LOG_PREFIX = "🗂️ DashboardData";
+
+  function logInfo(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.log(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.log(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function logWarn(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.warn(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
+  function logError(mensagem, payload = null) {
+    if (payload !== null && payload !== undefined) {
+      console.error(`${LOG_PREFIX} | ${mensagem}`, payload);
+    } else {
+      console.error(`${LOG_PREFIX} | ${mensagem}`);
+    }
+  }
+
   function getState() {
     return DashboardBI.STATE || {};
+  }
+
+  function listaSegura(lista) {
+    return Array.isArray(lista) ? lista : [];
+  }
+
+  function stringSegura(valor) {
+    return (valor || "").toString().trim();
+  }
+
+  function numeroSeguro(valor, fallback = 0) {
+    const n = Number(valor);
+    return Number.isFinite(n) ? n : fallback;
   }
 
   function normalizarPeriodo(valor, fallback = "MENSAL") {
@@ -13,9 +52,13 @@ DashboardBI.data = DashboardBI.data || {};
       return DashboardBI.stateUtils.normalizarPeriodo(valor, fallback);
     }
 
-    const texto = (valor || "").toString().trim().toUpperCase();
+    const texto = stringSegura(valor).toUpperCase();
     if (["SEMANAL", "MENSAL", "ANUAL"].includes(texto)) return texto;
     return fallback;
+  }
+
+  function normalizarSemana(valor) {
+    return String(valor || "").padStart(2, "0");
   }
 
   function extrairAnoMesLinha(resultado) {
@@ -65,45 +108,41 @@ DashboardBI.data = DashboardBI.data || {};
     };
   }
 
-  function obterListaSemanasDosResultados(resultados) {
-    return [...new Set((resultados || []).map((r) => String(r.semana).padStart(2, "0")))]
+  function obterListaSemanasDosResultados(resultados = []) {
+    return [...new Set(listaSegura(resultados).map((r) => normalizarSemana(r.semana)))]
       .filter(Boolean)
       .sort((a, b) => Number(a) - Number(b));
   }
 
-  function filtrarResultadosPorSemanas(resultados, semanas = []) {
-    const semanasSet = new Set(
-      (semanas || []).map((s) => String(s).padStart(2, "0"))
-    );
+  function filtrarResultadosPorSemanas(resultados = [], semanas = []) {
+    const semanasSet = new Set(listaSegura(semanas).map((s) => normalizarSemana(s)));
 
-    return (resultados || []).filter((r) =>
-      semanasSet.has(String(r.semana).padStart(2, "0"))
+    return listaSegura(resultados).filter((r) =>
+      semanasSet.has(normalizarSemana(r.semana))
     );
   }
 
-  function filtrarResultadosPorMesEAno(resultados, mes, ano) {
+  function filtrarResultadosPorMesEAno(resultados = [], mes, ano) {
     const mesNorm = String(mes || "").padStart(2, "0");
     const anoNorm = String(ano || "");
 
-    return (resultados || []).filter((r) => {
+    return listaSegura(resultados).filter((r) => {
       const ref = extrairAnoMesLinha(r);
       return ref.mes === mesNorm && ref.ano === anoNorm;
     });
   }
 
-  function filtrarResultadosPorAno(resultados, ano) {
+  function filtrarResultadosPorAno(resultados = [], ano) {
     const anoNorm = String(ano || "");
 
-    return (resultados || []).filter((r) => {
+    return listaSegura(resultados).filter((r) => {
       const ref = extrairAnoMesLinha(r);
       return ref.ano === anoNorm;
     });
   }
 
   function montarInfoPeriodoPorSemanas(listaSemanas, descricao = "período") {
-    const lista = [...(listaSemanas || [])].map((s) =>
-      String(s).padStart(2, "0")
-    );
+    const lista = listaSegura(listaSemanas).map((s) => normalizarSemana(s));
 
     return {
       primeira: lista[0] || null,
@@ -116,7 +155,7 @@ DashboardBI.data = DashboardBI.data || {};
   function montarMapaLojaRegional(lojas = []) {
     const mapa = {};
 
-    (lojas || []).forEach((l) => {
+    listaSegura(lojas).forEach((l) => {
       const chave = DashboardBI.helpers.getChaveLoja(l);
       mapa[chave] = l.regional || "";
     });
@@ -124,10 +163,16 @@ DashboardBI.data = DashboardBI.data || {};
     return mapa;
   }
 
-  function agruparEvolucaoRegionalFallback(resultados, semanasJanela, mapaLojaRegional = {}) {
-    const lista = (semanasJanela || []).map((semana) => {
-      const dadosSemana = (resultados || []).filter(
-        (r) => String(r.semana).padStart(2, "0") === String(semana).padStart(2, "0")
+  function agruparEvolucaoRegionalFallback(
+    resultados,
+    semanasJanela,
+    mapaLojaRegional = {}
+  ) {
+    const lista = listaSegura(semanasJanela).map((semana) => {
+      const semanaNorm = normalizarSemana(semana);
+
+      const dadosSemana = listaSegura(resultados).filter(
+        (r) => normalizarSemana(r.semana) === semanaNorm
       );
 
       const dadosNE1 = dadosSemana.filter((r) => {
@@ -145,14 +190,18 @@ DashboardBI.data = DashboardBI.data || {};
       });
 
       return {
-        semana: String(semana).padStart(2, "0"),
+        semana: semanaNorm,
         registros: dadosSemana.length,
         mediaNE1: DashboardBI.helpers.calcularMedia(dadosNE1.map((r) => r.valor)),
         mediaNE2: DashboardBI.helpers.calcularMedia(dadosNE2.map((r) => r.valor)),
       };
     });
 
-    console.log("🌍 Evolução regional NE1 x NE2 (fallback):", lista);
+    logInfo("Evolução regional NE1 x NE2 (fallback)", {
+      total: lista.length,
+      lista,
+    });
+
     return lista;
   }
 
@@ -183,8 +232,8 @@ DashboardBI.data = DashboardBI.data || {};
       );
 
       if (!resultadosMes.length) {
-        console.warn(
-          "⚠️ Sem dados no mês/ano selecionado. Aplicando fallback mensal -> últimas 4 semanas."
+        logWarn(
+          "Sem dados no mês/ano selecionado. Aplicando fallback mensal -> últimas 4 semanas."
         );
 
         const semanasJanela = DashboardBI.helpers.gerarJanelaSemanas(state.semana);
@@ -218,8 +267,8 @@ DashboardBI.data = DashboardBI.data || {};
       let resultadosAno = filtrarResultadosPorAno(resultadosBase, state.ano);
 
       if (!resultadosAno.length) {
-        console.warn(
-          "⚠️ Sem dados no ano selecionado. Aplicando fallback anual -> últimas 4 semanas."
+        logWarn(
+          "Sem dados no ano selecionado. Aplicando fallback anual -> últimas 4 semanas."
         );
 
         const semanasJanela = DashboardBI.helpers.gerarJanelaSemanas(state.semana);
@@ -268,7 +317,7 @@ DashboardBI.data = DashboardBI.data || {};
     const periodo = normalizarPeriodo(state.periodoRanking, "MENSAL");
 
     if (periodo === "SEMANAL") {
-      const semanaSelecionada = [String(state.semana).padStart(2, "0")];
+      const semanaSelecionada = [normalizarSemana(state.semana)];
       const resultados = filtrarResultadosPorSemanas(
         resultadosBase,
         semanaSelecionada
@@ -317,7 +366,7 @@ DashboardBI.data = DashboardBI.data || {};
       };
     }
 
-    const semanaPadrao = [String(state.semana).padStart(2, "0")];
+    const semanaPadrao = [normalizarSemana(state.semana)];
     const resultadosPadrao = filtrarResultadosPorSemanas(
       resultadosBase,
       semanaPadrao
@@ -333,14 +382,59 @@ DashboardBI.data = DashboardBI.data || {};
     };
   }
 
-  function gerarRankingLojasPorPeriodo(resultados, infoPeriodo) {
+  function getConfigRankingRegionalAtual() {
+    const state = getState();
+
+    const indicador = state.indicador || "";
+    const classeSelecionada = state.classe === "TODAS" ? null : state.classe;
+
+    // ✅ preparado para futura seleção do campo do ranking
+    const campoSelecionado = stringSegura(
+      state.campoRankingRegional ||
+      state.campoRanking ||
+      state.campoResultadoRanking ||
+      ""
+    ).toLowerCase();
+
+    const usarValor2 =
+      campoSelecionado === "valor2" ||
+      campoSelecionado === "mediavalor2" ||
+      campoSelecionado === "resultado2";
+
+    const campoResultado = usarValor2 ? "mediaValor2" : "mediaValor";
+    const campoKey = usarValor2 ? "valor2" : "valor";
+
+    const tipoValor = DashboardBI.helpers.getTipoCampo(
+      indicador,
+      campoKey,
+      classeSelecionada
+    );
+
+    const config = {
+      campoResultado,
+      campoKey,
+      tipoValor,
+      limite: null, // ✅ ranking regional deve mostrar todas as lojas
+    };
+
+    logInfo("Configuração do ranking regional resolvida", {
+      indicador,
+      classeSelecionada,
+      config,
+    });
+
+    return config;
+  }
+
+  function gerarRankingLojasPorPeriodo(resultados, infoPeriodo, options = {}) {
     if (
       typeof DashboardBI.aggregations?.agruparRankingLojasPorPeriodoDashboard ===
       "function"
     ) {
       return DashboardBI.aggregations.agruparRankingLojasPorPeriodoDashboard(
         resultados,
-        infoPeriodo
+        infoPeriodo,
+        options
       );
     }
 
@@ -350,24 +444,24 @@ DashboardBI.data = DashboardBI.data || {};
     ) {
       return DashboardBI.aggregations.agruparLojasRankingDashboard(
         resultados,
-        infoPeriodo
+        infoPeriodo,
+        options
       );
     }
 
-    console.warn(
-      "⚠️ Nenhuma função de agregação de ranking de lojas encontrada"
-    );
+    logWarn("Nenhuma função de agregação de ranking de lojas encontrada");
     return [];
   }
 
-  function gerarRankingIndicadoresPorPeriodo(resultados, infoPeriodo) {
+  function gerarRankingIndicadoresPorPeriodo(resultados, infoPeriodo, options = {}) {
     if (
       typeof DashboardBI.aggregations?.agruparRankingIndicadoresPorPeriodoDashboard ===
       "function"
     ) {
       return DashboardBI.aggregations.agruparRankingIndicadoresPorPeriodoDashboard(
         resultados,
-        infoPeriodo
+        infoPeriodo,
+        options
       );
     }
 
@@ -376,13 +470,12 @@ DashboardBI.data = DashboardBI.data || {};
       "function"
     ) {
       return DashboardBI.aggregations.agruparIndicadoresPorMediaDashboard(
-        resultados
+        resultados,
+        options
       );
     }
 
-    console.warn(
-      "⚠️ Nenhuma função de agregação de ranking de indicadores encontrada"
-    );
+    logWarn("Nenhuma função de agregação de ranking de indicadores encontrada");
     return [];
   }
 
@@ -413,7 +506,7 @@ DashboardBI.data = DashboardBI.data || {};
   // 🧠 CARREGAR DADOS DO DASHBOARD
   // ==========================
   DashboardBI.data.carregarDadosDashboard = async function (contexto) {
-    console.log("🚀 Carregando dados do dashboard...", {
+    logInfo("Carregando dados do dashboard...", {
       estado: DashboardBI.STATE,
       contexto,
     });
@@ -446,28 +539,28 @@ DashboardBI.data = DashboardBI.data || {};
           lojasEscopoBase
         );
 
-      console.log("🧭 Dashboard - filtros aplicados nas lojas:", {
+      logInfo("Filtros aplicados nas lojas", {
         visao: DashboardBI.STATE?.visao,
         regionalState: DashboardBI.STATE?.regional,
         lojaState: DashboardBI.STATE?.loja,
         escopoContexto: contexto?.escopo || null,
-        totalLojasBase: (lojasData || []).length,
-        totalLojasEscopoBase: (lojasEscopoBase || []).length,
-        totalLojasVisuais: (lojasVisuais || []).length,
+        totalLojasBase: listaSegura(lojasData).length,
+        totalLojasEscopoBase: listaSegura(lojasEscopoBase).length,
+        totalLojasVisuais: listaSegura(lojasVisuais).length,
       });
 
       const mapaLojaRegional = montarMapaLojaRegional(lojasEscopoBase);
 
       const lojasBaseSet = new Set(
-        lojasEscopoBase.map((l) => DashboardBI.helpers.getChaveLoja(l))
+        listaSegura(lojasEscopoBase).map((l) => DashboardBI.helpers.getChaveLoja(l))
       );
 
       const lojasVisuaisSet = new Set(
-        lojasVisuais.map((l) => DashboardBI.helpers.getChaveLoja(l))
+        listaSegura(lojasVisuais).map((l) => DashboardBI.helpers.getChaveLoja(l))
       );
 
       const lojasNE1Set = new Set(
-        lojasEscopoBase
+        listaSegura(lojasEscopoBase)
           .filter(
             (l) =>
               DashboardBI.helpers.normalizarTextoUpper(l.regional) === "NE1"
@@ -476,7 +569,7 @@ DashboardBI.data = DashboardBI.data || {};
       );
 
       const lojasNE2Set = new Set(
-        lojasEscopoBase
+        listaSegura(lojasEscopoBase)
           .filter(
             (l) =>
               DashboardBI.helpers.normalizarTextoUpper(l.regional) === "NE2"
@@ -509,7 +602,7 @@ DashboardBI.data = DashboardBI.data || {};
 
       if (resultadosError) throw resultadosError;
 
-      const resultadosEscopoBase = (resultadosBrutos || []).filter((r) =>
+      const resultadosEscopoBase = listaSegura(resultadosBrutos).filter((r) =>
         lojasBaseSet.has(r.loja)
       );
 
@@ -521,30 +614,42 @@ DashboardBI.data = DashboardBI.data || {};
         resultadosEscopoBase
       );
 
-      const resultadosDashboardVisuais = (
-        periodoDashboardInfo.resultados || []
+      const resultadosDashboardVisuais = listaSegura(
+        periodoDashboardInfo.resultados
       ).filter((r) => lojasVisuaisSet.has(r.loja));
 
-      const resultadosRankingVisuais = (
-        periodoRankingInfo.resultados || []
+      const resultadosRankingVisuais = listaSegura(
+        periodoRankingInfo.resultados
       ).filter((r) => lojasVisuaisSet.has(r.loja));
 
-      const resultadosRankingNE1 = (
-        periodoRankingInfo.resultados || []
-      ).filter((r) => lojasNE1Set.has(r.loja));
+      // ✅ Rankings regionais usam o escopo base da regional, não o filtro visual da regional
+      // porque a própria tela já mostra NE1 x NE2 lado a lado
+      const resultadosRankingNE1 = listaSegura(periodoRankingInfo.resultados).filter(
+        (r) => lojasNE1Set.has(r.loja)
+      );
 
-      const resultadosRankingNE2 = (
-        periodoRankingInfo.resultados || []
-      ).filter((r) => lojasNE2Set.has(r.loja));
+      const resultadosRankingNE2 = listaSegura(periodoRankingInfo.resultados).filter(
+        (r) => lojasNE2Set.has(r.loja)
+      );
+
+      const configRankingRegional = getConfigRankingRegionalAtual();
 
       const rankingNE1 = gerarRankingLojasPorPeriodo(
         resultadosRankingNE1,
-        periodoRankingInfo.info
+        periodoRankingInfo.info,
+        {
+          limite: configRankingRegional.limite,
+          campo: configRankingRegional.campoResultado,
+        }
       );
 
       const rankingNE2 = gerarRankingLojasPorPeriodo(
         resultadosRankingNE2,
-        periodoRankingInfo.info
+        periodoRankingInfo.info,
+        {
+          limite: configRankingRegional.limite,
+          campo: configRankingRegional.campoResultado,
+        }
       );
 
       const rankingIndicadores = gerarRankingIndicadoresPorPeriodo(
@@ -558,26 +663,23 @@ DashboardBI.data = DashboardBI.data || {};
         mapaLojaRegional
       );
 
-      console.log("🏬 Lojas escopo base:", lojasEscopoBase.length);
-      console.log("🏬 Lojas visuais:", lojasVisuais.length);
-      console.log("📊 Resultados brutos:", (resultadosBrutos || []).length);
-      console.log("📊 Resultados escopo base:", resultadosEscopoBase.length);
-      console.log(
-        "📊 Resultados dashboard (visuais):",
-        resultadosDashboardVisuais.length
-      );
-      console.log(
-        "📊 Resultados ranking (visuais):",
-        resultadosRankingVisuais.length
-      );
-      console.log("📊 Resultados ranking NE1:", resultadosRankingNE1.length);
-      console.log("📊 Resultados ranking NE2:", resultadosRankingNE2.length);
-      console.log("📆 Período principal:", periodoDashboardInfo.info);
-      console.log("🏆 Período ranking:", periodoRankingInfo.info);
-      console.log(
-        "🌍 Evolução comparativa regional:",
-        evolucaoComparativaRegional.length
-      );
+      logInfo("Dados do dashboard preparados", {
+        lojasEscopoBase: listaSegura(lojasEscopoBase).length,
+        lojasVisuais: listaSegura(lojasVisuais).length,
+        resultadosBrutos: listaSegura(resultadosBrutos).length,
+        resultadosEscopoBase: resultadosEscopoBase.length,
+        resultadosDashboardVisuais: resultadosDashboardVisuais.length,
+        resultadosRankingVisuais: resultadosRankingVisuais.length,
+        resultadosRankingNE1: resultadosRankingNE1.length,
+        resultadosRankingNE2: resultadosRankingNE2.length,
+        rankingNE1: rankingNE1.length,
+        rankingNE2: rankingNE2.length,
+        rankingIndicadores: rankingIndicadores.length,
+        periodoDashboard: periodoDashboardInfo.info,
+        periodoRanking: periodoRankingInfo.info,
+        configRankingRegional,
+        evolucaoComparativaRegional: evolucaoComparativaRegional.length,
+      });
 
       if (getState().visao === "gerencial") {
         await DashboardBI.views.renderDashboardGerencial({
@@ -610,10 +712,12 @@ DashboardBI.data = DashboardBI.data || {};
           rankingNE1,
           rankingNE2,
           evolucaoComparativaRegional,
+          campoResultadoRankingRegional: configRankingRegional.campoResultado,
+          tipoValorRankingRegional: configRankingRegional.tipoValor,
         });
       }
     } catch (erro) {
-      console.error("❌ Erro ao carregar dados do dashboard:", erro);
+      logError("Erro ao carregar dados do dashboard", erro);
 
       alvo.innerHTML = `
         <div class="dashboard-card span-12">
@@ -625,7 +729,7 @@ DashboardBI.data = DashboardBI.data || {};
     }
   };
 
-  console.log("✅ dashboard-data.js pronto", {
+  logInfo("dashboard-data.js pronto", {
     carregarDadosDashboard: typeof DashboardBI.data.carregarDadosDashboard,
   });
 })();

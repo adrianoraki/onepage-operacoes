@@ -67,88 +67,191 @@ function tipoPercentualAnalise(tipo) {
   return t.includes("percent") || t.includes("porcent") || t === "%";
 }
 
-function formatarKpiAnalise(valor, { percentual = false, casas = 2 } = {}) {
+function tipoMoedaAnalise(tipo) {
+  const t = normalizarTextoAnaliseLower(tipo);
+  return (
+    t === "moeda" ||
+    t === "r$" ||
+    t === "currency" ||
+    t === "monetario" ||
+    t === "monetário" ||
+    t === "valor"
+  );
+}
+
+function extrairSinalAnalise(texto) {
+  const bruto = (texto || "").toString().trim();
+  return bruto.startsWith("-") ? -1 : 1;
+}
+
+function extrairDigitosAnalise(texto) {
+  return (texto || "").toString().replace(/\D/g, "");
+}
+
+function converterDigitosParaDecimalAnalise(texto, casas = 2) {
+  const digitos = extrairDigitosAnalise(texto);
+  if (!digitos) return null;
+
+  const sinal = extrairSinalAnalise(texto);
+  const numero = Number(digitos) / Math.pow(10, casas);
+
+  if (Number.isNaN(numero)) return null;
+  return numero * sinal;
+}
+
+function parseNumeroLivreAnalise(valor) {
+  const bruto = (valor || "").toString().trim();
+  if (!bruto) return null;
+
+  const normalizado = bruto
+    .replace(/\s/g, "")
+    .replace(/\.(?=.*\.)/g, "")
+    .replace(",", ".");
+
+  const numero = Number(normalizado);
+  return Number.isNaN(numero) ? null : numero;
+}
+
+function limparValorParaSalvarAnalise(valorDigitado, tipo = "numero") {
+  const tipoNorm = normalizarTextoAnaliseLower(tipo);
+  const bruto = (valorDigitado || "").toString().trim();
+
+  if (!bruto) return null;
+
+  if (tipoMoedaAnalise(tipoNorm)) {
+    const numero = converterDigitosParaDecimalAnalise(bruto, 2);
+    console.log("💰 limparValorParaSalvarAnalise -> moeda", {
+      bruto,
+      numero,
+      tipo,
+    });
+    return numero;
+  }
+
+  if (tipoPercentualAnalise(tipoNorm)) {
+    const numero = converterDigitosParaDecimalAnalise(bruto, 2);
+    console.log("📉 limparValorParaSalvarAnalise -> percentual", {
+      bruto,
+      numero,
+      tipo,
+    });
+    return numero;
+  }
+
+  // ✅ inteiro: nunca dividir casas decimais
+  if (tipoInteiroAnalise(tipoNorm)) {
+    const sinal = extrairSinalAnalise(bruto);
+    const digitos = extrairDigitosAnalise(bruto);
+
+    if (!digitos) return null;
+
+    const numero = Number(digitos) * sinal;
+
+    console.log("🔢 limparValorParaSalvarAnalise -> inteiro", {
+      bruto,
+      numero,
+      tipo,
+    });
+
+    return Number.isNaN(numero) ? null : numero;
+  }
+
+  const numero = parseNumeroLivreAnalise(bruto);
+  console.log("🔢 limparValorParaSalvarAnalise -> numero", {
+    bruto,
+    numero,
+    tipo,
+  });
+  return numero;
+}
+
+function formatarMoedaBRAnalise(valor) {
   const numero = Number(valor);
   if (!isFinite(numero)) return "-";
 
-  const texto = formatarNumeroAnalise(numero, casas);
-  return percentual ? `${texto}%` : texto;
+  return numero.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
-function quebrarNomeLojaAnalise(loja) {
-  const texto = normalizarTextoAnalise(loja);
-
-  if (!texto.includes("-")) {
-    return {
-      codigo: "",
-      nome: texto || "-",
-    };
-  }
-
-  const partes = texto.split("-");
-  const codigo = normalizarTextoAnalise(partes.shift());
-  const nome = normalizarTextoAnalise(partes.join("-"));
-
-  return {
-    codigo,
-    nome: nome || texto,
-  };
-}
-
-function indicadorEhNumeroAnalise(indicador, classeSelecionada = null) {
-  const indicadorNorm = normalizarTextoAnaliseUpper(indicador);
-  const classeNorm = normalizarTextoAnalise(classeSelecionada);
-
-  // NPS deve sempre ser tratado como número
-  if (indicadorNorm === "NPS") return true;
-
-  // aqui você pode adicionar outros indicadores numéricos no futuro
-  return false;
-}
-
-function getTipoCampoAnalise(
-  indicador,
-  campoKey = "valor",
-  classeSelecionada = null,
-) {
-  try {
-    if (indicadorEhNumeroAnalise(indicador, classeSelecionada)) {
-      console.log("🔢 Indicador forçado como número na análise:", {
-        indicador,
-        classeSelecionada,
-        campoKey,
-      });
-      return "numero";
-    }
-
-    if (typeof getCampoConfig === "function") {
-      const tipo = getCampoConfig(indicador, campoKey, classeSelecionada)?.tipo;
-      return tipo || "numero";
-    }
-
-    return "numero";
-  } catch (erro) {
-    console.warn("⚠️ Falha ao obter tipo de campo na análise:", {
-      indicador,
-      campoKey,
-      classeSelecionada,
-      erro,
-    });
-    return "numero";
-  }
-}
-``;
-
-function formatarValorAnalise(valor, tipo = "numero") {
-  if (valor === null || valor === undefined || valor === "") return "-";
+function formatarPercentualBRAnalise(valor, casas = 2) {
   const numero = Number(valor);
-  if (isNaN(numero)) return "-";
+  if (!isFinite(numero)) return "-";
 
-  if (typeof formatarValorExibicao === "function") {
-    return formatarValorExibicao(numero, tipo);
+  return (
+    numero.toLocaleString("pt-BR", {
+      minimumFractionDigits: casas,
+      maximumFractionDigits: casas,
+    }) + "%"
+  );
+}
+
+function formatarValorExibicaoAnalise(valor, tipo = "numero", casas = 2) {
+  if (valor === null || valor === undefined || valor === "") return "-";
+
+  const numero = Number(valor);
+  if (!isFinite(numero)) return "-";
+
+  if (tipoMoedaAnalise(tipo)) {
+    return formatarMoedaBRAnalise(numero);
+  }
+
+  function tipoInteiroAnalise(tipo) {
+    const t = normalizarTextoAnaliseLower(tipo);
+    return t === "inteiro" || t === "numero-inteiro" || t === "int";
+  }
+
+  if (tipoPercentualAnalise(tipo)) {
+    return formatarPercentualBRAnalise(numero, casas);
+  }
+
+  return formatarNumeroAnalise(numero, casas);
+}
+
+function formatarValorParaInputAnalise(valor, tipo = "numero") {
+  if (valor === null || valor === undefined || valor === "") return "";
+
+  const numero = Number(valor);
+  if (!isFinite(numero)) return "";
+
+  if (tipoMoedaAnalise(tipo)) {
+    return formatarMoedaBRAnalise(numero);
+  }
+
+  if (tipoPercentualAnalise(tipo)) {
+    return formatarPercentualBRAnalise(numero, 2);
   }
 
   return formatarNumeroAnalise(numero, 2);
+}
+
+function prepararInputFormatadoAnalise(input) {
+  if (!input) return;
+
+  const tipo = input.dataset?.tipo || "numero";
+  const brutoAtual = (input.value || "").toString().trim();
+
+  if (!brutoAtual) return;
+
+  if (tipoMoedaAnalise(tipo) || tipoPercentualAnalise(tipo)) {
+    const sinal = brutoAtual.startsWith("-") ? "-" : "";
+    const digitos = extrairDigitosAnalise(brutoAtual);
+    input.value = digitos ? `${sinal}${digitos}` : "";
+  } else {
+    input.value = brutoAtual
+      .replace(/\s/g, "")
+      .replace(/\.(?=.*\.)/g, "")
+      .replace(",", ".");
+  }
+
+  console.log("✍️ prepararInputFormatadoAnalise:", {
+    tipo,
+    valorOriginal: brutoAtual,
+    valorInput: input.value,
+  });
 }
 
 function chartAnaliseDisponivel() {
@@ -195,6 +298,7 @@ function ajustarAlturaChartAnalise(
     console.warn("⚠️ Falha ao ajustar altura do chart de análise:", erro);
   }
 }
+
 function getCasasDecimaisAnalise(indicador, classeSelecionada = null) {
   const indicadorNorm = normalizarTextoAnaliseUpper(indicador);
 
@@ -203,6 +307,100 @@ function getCasasDecimaisAnalise(indicador, classeSelecionada = null) {
   return 2;
 }
 
+function formatarKpiAnalise(
+  valor,
+  { percentual = false, casas = 2, tipo = "numero" } = {},
+) {
+  const numero = Number(valor);
+  if (!isFinite(numero)) return "-";
+
+  if (percentual || tipoPercentualAnalise(tipo)) {
+    return formatarPercentualBRAnalise(numero, casas);
+  }
+
+  if (tipoMoedaAnalise(tipo)) {
+    return formatarMoedaBRAnalise(numero);
+  }
+
+  return formatarNumeroAnalise(numero, casas);
+}
+
+function quebrarNomeLojaAnalise(loja) {
+  const texto = normalizarTextoAnalise(loja);
+
+  if (!texto.includes("-")) {
+    return {
+      codigo: "",
+      nome: texto || "-",
+    };
+  }
+
+  const partes = texto.split("-");
+  const codigo = normalizarTextoAnalise(partes.shift());
+  const nome = normalizarTextoAnalise(partes.join("-"));
+
+  return {
+    codigo,
+    nome: nome || texto,
+  };
+}
+
+function indicadorEhMoedaAnalise(
+  indicador,
+  campoKey = "valor",
+  classeSelecionada = null,
+) {
+  const indicadorNorm = normalizarTextoAnaliseUpper(indicador);
+  const campoNorm = normalizarTextoAnaliseLower(campoKey);
+
+  // SELF-CHECKOUT:
+  // apenas Participação de Vendas é moeda
+  if (indicadorNorm === "SELF-CHECKOUT" && campoNorm === "valor") {
+    return true;
+  }
+
+  // Qtd Passantes nunca é moeda
+  if (indicadorNorm === "SELF-CHECKOUT" && campoNorm === "valor2") {
+    return false;
+  }
+
+  return false;
+}
+
+function formatarValorAnalise(valor, tipo = "numero") {
+  if (valor === null || valor === undefined || valor === "") return "-";
+  const numero = Number(valor);
+  if (isNaN(numero)) return "-";
+
+  return formatarValorExibicaoAnalise(numero, tipo, 2);
+}
+
+// ==========================
+// 🌐 EXPOR HELPERS GLOBAIS
+// para o restante do sistema aproveitar a mesma regra
+// ==========================
+window.limparValorParaSalvar = function (valorDigitado, tipo = "numero") {
+  return limparValorParaSalvarAnalise(valorDigitado, tipo);
+};
+
+window.formatarValorParaInput = function (valor, tipo = "numero") {
+  return formatarValorParaInputAnalise(valor, tipo);
+};
+
+window.formatarValorExibicao = function (valor, tipo = "numero") {
+  return formatarValorExibicaoAnalise(valor, tipo, 2);
+};
+
+window.prepararInputFormatado = function (input) {
+  prepararInputFormatadoAnalise(input);
+};
+
+console.log("🌐 Helpers globais de formato registrados em analise.js", {
+  limparValorParaSalvar: typeof window.limparValorParaSalvar,
+  formatarValorParaInput: typeof window.formatarValorParaInput,
+  formatarValorExibicao: typeof window.formatarValorExibicao,
+  prepararInputFormatado: typeof window.prepararInputFormatado,
+});
 
 // ==========================
 // 🏷️ HELPERS DE INDICADOR
@@ -1047,6 +1245,7 @@ function renderKpisAnaliseRegional({
             ? formatarKpiAnalise(melhor.media, {
                 percentual: isPercentual,
                 casas: 2,
+                tipo: tipoValorPrincipal,
               })
             : "-"
         }
@@ -1068,6 +1267,7 @@ function renderKpisAnaliseRegional({
             ? formatarKpiAnalise(pior.media, {
                 percentual: isPercentual,
                 casas: 2,
+                tipo: tipoValorPrincipal,
               })
             : "-"
         }
@@ -1080,6 +1280,7 @@ function renderKpisAnaliseRegional({
         ${formatarKpiAnalise(mediaGeral, {
           percentual: isPercentual,
           casas: 2,
+          tipo: tipoValorPrincipal,
         })}
       </div>
       <div class="dashboard-kpi-rodape">Consolidado do período</div>
@@ -1091,6 +1292,7 @@ function renderKpisAnaliseRegional({
         ${formatarKpiAnalise(amplitude, {
           percentual: isPercentual,
           casas: 2,
+          tipo: tipoValorPrincipal,
         })}
       </div>
       <div class="dashboard-kpi-rodape">Diferença entre melhor e pior</div>
@@ -1117,6 +1319,7 @@ function renderKpisAnaliseGerencial({
             ? formatarKpiAnalise(melhor.media, {
                 percentual: isPercentual,
                 casas: 2,
+                tipo: tipoValorPrincipal,
               })
             : "-"
         }
@@ -1132,6 +1335,7 @@ function renderKpisAnaliseGerencial({
             ? formatarKpiAnalise(pior.media, {
                 percentual: isPercentual,
                 casas: 2,
+                tipo: tipoValorPrincipal,
               })
             : "-"
         }
@@ -1144,6 +1348,7 @@ function renderKpisAnaliseGerencial({
         ${formatarKpiAnalise(mediaGeral, {
           percentual: isPercentual,
           casas: 2,
+          tipo: tipoValorPrincipal,
         })}
       </div>
       <div class="dashboard-kpi-rodape">Consolidado do período</div>
@@ -1155,6 +1360,7 @@ function renderKpisAnaliseGerencial({
         ${formatarKpiAnalise(amplitude, {
           percentual: isPercentual,
           casas: 2,
+          tipo: tipoValorPrincipal,
         })}
       </div>
       <div class="dashboard-kpi-rodape">Diferença entre melhor e pior</div>
@@ -1194,6 +1400,7 @@ function renderTabelaRankingLojasAnalise(lista, tipoValorPrincipal) {
                 <td>${formatarKpiAnalise(item.media, {
                   percentual: isPercentual,
                   casas: 2,
+                  tipo: tipoValorPrincipal,
                 })}</td>
               </tr>
             `,
@@ -1235,6 +1442,7 @@ function renderTabelaRankingIndicadoresAnalise(lista, tipoValorPrincipal) {
                 <td>${formatarKpiAnalise(item.media, {
                   percentual: isPercentual,
                   casas: 2,
+                  tipo: tipoValorPrincipal,
                 })}</td>
               </tr>
             `,
@@ -1361,6 +1569,25 @@ function renderGraficoPrincipalAnalise(labels, dados, label, cor) {
       plugins: {
         legend: {
           display: false,
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) =>
+              ` ${formatarKpiAnalise(ctx.raw, {
+                percentual: tipoPercentualAnalise(ANALISE_STATE.indicador),
+                casas: 2,
+                tipo:
+                  ANALISE_STATE.indicador !== "TODOS"
+                    ? getTipoCampoAnalise(
+                        ANALISE_STATE.indicador,
+                        "valor",
+                        ANALISE_STATE.classe === "TODAS"
+                          ? null
+                          : ANALISE_STATE.classe,
+                      )
+                    : "numero",
+              })}`,
+          },
         },
       },
       scales: {
@@ -1521,6 +1748,7 @@ function renderGraficoSubclassesAnalise(subclasses, tipoValorPrincipal) {
               ` Média: ${formatarKpiAnalise(ctx.raw, {
                 percentual: isPercentual,
                 casas: 2,
+                tipo: tipoValorPrincipal,
               })}`,
           },
         },

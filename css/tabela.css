@@ -1,4 +1,27 @@
 /* ==========================
+   🎨 TOKENS VISUAIS
+========================== */
+:root {
+  --cor-primaria: #0a3d62;
+  --cor-primaria-2: #1e6091;
+  --cor-primaria-3: #245f8d;
+  --cor-sucesso: #2e7d32;
+  --cor-sucesso-2: #4caf50;
+  --cor-borda: #d9e1e8;
+  --cor-borda-suave: #e8edf2;
+  --cor-texto: #23313f;
+  --cor-texto-secundario: #5d6b78;
+  --cor-fundo-card: rgba(255, 255, 255, 0.97);
+  --cor-fundo-zebra: rgba(248, 250, 252, 0.96);
+  --cor-fundo-hover: rgba(30, 96, 145, 0.08);
+  --sombra-card: 0 14px 34px rgba(15, 23, 42, 0.16);
+  --sombra-suave: 0 8px 20px rgba(15, 23, 42, 0.08);
+  --raio-card: 14px;
+  --raio-input: 10px;
+  --altura-input: 34px;
+}
+
+/* ==========================
    📦 CARD PRINCIPAL
 ========================== */
 .card-conteudo {
@@ -6,12 +29,13 @@
   z-index: 5;
   width: 100%;
   max-width: 100%;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--cor-fundo-card);
   backdrop-filter: blur(8px);
-  border-radius: 12px;
-  padding: 15px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  border-radius: var(--raio-card);
+  padding: 16px;
+  box-shadow: var(--sombra-card);
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.65);
 }
 
 /* ==========================
@@ -21,7 +45,8 @@
   width: 100%;
   overflow-x: auto;
   overflow-y: visible;
-  margin-top: 10px;
+  margin-top: 12px;
+  border-radius: 12px;
 }
 
 /* ==========================
@@ -30,7 +55,8 @@
 .tabela {
   width: 100%;
   min-width: 900px;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: auto;
 }
 
@@ -38,11 +64,11 @@
    🧠 CABEÇALHO DA TABELA
 ========================== */
 .tabela th {
-  background: linear-gradient(90deg, #0a3d62, #1e6091);
+  background: linear-gradient(90deg, var(--cor-primaria), var(--cor-primaria-2));
   color: #ffffff;
   padding: 12px 10px;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   text-transform: uppercase;
   position: sticky;
   top: 0;
@@ -50,18 +76,83 @@
   white-space: nowrap;
   text-align: center;
   vertical-align: middle;
+  letter-spacing: 0.4px;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* cabeçalho com acabamento mais executivo */
+.tabela thead tr:first-child th {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.tabela thead tr:first-child th:first-child {
+  border-top-left-radius: 12px;
+}
+
+.tabela thead tr:first-child th:last-child {
+  border-top-right-radius: 12px;
+}
+
+/* grupos de semana com visual elegante */
+.tabela-especial-compacta thead tr:first-child th[colspan],
+.tabela-rh-compacta thead tr:first-child th[colspan] {
+  background: linear-gradient(180deg, #18496f 0%, #123d5d 100%) !important;
+  font-size: 11px !important;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+  padding: 8px 6px !important;
+  text-align: center !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* segunda linha do cabeçalho mais limpa e centralizada */
+.tabela-especial-compacta thead tr:nth-child(2) th,
+.tabela-rh-compacta thead tr:nth-child(2) th {
+  background: linear-gradient(180deg, #1f5b87 0%, #17496e 100%) !important;
+  font-size: 9px !important;
+  font-weight: 700;
+  padding: 5px 4px !important;
+  line-height: 1.1;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center !important;
+}
+
+/* semana atual destacada com visual mais diretoria */
+.coluna-atual {
+  background-color: #edf8ef !important;
+  border-left: 2px solid var(--cor-sucesso-2);
+  border-right: 2px solid var(--cor-sucesso-2);
+}
+
+th.coluna-atual {
+  background: linear-gradient(180deg, var(--cor-sucesso), var(--cor-sucesso-2)) !important;
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* semana compacta com ajuste fino */
+.coluna-semana-compacta {
+  opacity: 0.98;
 }
 
 /* ==========================
    📋 CÉLULAS
 ========================== */
 .tabela td {
-  padding: 10px 8px;
+  padding: 9px 8px;
   text-align: center;
-  font-size: 14px;
-  border-bottom: 1px solid #e5e5e5;
-  background: rgba(255, 255, 255, 0.95);
+  font-size: 13px;
+  border-bottom: 1px solid var(--cor-borda-suave);
+  background: rgba(255, 255, 255, 0.96);
   vertical-align: middle;
+  color: var(--cor-texto);
 }
 
 /* ==========================
@@ -69,22 +160,23 @@
 ========================== */
 .tabela td:nth-child(2) {
   text-align: left;
-  font-weight: 600;
-  background: rgba(240, 240, 240, 0.95);
+  font-weight: 700;
+  background: rgba(243, 246, 249, 0.98);
+  color: var(--cor-texto);
 }
 
 /* ==========================
    🎨 ZEBRA
 ========================== */
 .tabela tr:nth-child(even) td {
-  background: rgba(248, 248, 248, 0.95);
+  background: var(--cor-fundo-zebra);
 }
 
 /* ==========================
    ✨ HOVER
 ========================== */
 .tabela tr:hover td {
-  background: rgba(30, 96, 145, 0.08);
+  background: var(--cor-fundo-hover);
 }
 
 /* ==========================
@@ -92,24 +184,26 @@
 ========================== */
 .tabela input,
 .input-tabela {
-  width: 88px;
-  height: 34px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
+  width: 90px;
+  height: var(--altura-input);
+  border-radius: var(--raio-input);
+  border: 1px solid #ccd6dd;
   text-align: center;
   font-size: 13px;
-  font-weight: 500;
-  transition: 0.2s;
+  font-weight: 600;
+  transition: 0.2s ease;
   background: #fff;
   padding: 0 8px;
   box-sizing: border-box;
+  color: var(--cor-texto);
 }
 
 .tabela input:focus,
 .input-tabela:focus {
-  border: 2px solid #4CAF50;
+  border: 2px solid var(--cor-sucesso-2);
   background: #eefaf0;
   outline: none;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.10);
 }
 
 /* ==========================
@@ -131,25 +225,25 @@
 
 .campo-tabela-com-justificativa .input-valor-tabela,
 .campo-tabela-com-justificativa input[data-campo="valor"] {
-  width: 68px;
-  min-width: 68px;
-  max-width: 68px;
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
   height: 30px;
   border-radius: 8px;
-  border: 1px solid #ccc;
+  border: 1px solid #cdd7df;
   text-align: center;
   font-size: 12px;
   font-weight: 600;
   background: #fff;
   padding: 0 6px;
   box-sizing: border-box;
-  transition: 0.2s;
-  flex: 0 0 68px;
+  transition: 0.2s ease;
+  flex: 0 0 70px;
 }
 
 .campo-tabela-com-justificativa .input-valor-tabela:focus,
 .campo-tabela-com-justificativa input[data-campo="valor"]:focus {
-  border: 2px solid #4CAF50;
+  border: 2px solid var(--cor-sucesso-2);
   background: #eefaf0;
   outline: none;
 }
@@ -273,17 +367,9 @@
 }
 
 @keyframes pulseJustificativa {
-  0% {
-    box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.3);
-  }
-
-  70% {
-    box-shadow: 0 0 0 6px rgba(229, 57, 53, 0);
-  }
-
-  100% {
-    box-shadow: 0 0 0 0 rgba(229, 57, 53, 0);
-  }
+  0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.3); }
+  70% { box-shadow: 0 0 0 6px rgba(229, 57, 53, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); }
 }
 
 /* ==========================
@@ -294,13 +380,16 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
+  margin-bottom: 6px;
 }
 
 .header-tabela h2 {
-  color: #0a3d62;
+  color: var(--cor-primaria);
   font-size: 18px;
   line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: 0.2px;
 }
 
 /* ==========================
@@ -318,14 +407,15 @@
   min-width: 120px;
   padding: 6px 10px;
   border-radius: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid #d2d9df;
   font-size: 13px;
   transition: 0.2s;
+  background: #fff;
 }
 
 .filtros-tabela input:focus {
-  border-color: #4CAF50;
-  box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+  border-color: var(--cor-sucesso-2);
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.12);
   outline: none;
 }
 
@@ -339,6 +429,11 @@
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 14px;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, rgba(248, 251, 253, 0.96), rgba(241, 246, 250, 0.96));
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: 12px;
+  box-shadow: var(--sombra-suave);
 }
 
 .filtros-novos input {
@@ -348,13 +443,14 @@
   height: 40px;
   padding: 0 12px;
   border-radius: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid #d2d9df;
   outline: none;
   font-size: 14px;
+  background: #fff;
 }
 
 .filtros-novos input:focus {
-  border-color: #1e6091;
+  border-color: var(--cor-primaria-2);
   box-shadow: 0 0 0 3px rgba(30, 96, 145, 0.12);
 }
 
@@ -370,25 +466,28 @@
   height: 36px;
   padding: 0 12px;
   border-radius: 10px;
-  border: 1px solid #cfd8dc;
+  border: 1px solid #d3dde5;
   background: #fff;
-  color: #333;
+  color: #334155;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
 }
 
 .btn-filtro-regional:hover,
 .btn-filtro-regional-rh:hover {
   background: #f5f7f9;
+  border-color: #bfd0db;
 }
 
 .btn-filtro-regional.ativo,
 .btn-filtro-regional-rh.ativo {
-  background: linear-gradient(90deg, #1e6091, #0a3d62);
+  background: linear-gradient(90deg, var(--cor-primaria-2), var(--cor-primaria));
   color: #fff;
-  border-color: #0a3d62;
+  border-color: var(--cor-primaria);
+  box-shadow: 0 6px 14px rgba(10, 61, 98, 0.20);
 }
 
 /* ==========================
@@ -398,37 +497,24 @@
   height: 40px;
   padding: 6px 12px;
   border-radius: 12px;
-  border: 1px solid #ccc;
+  border: 1px solid #d3dbe1;
   font-size: 13px;
-  font-weight: 600;
-  background: linear-gradient(to right, #ffffff, #f5fff5);
+  font-weight: 700;
+  background: linear-gradient(to right, #ffffff, #f6fbf7);
   transition: 0.2s;
+  color: var(--cor-texto);
 }
 
 .filtro-semana:focus {
-  border-color: #4CAF50;
-  box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+  border-color: var(--cor-sucesso-2);
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.12);
   outline: none;
 }
 
 .semana-ativa {
-  background-color: #4CAF50;
+  background-color: var(--cor-sucesso-2);
   color: #fff;
-  font-weight: bold;
-}
-
-/* ==========================
-   ✅ COLUNA DA SEMANA ATUAL
-========================== */
-.coluna-atual {
-  background-color: #e8f5e9 !important;
-  border-left: 2px solid #4CAF50;
-  border-right: 2px solid #4CAF50;
-}
-
-th.coluna-atual {
-  background: linear-gradient(90deg, #2e7d32, #4CAF50) !important;
-  color: #fff;
+  font-weight: 700;
 }
 
 /* ==========================
@@ -496,8 +582,32 @@ th.coluna-atual {
 }
 
 /* ==========================
+   ✨ VISUAL MAIS "DIRETORIA"
+   para cards / dashboard genéricos
+========================== */
+:is(.dashboard-card, .card-kpi, .kpi-card, .metric-card, .card-indicador, .card-dashboard, .resumo-card, .painel-card) {
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,250,252,0.98));
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: 14px;
+  box-shadow: var(--sombra-suave);
+  padding: 14px;
+}
+
+:is(.dashboard-card, .card-kpi, .kpi-card, .metric-card, .card-indicador, .card-dashboard, .resumo-card, .painel-card) h3,
+:is(.dashboard-card, .card-kpi, .kpi-card, .metric-card, .card-indicador, .card-dashboard, .resumo-card, .painel-card) h4 {
+  color: var(--cor-primaria);
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+:is(.dashboard-card, .card-kpi, .kpi-card, .metric-card, .card-indicador, .card-dashboard, .resumo-card, .painel-card) .valor,
+:is(.dashboard-card, .card-kpi, .kpi-card, .metric-card, .card-indicador, .card-dashboard, .resumo-card, .painel-card) .numero {
+  color: var(--cor-texto);
+  font-weight: 800;
+}
+
+/* ==========================
    📏 TABELAS ESPECIAIS / RH
-   AJUSTE MAIS FLEXÍVEL
 ========================== */
 .tabela-compacta-container,
 .tabela-rh-ajustada {
@@ -506,17 +616,16 @@ th.coluna-atual {
   overflow-y: visible !important;
 }
 
-/* neutraliza a trava forte da base */
 .tabela-especial-compacta,
 .tabela-rh-compacta {
   width: max-content !important;
   min-width: 100% !important;
   max-width: none !important;
   table-layout: auto !important;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-/* células compactas */
 .tabela-especial-compacta th,
 .tabela-especial-compacta td,
 .tabela-rh-compacta th,
@@ -527,7 +636,6 @@ th.coluna-atual {
   vertical-align: middle;
 }
 
-/* cabeçalhos centralizados */
 .tabela-especial-compacta th,
 .tabela-rh-compacta th {
   white-space: nowrap;
@@ -544,9 +652,9 @@ th.coluna-atual {
 }
 
 .col-loja {
-  width: 130px !important;
-  min-width: 130px !important;
-  max-width: 130px !important;
+  width: 132px !important;
+  min-width: 132px !important;
+  max-width: 132px !important;
   text-align: left !important;
   white-space: nowrap;
   overflow: hidden;
@@ -567,9 +675,9 @@ th.coluna-atual {
 }
 
 .col-loja-rh {
-  width: 110px !important;
-  min-width: 110px !important;
-  max-width: 110px !important;
+  width: 112px !important;
+  min-width: 112px !important;
+  max-width: 112px !important;
   text-align: left !important;
   white-space: nowrap;
   overflow: hidden;
@@ -582,29 +690,25 @@ th.coluna-atual {
   max-width: 56px !important;
 }
 
-/* IMPORTANTE:
-   não travar mais com força os inputs especiais/RH,
-   deixar o JS controlar melhor com width inline
-*/
+/* não travar os inputs especiais/RH */
 .input-tabela-compacto {
-  min-height: 26px;
+  min-height: 27px;
   font-size: 10px !important;
   text-align: center;
-  padding: 0 4px !important;
+  padding: 0 5px !important;
   border-radius: 6px;
   box-sizing: border-box;
 }
 
 .input-tabela-rh {
-  min-height: 26px;
+  min-height: 27px;
   font-size: 10px !important;
   text-align: center;
-  padding: 0 4px !important;
+  padding: 0 5px !important;
   border-radius: 6px;
   box-sizing: border-box;
 }
 
-/* wrappers específicos */
 .campo-tabela-especial,
 .campo-tabela-rh {
   display: flex;
@@ -624,41 +728,12 @@ th.coluna-atual {
 #tbody-especial td:nth-child(2),
 #tbody-rh td:nth-child(2) {
   text-align: left;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 #tbody-especial td:nth-child(3),
 #tbody-rh td:nth-child(3) {
   text-align: center;
-}
-
-/* ==========================
-   🔧 CABEÇALHO INTERNO DAS TABELAS ESPECIAIS / RH
-========================== */
-.tabela-especial-compacta thead tr:nth-child(2) th,
-.tabela-rh-compacta thead tr:nth-child(2) th {
-  font-size: 9px !important;
-  font-weight: 600;
-  padding: 4px 3px !important;
-  line-height: 1.08;
-  letter-spacing: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: center !important;
-}
-
-.tabela-especial-compacta thead tr:first-child th,
-.tabela-rh-compacta thead tr:first-child th {
-  font-size: 11px !important;
-  padding: 6px 4px !important;
-  line-height: 1.08;
-  text-align: center !important;
-}
-
-.tabela-especial-compacta th,
-.tabela-rh-compacta th {
-  text-transform: uppercase;
 }
 
 /* ==========================
@@ -694,7 +769,7 @@ th.coluna-atual {
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  background: linear-gradient(90deg, #0a3d62, #1e6091);
+  background: linear-gradient(90deg, var(--cor-primaria), var(--cor-primaria-2));
   color: #fff;
   font-size: 13px;
   font-weight: 600;
@@ -742,13 +817,13 @@ th.coluna-atual {
 
 .item-justificativa-painel:hover {
   background: #f4f8fb;
-  border-color: #1e6091;
+  border-color: var(--cor-primaria-2);
 }
 
 .item-justificativa-painel.ativo {
   background: #eaf4fb;
-  border-color: #1e6091;
-  color: #0a3d62;
+  border-color: var(--cor-primaria-2);
+  color: var(--cor-primaria);
   font-weight: 600;
 }
 
@@ -766,9 +841,9 @@ th.coluna-atual {
   }
 
   .col-loja {
-    width: 116px !important;
-    min-width: 116px !important;
-    max-width: 116px !important;
+    width: 118px !important;
+    min-width: 118px !important;
+    max-width: 118px !important;
   }
 
   .col-regional {
@@ -778,9 +853,9 @@ th.coluna-atual {
   }
 
   .col-loja-rh {
-    width: 96px !important;
-    min-width: 96px !important;
-    max-width: 96px !important;
+    width: 98px !important;
+    min-width: 98px !important;
+    max-width: 98px !important;
   }
 
   .col-regional-rh {
@@ -853,6 +928,7 @@ th.coluna-atual {
   .filtros-novos {
     flex-direction: column;
     align-items: stretch;
+    padding: 10px;
   }
 
   .filtros-novos input {
@@ -894,20 +970,20 @@ th.coluna-atual {
 
   .tabela input,
   .input-tabela {
-    width: 60px;
+    width: 62px;
     font-size: 12px;
   }
 
   .col-loja {
-    width: 100px !important;
-    min-width: 100px !important;
-    max-width: 100px !important;
+    width: 102px !important;
+    min-width: 102px !important;
+    max-width: 102px !important;
   }
 
   .col-loja-rh {
-    width: 86px !important;
-    min-width: 86px !important;
-    max-width: 86px !important;
+    width: 88px !important;
+    min-width: 88px !important;
+    max-width: 88px !important;
   }
 
   .input-tabela-compacto {
@@ -946,7 +1022,7 @@ th.coluna-atual {
 
   .tabela input,
   .input-tabela {
-    width: 104px;
+    width: 108px;
     font-size: 15px;
     height: 38px;
   }
@@ -963,6 +1039,11 @@ th.coluna-atual {
 
   .header-tabela h2 {
     font-size: 22px;
+  }
+
+  .filtros-novos input,
+  .filtro-semana {
+    height: 42px;
   }
 
   .tabela-especial-compacta thead tr:nth-child(2) th,
@@ -990,5 +1071,10 @@ th.coluna-atual {
   .filtro-semana {
     height: 44px;
     font-size: 15px;
+  }
+
+  .tabela input,
+  .input-tabela {
+    height: 40px;
   }
 }
