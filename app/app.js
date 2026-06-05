@@ -657,7 +657,13 @@ async function logout() {
 const classesIndicadores = {
   Auditoria: ["RUPTURA FINAL", "ETIQUETA"],
 
-  "Frente de Caixa": ["SELF-CHECKOUT", "DESCONTO", "CANCELAMENTO", "DEVOLUÇÃO"],
+  "Frente de Caixa": [
+  "SELF-CHECKOUT",
+  "DESCONTO",
+  "CANCELAMENTO",
+  "DEVOLUÇÃO",
+  "FAIXA HORAS"
+],
 
   Operações: [
     { nome: "Visita Prospecção", valor: "PSV" },

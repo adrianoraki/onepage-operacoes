@@ -1,6 +1,32 @@
 // ==========================
 // 📊 CONFIG GLOBAL
 // ==========================
+const TABELA_LOG_PREFIX = "📋 Tabela";
+
+function tabelaLogInfo(mensagem, payload = null) {
+  if (payload !== null && payload !== undefined) {
+    console.log(`${TABELA_LOG_PREFIX} | ${mensagem}`, payload);
+  } else {
+    console.log(`${TABELA_LOG_PREFIX} | ${mensagem}`);
+  }
+}
+
+function tabelaLogWarn(mensagem, payload = null) {
+  if (payload !== null && payload !== undefined) {
+    console.warn(`${TABELA_LOG_PREFIX} | ${mensagem}`, payload);
+  } else {
+    console.warn(`${TABELA_LOG_PREFIX} | ${mensagem}`);
+  }
+}
+
+function tabelaLogError(mensagem, payload = null) {
+  if (payload !== null && payload !== undefined) {
+    console.error(`${TABELA_LOG_PREFIX} | ${mensagem}`, payload);
+  } else {
+    console.error(`${TABELA_LOG_PREFIX} | ${mensagem}`);
+  }
+}
+
 let indicadorSelecionado = null;
 
 // ✅ garante semana correta SEMPRE
@@ -17,8 +43,8 @@ const TABELA_UI = {
   estilosInjetados: false,
 };
 
-console.log("✅ tabela.js carregado");
-console.log("📅 Semana inicial:", semanaSelecionada);
+tabelaLogInfo("tabela.js carregado");
+tabelaLogInfo("Semana inicial", { semanaSelecionada });
 
 // ==========================
 // 📂 MAPA DE CLASSES (compatibilidade)
@@ -31,6 +57,7 @@ const mapaClasse = {
   DESCONTO: "Frente de Caixa",
   CANCELAMENTO: "Frente de Caixa",
   DEVOLUÇÃO: "Frente de Caixa",
+  "FAIXA HORAS": "Frente de Caixa",
 
   PSV: "Operações",
   NPS: "Operações",
@@ -89,7 +116,7 @@ function escapeCssSelectorTabela(valor) {
       return CSS.escape(texto);
     }
   } catch (erro) {
-    console.warn("⚠️ CSS.escape indisponível, usando fallback:", erro);
+    tabelaLogWarn("CSS.escape indisponível, usando fallback", erro);
   }
 
   return texto.replace(/([ !"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, "\\$1");
@@ -118,7 +145,8 @@ function tipoEhPercentualTabela(tipo) {
 function getClasseLarguraCampoTabela(tipo, usaJustificativa = false) {
   if (!usaJustificativa) {
     if (tipoEhMonetarioTabela(tipo)) return "tipo-moeda sem-justificativa";
-    if (tipoEhPercentualTabela(tipo)) return "tipo-percentual sem-justificativa";
+    if (tipoEhPercentualTabela(tipo))
+      return "tipo-percentual sem-justificativa";
     return "tipo-padrao sem-justificativa";
   }
 
@@ -220,12 +248,12 @@ function garantirEstilosTabelaUI() {
   document.head.appendChild(style);
   TABELA_UI.estilosInjetados = true;
 
-  console.log("🎨 Estilos dinâmicos da tabela injetados");
+  tabelaLogInfo("Estilos dinâmicos da tabela injetados");
 }
 
 function ocultarColunaRegionalDasTabelasRenderizadas(container = null) {
   if (!TABELA_UI.ocultarColunaRegional) {
-    console.log("ℹ️ Ocultação da coluna regional desativada");
+    tabelaLogInfo("Ocultação da coluna regional desativada");
     return;
   }
 
@@ -253,7 +281,7 @@ function ocultarColunaRegionalDasTabelasRenderizadas(container = null) {
     });
 
     if (indiceRegional === -1) {
-      console.log("ℹ️ Nenhuma coluna Regional detectada nesta tabela");
+      tabelaLogInfo("Nenhuma coluna Regional detectada nesta tabela");
       return;
     }
 
@@ -269,7 +297,7 @@ function ocultarColunaRegionalDasTabelasRenderizadas(container = null) {
     totalColunasOcultadas++;
   });
 
-  console.log("👁️ Coluna Regional ocultada nas tabelas renderizadas:", {
+  tabelaLogInfo("Coluna Regional ocultada nas tabelas renderizadas", {
     totalTabelas,
     totalColunasOcultadas,
   });
@@ -279,7 +307,7 @@ function aplicarLayoutTabelaRenderizada(container = null) {
   garantirEstilosTabelaUI();
   ocultarColunaRegionalDasTabelasRenderizadas(container);
 
-  console.log("🧱 Layout da tabela renderizada aplicado");
+  tabelaLogInfo("Layout da tabela renderizada aplicado");
 }
 
 // ==========================
@@ -326,7 +354,7 @@ function indicadorUsaJustificativaTabela(
     classeNorm === "AUDITORIA" &&
     (indicadorNorm === "RUPTURA FINAL" || indicadorNorm === "ETIQUETA");
 
-  console.log("🧠 Regra de justificativa avaliada:", {
+  tabelaLogInfo("Regra de justificativa avaliada", {
     indicadorNorm,
     classeSelecionada,
     classeFinal,
@@ -337,7 +365,7 @@ function indicadorUsaJustificativaTabela(
 }
 
 function prepararCliqueJustificativa(event = null) {
-  console.log("🖱️ prepararCliqueJustificativa");
+  tabelaLogInfo("prepararCliqueJustificativa");
 
   JUSTIFICATIVA_UI_STATE.clicandoBotao = true;
 
@@ -361,7 +389,7 @@ function finalizarCliqueJustificativa() {
   JUSTIFICATIVA_UI_STATE.timeoutClique = setTimeout(() => {
     JUSTIFICATIVA_UI_STATE.clicandoBotao = false;
     JUSTIFICATIVA_UI_STATE.timeoutClique = null;
-    console.log("🖱️ Estado de clique na justificativa finalizado");
+    tabelaLogInfo("Estado de clique na justificativa finalizado");
   }, 180);
 }
 
@@ -411,7 +439,7 @@ function atualizarEstadoVisualBotaoJustificativa(botao) {
   botao.classList.toggle("ativo", !!justificativaAtual);
   botao.title = justificativaAtual || "Selecionar justificativa";
 
-  console.log("🎯 Estado visual do botão atualizado:", {
+  tabelaLogInfo("Estado visual do botão atualizado", {
     justificativaAtual,
     ativo: !!justificativaAtual,
   });
@@ -436,7 +464,7 @@ function atualizarEstadoVisualInputComJustificativa(input, botao = null) {
 
   input.classList.toggle("input-com-justificativa", deveDestacar);
 
-  console.log("🎨 Estado visual do input atualizado:", {
+  tabelaLogInfo("Estado visual do input atualizado", {
     loja: input.dataset?.loja,
     semana: input.dataset?.semana,
     temValor,
@@ -463,7 +491,7 @@ function atualizarVisibilidadeJustificativa(input, limparSeTiverValor = true) {
     }
     input.classList.remove("input-com-justificativa");
 
-    console.log("ℹ️ Indicador sem justificativa. Botão não utilizado.");
+    tabelaLogInfo("Indicador sem justificativa. Botão não utilizado.");
     return;
   }
 
@@ -485,7 +513,7 @@ function atualizarVisibilidadeJustificativa(input, limparSeTiverValor = true) {
     botao.classList.remove("pendente");
     input.classList.remove("input-com-justificativa");
 
-    console.log("👁️ Botão de justificativa ocultado porque existe valor", {
+    tabelaLogInfo("Botão de justificativa ocultado porque existe valor", {
       loja: input.dataset.loja,
       semana: input.dataset.semana,
     });
@@ -499,7 +527,7 @@ function atualizarVisibilidadeJustificativa(input, limparSeTiverValor = true) {
   atualizarEstadoVisualBotaoJustificativa(botao);
   atualizarEstadoVisualInputComJustificativa(input, botao);
 
-  console.log("👁️ Botão de justificativa exibido", {
+  tabelaLogInfo("Botão de justificativa exibido", {
     loja: input.dataset.loja,
     semana: input.dataset.semana,
     bloqueado,
@@ -513,7 +541,7 @@ function sincronizarJustificativasComPermissoesTabela() {
     classeSelecionada
   );
 
-  console.log("🔐 Sincronizando justificativas com permissões da tabela...", {
+  tabelaLogInfo("Sincronizando justificativas com permissões da tabela...", {
     usaJustificativa,
   });
 
@@ -550,18 +578,18 @@ function sincronizarJustificativasComPermissoesTabela() {
     }
   });
 
-  console.log("✅ Sincronização de justificativas concluída");
+  tabelaLogInfo("Sincronização de justificativas concluída");
 }
 
 function garantirPainelJustificativa() {
   let painel = document.getElementById("painel-justificativa-flutuante");
 
   if (painel) {
-    console.log("🪟 Painel de justificativa já existente");
+    tabelaLogInfo("Painel de justificativa já existente");
     return painel;
   }
 
-  console.log("🪟 Criando painel de justificativa...");
+  tabelaLogInfo("Criando painel de justificativa...");
 
   painel = document.createElement("div");
   painel.id = "painel-justificativa-flutuante";
@@ -596,7 +624,7 @@ function garantirPainelJustificativa() {
     btn.textContent = motivo;
 
     btn.addEventListener("click", async () => {
-      console.log("📝 Justificativa clicada no painel:", motivo);
+      tabelaLogInfo("Justificativa clicada no painel", { motivo });
       await selecionarJustificativaPainel(motivo);
     });
 
@@ -621,7 +649,7 @@ function garantirPainelJustificativa() {
     );
 
     if (!clicouNoPainel && !clicouNoBotaoJustificativa) {
-      console.log("🪟 Clique fora do painel detectado. Fechando...");
+      tabelaLogInfo("Clique fora do painel detectado. Fechando...");
       fecharPainelJustificativa();
     }
   });
@@ -638,7 +666,7 @@ function garantirPainelJustificativa() {
     }
   });
 
-  console.log("✅ Painel de justificativa criado com sucesso");
+  tabelaLogInfo("Painel de justificativa criado com sucesso");
   return painel;
 }
 
@@ -674,7 +702,7 @@ function posicionarPainelJustificativa(botao) {
   caixa.style.left = `${left}px`;
   caixa.style.top = `${top}px`;
 
-  console.log("📍 Painel posicionado:", { left, top });
+  tabelaLogInfo("Painel posicionado", { left, top });
 }
 
 function marcarJustificativaSelecionadaNoPainel(botao) {
@@ -686,7 +714,9 @@ function marcarJustificativaSelecionadaNoPainel(botao) {
     item.classList.toggle("ativo", motivo === atual);
   });
 
-  console.log("✅ Justificativa marcada no painel:", atual || "(nenhuma)");
+  tabelaLogInfo("Justificativa marcada no painel", {
+    atual: atual || "(nenhuma)",
+  });
 }
 
 function abrirPainelJustificativa(botao, event = null) {
@@ -697,7 +727,7 @@ function abrirPainelJustificativa(botao, event = null) {
   );
 
   if (!usaJustificativa) {
-    console.log("ℹ️ Painel de justificativa ignorado para este indicador");
+    tabelaLogInfo("Painel de justificativa ignorado para este indicador");
     return;
   }
 
@@ -707,7 +737,7 @@ function abrirPainelJustificativa(botao, event = null) {
   }
 
   if (!botao || botao.disabled) {
-    console.warn("⚠️ Botão de justificativa inválido ou desabilitado");
+    tabelaLogWarn("Botão de justificativa inválido ou desabilitado");
     finalizarCliqueJustificativa();
     return;
   }
@@ -720,7 +750,7 @@ function abrirPainelJustificativa(botao, event = null) {
   posicionarPainelJustificativa(botao);
   marcarJustificativaSelecionadaNoPainel(botao);
 
-  console.log("🪟 Painel de justificativa aberto", {
+  tabelaLogInfo("Painel de justificativa aberto", {
     loja: botao.dataset.loja,
     semana: botao.dataset.semana,
     justificativaAtual: botao.dataset.justificativaAtual || "",
@@ -735,7 +765,7 @@ function fecharPainelJustificativa() {
     painel.classList.remove("ativo");
   }
 
-  console.log("🪟 Painel de justificativa fechado");
+  tabelaLogInfo("Painel de justificativa fechado");
 
   JUSTIFICATIVA_UI_STATE.botaoAtivo = null;
   JUSTIFICATIVA_UI_STATE.clicandoBotao = false;
@@ -749,17 +779,17 @@ function fecharPainelJustificativa() {
 async function selecionarJustificativaPainel(motivo) {
   const botao = JUSTIFICATIVA_UI_STATE.botaoAtivo;
   if (!botao) {
-    console.warn("⚠️ Nenhum botão ativo para aplicar justificativa");
+    tabelaLogWarn("Nenhum botão ativo para aplicar justificativa");
     return;
   }
 
   const input = getInputDoBotaoJustificativa(botao);
   if (!input) {
-    console.warn("⚠️ Input relacionado ao botão não encontrado");
+    tabelaLogWarn("Input relacionado ao botão não encontrado");
     return;
   }
 
-  console.log("📝 Selecionando justificativa do painel:", {
+  tabelaLogInfo("Selecionando justificativa do painel", {
     motivo,
     loja: botao.dataset.loja,
     semana: botao.dataset.semana,
@@ -774,10 +804,10 @@ async function selecionarJustificativaPainel(motivo) {
   const salvou = await processarAutoSalvarCampoTabela(input, botao);
 
   if (salvou) {
-    console.log("✅ Justificativa salva com sucesso");
+    tabelaLogInfo("Justificativa salva com sucesso");
     fecharPainelJustificativa();
   } else {
-    console.warn("⚠️ Falha ao salvar justificativa selecionada");
+    tabelaLogWarn("Falha ao salvar justificativa selecionada");
   }
 }
 
@@ -834,7 +864,7 @@ function gerarSemanas() {
 
   const semanas = lista.map((s) => s.toString().padStart(2, "0"));
 
-  console.log("🗓️ Semanas exibidas:", semanas);
+  tabelaLogInfo("Semanas exibidas", { semanas });
 
   return semanas;
 }
@@ -905,11 +935,11 @@ function getClassesConsulta(classeAtual) {
 // 📊 CARREGAR TABELA
 // ==========================
 async function carregarTabela() {
-  console.log("🚀 carregarTabela");
+  tabelaLogInfo("carregarTabela iniciado");
 
   try {
     if (!window.db) {
-      console.error("❌ window.db não inicializado");
+      tabelaLogError("window.db não inicializado");
       mostrarErro("Conexão com banco não iniciada");
       return;
     }
@@ -918,12 +948,12 @@ async function carregarTabela() {
       localStorage.getItem("semana") ||
       getSemanaAtual().toString().padStart(2, "0");
 
-    console.log("📅 Semana ativa:", semanaSelecionada);
+    tabelaLogInfo("Semana ativa", { semanaSelecionada });
 
     indicadorSelecionado = localStorage.getItem("indicador");
 
     if (!indicadorSelecionado) {
-      console.warn("⚠️ Nenhum indicador selecionado");
+      tabelaLogWarn("Nenhum indicador selecionado");
 
       const conteudo = document.getElementById("conteudo");
       if (conteudo) {
@@ -935,14 +965,32 @@ async function carregarTabela() {
       return;
     }
 
+    const indicadorNormalizado =
+      normalizarTextoTabelaUpper(indicadorSelecionado);
+
+    // ✅ NOVO INDICADOR SEPARADO: FAIXA HORAS
+    // usa arquivo próprio, mantendo estrutura separada da auditoria
+    if (indicadorNormalizado === "FAIXA HORAS") {
+      tabelaLogInfo("Redirecionando para telaFaixaHoras()", {
+        indicadorSelecionado,
+        indicadorNormalizado,
+      });
+
+      if (typeof window.telaFaixaHoras === "function") {
+        return window.telaFaixaHoras();
+      }
+
+      tabelaLogError("telaFaixaHoras não encontrada");
+      mostrarErro("Função telaFaixaHoras não encontrada.");
+      return;
+    }
+
     const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
     const usaJustificativa = indicadorUsaJustificativaTabela(
       indicadorSelecionado,
       classeSelecionada
     );
 
-    const indicadorNormalizado =
-      normalizarTextoTabelaUpper(indicadorSelecionado);
     const indicadorBanco = obterIndicadorBanco(
       indicadorNormalizado,
       classeSelecionada
@@ -959,12 +1007,16 @@ async function carregarTabela() {
         ? isIndicadorEspecialRH(indicadorNormalizado, classeSelecionada)
         : false;
 
-    console.log("📂 Classe:", classeAtual);
-    console.log("📊 Indicador normalizado:", indicadorNormalizado);
-    console.log("🗃️ Indicador banco:", indicadorBanco);
-    console.log("🧩 É especial?", isEspecial);
-    console.log("🧩 É RH especial?", isEspecialRH);
-    console.log("📝 Usa justificativa?", usaJustificativa);
+    tabelaLogInfo("Contexto da tabela resolvido", {
+      classeSelecionada,
+      classeAtual,
+      indicadorSelecionado,
+      indicadorNormalizado,
+      indicadorBanco,
+      isEspecial,
+      isEspecialRH,
+      usaJustificativa,
+    });
 
     const semanas = gerarSemanas();
 
@@ -984,8 +1036,10 @@ async function carregarTabela() {
     const lojas = lojasResp.data || [];
     const resultados = resultadosResp.data || [];
 
-    console.log("🏬 Lojas carregadas:", lojas.length);
-    console.log("📊 Registros carregados:", resultados.length);
+    tabelaLogInfo("Dados carregados do banco", {
+      totalLojas: lojas.length,
+      totalResultados: resultados.length,
+    });
 
     const mapa = {};
     resultados.forEach((r) => {
@@ -994,27 +1048,27 @@ async function carregarTabela() {
 
     const container = document.getElementById("conteudo");
     if (!container) {
-      console.error("❌ #conteudo não encontrado");
+      tabelaLogError("#conteudo não encontrado");
       return;
     }
 
     if (isEspecialRH) {
-      console.log("🧩 Usando tabela RH");
+      tabelaLogInfo("Usando tabela RH");
 
       if (typeof montarTabelaRH === "function") {
         container.innerHTML = montarTabelaRH(lojas, mapa, semanas);
       } else {
-        console.error("❌ montarTabelaRH não encontrada");
+        tabelaLogError("montarTabelaRH não encontrada");
         mostrarErro("Tabela RH não carregada");
         return;
       }
     } else if (isEspecial) {
-      console.log("🧩 Usando tabela especial");
+      tabelaLogInfo("Usando tabela especial");
 
       if (typeof montarTabelaEspecial === "function") {
         container.innerHTML = montarTabelaEspecial(lojas, mapa, semanas);
       } else {
-        console.error("❌ montarTabelaEspecial não encontrada");
+        tabelaLogError("montarTabelaEspecial não encontrada");
         mostrarErro("Tabela especial não carregada");
         return;
       }
@@ -1041,8 +1095,16 @@ async function carregarTabela() {
 
     sincronizarJustificativasComPermissoesTabela();
     ativarFiltros();
+
+    tabelaLogInfo("Tabela renderizada com sucesso", {
+      indicadorNormalizado,
+      classeAtual,
+      totalLojas: lojas.length,
+      totalResultados: resultados.length,
+      semanas,
+    });
   } catch (erro) {
-    console.error("❌ Erro carregarTabela:", erro);
+    tabelaLogError("Erro carregarTabela", erro);
     mostrarErro("Erro ao carregar tabela");
   }
 }
@@ -1119,7 +1181,7 @@ function montarHTMLTabela(lojas, mapa, semanas, classeSelecionada = null) {
     </div>
   `;
 
-  console.log("🧱 HTML da tabela normal montado:", {
+  tabelaLogInfo("HTML da tabela normal montado", {
     titulo,
     totalLojas: lojas.length,
     totalSemanas: semanas.length,
@@ -1246,14 +1308,14 @@ function montarLinha(loja, mapa, semanas, classeSelecionada = null) {
 // ==========================
 function alterarSemana(sem) {
   if (sem === semanaSelecionada) {
-    console.log("⚠️ Semana já ativa, ignorando");
+    tabelaLogWarn("Semana já ativa, ignorando");
     return;
   }
 
   semanaSelecionada = sem;
   localStorage.setItem("semana", sem);
 
-  console.log("📅 Semana alterada:", sem);
+  tabelaLogInfo("Semana alterada", { sem });
 
   carregarTabela();
 }
@@ -1264,13 +1326,13 @@ function alterarSemana(sem) {
 // ✅ independentes da coluna visual de Regional
 // ==========================
 function ativarFiltros() {
-  console.log("🔎 Ativando filtros");
+  tabelaLogInfo("Ativando filtros");
 
   const busca = document.getElementById("filtroBuscaLoja");
   const botoesRegional = document.querySelectorAll(".btn-filtro-regional");
 
   if (!busca || !botoesRegional.length) {
-    console.warn("⚠️ Filtros padrão não disponíveis nessa tabela");
+    tabelaLogWarn("Filtros padrão não disponíveis nessa tabela");
     return;
   }
 
@@ -1315,14 +1377,14 @@ function ativarFiltros() {
       btn.classList.add("ativo");
 
       regionalSelecionada = btn.dataset.regional || "TODAS";
-      console.log("🌍 Filtro regional alterado:", regionalSelecionada);
+      tabelaLogInfo("Filtro regional alterado", { regionalSelecionada });
       aplicar();
     });
   });
 
   aplicar();
 
-  console.log("✅ Filtros ativados com sucesso");
+  tabelaLogInfo("Filtros ativados com sucesso");
 }
 
 // ==========================
@@ -1345,7 +1407,9 @@ async function processarAutoSalvarCampoTabela(input, botao = null) {
 
   const valorDigitado = (input.value || "").toString().trim();
   let justificativaSelecionada = usaJustificativa
-    ? normalizarTextoTabela(botaoJustificativa?.dataset.justificativaAtual || "")
+    ? normalizarTextoTabela(
+        botaoJustificativa?.dataset.justificativaAtual || ""
+      )
     : "";
 
   const valorOriginal = input.dataset.original ?? "";
@@ -1386,7 +1450,7 @@ async function processarAutoSalvarCampoTabela(input, botao = null) {
         : Number(valorDigitado.replace(",", "."));
 
     if (valorLimpo === null || Number.isNaN(valorLimpo)) {
-      console.warn("⚠️ Valor inválido, salvamento ignorado", {
+      tabelaLogWarn("Valor inválido, salvamento ignorado", {
         loja,
         semana,
         valorDigitado,
@@ -1405,7 +1469,7 @@ async function processarAutoSalvarCampoTabela(input, botao = null) {
     valorComparacao === valorOriginal &&
     justificativaSelecionada === justificativaOriginal
   ) {
-    console.log("ℹ️ Nenhuma alteração detectada, salvamento ignorado", {
+    tabelaLogInfo("Nenhuma alteração detectada, salvamento ignorado", {
       loja,
       semana,
       valor: valorComparacao,
@@ -1422,8 +1486,8 @@ async function processarAutoSalvarCampoTabela(input, botao = null) {
 
   // ✅ exigência de justificativa só para Auditoria
   if (usaJustificativa && valorLimpo === null && !justificativaSelecionada) {
-    console.warn(
-      "⚠️ Campo sem valor e sem justificativa. Salvamento bloqueado.",
+    tabelaLogWarn(
+      "Campo sem valor e sem justificativa. Salvamento bloqueado.",
       {
         loja,
         semana,
@@ -1443,7 +1507,7 @@ async function processarAutoSalvarCampoTabela(input, botao = null) {
     input.value = formatarValorParaInput(valorLimpo, tipo);
   }
 
-  console.log("⚡ AutoSave completo", {
+  tabelaLogInfo("AutoSave completo", {
     loja,
     semana,
     valor: valorLimpo,
@@ -1492,7 +1556,7 @@ async function autoSalvar(input) {
   if (!input) return;
 
   if (JUSTIFICATIVA_UI_STATE.clicandoBotao === true) {
-    console.log("ℹ️ AutoSave ignorado temporariamente por clique no botão");
+    tabelaLogInfo("AutoSave ignorado temporariamente por clique no botão");
     return;
   }
 
@@ -1509,7 +1573,7 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
       : Number(valor);
 
   if (valor !== null && valor !== undefined && valor !== "" && isNaN(numero)) {
-    console.warn("⚠️ salvarValor ignorado por número inválido:", valor);
+    tabelaLogWarn("salvarValor ignorado por número inválido", { valor });
     return false;
   }
 
@@ -1538,16 +1602,18 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
   );
 
   if (TABELA_STATE.salvando.has(chaveSalvar)) {
-    console.warn(
-      "⚠️ Já existe um salvamento em andamento para este registro:",
-      chaveSalvar
+    tabelaLogWarn(
+      "Já existe um salvamento em andamento para este registro",
+      {
+        chaveSalvar,
+      }
     );
     return false;
   }
 
   TABELA_STATE.salvando.add(chaveSalvar);
 
-  console.log("💾 SALVAR:", {
+  tabelaLogInfo("SALVAR", {
     indicadorSelecionado,
     indicadorNormalizado,
     indicadorBanco,
@@ -1574,7 +1640,7 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
     const registros = existentes || [];
 
     if (registros.length > 1) {
-      console.warn("⚠️ Registros duplicados encontrados para a mesma chave:", {
+      tabelaLogWarn("Registros duplicados encontrados para a mesma chave", {
         loja,
         semana,
         indicadorBanco,
@@ -1599,7 +1665,7 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
 
       if (erroUpdate) throw erroUpdate;
 
-      console.log("✅ Registro atualizado com sucesso:", {
+      tabelaLogInfo("Registro atualizado com sucesso", {
         id: idAlvo,
         loja,
         semana,
@@ -1629,7 +1695,7 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
 
     if (erroInsert) throw erroInsert;
 
-    console.log("✅ Registro inserido com sucesso:", {
+    tabelaLogInfo("Registro inserido com sucesso", {
       id: inserido?.id,
       loja,
       semana,
@@ -1641,7 +1707,7 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
 
     return true;
   } catch (erro) {
-    console.error("❌ Erro salvarValor:", erro);
+    tabelaLogError("Erro salvarValor", erro);
     return false;
   } finally {
     TABELA_STATE.salvando.delete(chaveSalvar);
@@ -1657,7 +1723,7 @@ function gerarOptionsSemanas() {
   const atual =
     semanaSelecionada || getSemanaAtual().toString().padStart(2, "0");
 
-  console.log("📅 Gerando options - semana ativa:", atual);
+  tabelaLogInfo("Gerando options - semana ativa", { atual });
 
   for (let i = 1; i <= 53; i++) {
     const s = i.toString().padStart(2, "0");
@@ -1673,3 +1739,76 @@ function gerarOptionsSemanas() {
 
   return html;
 }
+
+// ==========================
+// 🌐 EXPOR FUNÇÕES GLOBAIS
+// ==========================
+window.getSemanaAtual = getSemanaAtual;
+window.normalizarTextoTabela = normalizarTextoTabela;
+window.normalizarTextoTabelaUpper = normalizarTextoTabelaUpper;
+window.escapeHtmlTabela = escapeHtmlTabela;
+window.escapeCssSelectorTabela = escapeCssSelectorTabela;
+
+window.tipoEhMonetarioTabela = tipoEhMonetarioTabela;
+window.tipoEhPercentualTabela = tipoEhPercentualTabela;
+window.getClasseLarguraCampoTabela = getClasseLarguraCampoTabela;
+window.garantirEstilosTabelaUI = garantirEstilosTabelaUI;
+window.ocultarColunaRegionalDasTabelasRenderizadas =
+  ocultarColunaRegionalDasTabelasRenderizadas;
+window.aplicarLayoutTabelaRenderizada = aplicarLayoutTabelaRenderizada;
+
+window.indicadorUsaJustificativaTabela = indicadorUsaJustificativaTabela;
+window.prepararCliqueJustificativa = prepararCliqueJustificativa;
+window.finalizarCliqueJustificativa = finalizarCliqueJustificativa;
+window.valorCampoEstaVazioTabela = valorCampoEstaVazioTabela;
+window.getBotaoJustificativa = getBotaoJustificativa;
+window.getInputValorTabela = getInputValorTabela;
+window.getBotaoJustificativaDoInput = getBotaoJustificativaDoInput;
+window.getInputDoBotaoJustificativa = getInputDoBotaoJustificativa;
+window.atualizarEstadoVisualBotaoJustificativa =
+  atualizarEstadoVisualBotaoJustificativa;
+window.atualizarEstadoVisualInputComJustificativa =
+  atualizarEstadoVisualInputComJustificativa;
+window.atualizarVisibilidadeJustificativa = atualizarVisibilidadeJustificativa;
+window.sincronizarJustificativasComPermissoesTabela =
+  sincronizarJustificativasComPermissoesTabela;
+window.garantirPainelJustificativa = garantirPainelJustificativa;
+window.posicionarPainelJustificativa = posicionarPainelJustificativa;
+window.marcarJustificativaSelecionadaNoPainel =
+  marcarJustificativaSelecionadaNoPainel;
+window.abrirPainelJustificativa = abrirPainelJustificativa;
+window.fecharPainelJustificativa = fecharPainelJustificativa;
+window.selecionarJustificativaPainel = selecionarJustificativaPainel;
+
+window.getChaveRegistroTabela = getChaveRegistroTabela;
+window.aplicarStatusInput = aplicarStatusInput;
+window.gerarSemanas = gerarSemanas;
+window.obterClasse = obterClasse;
+window.obterIndicadorBanco = obterIndicadorBanco;
+window.getTituloIndicador = getTituloIndicador;
+window.getClassesConsulta = getClassesConsulta;
+
+window.carregarTabela = carregarTabela;
+window.montarHTMLTabela = montarHTMLTabela;
+window.montarLinha = montarLinha;
+window.alterarSemana = alterarSemana;
+window.ativarFiltros = ativarFiltros;
+window.processarAutoSalvarCampoTabela = processarAutoSalvarCampoTabela;
+window.autoSalvar = autoSalvar;
+window.salvarValor = salvarValor;
+window.gerarOptionsSemanas = gerarOptionsSemanas;
+
+// ==========================
+// ✅ LOG FINAL
+// ==========================
+tabelaLogInfo("tabela.js pronto", {
+  getSemanaAtual: typeof window.getSemanaAtual,
+  obterClasse: typeof window.obterClasse,
+  obterIndicadorBanco: typeof window.obterIndicadorBanco,
+  carregarTabela: typeof window.carregarTabela,
+  autoSalvar: typeof window.autoSalvar,
+  salvarValor: typeof window.salvarValor,
+  indicadorUsaJustificativaTabela:
+    typeof window.indicadorUsaJustificativaTabela,
+  gerarOptionsSemanas: typeof window.gerarOptionsSemanas,
+});
