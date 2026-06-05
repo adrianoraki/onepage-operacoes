@@ -20,6 +20,7 @@
 .tabela-container {
   width: 100%;
   overflow-x: auto;
+  overflow-y: visible;
   margin-top: 10px;
 }
 
@@ -47,6 +48,8 @@
   top: 0;
   z-index: 2;
   white-space: nowrap;
+  text-align: center;
+  vertical-align: middle;
 }
 
 /* ==========================
@@ -89,8 +92,8 @@
 ========================== */
 .tabela input,
 .input-tabela {
-  width: 80px;
-  height: 32px;
+  width: 88px;
+  height: 34px;
   border-radius: 8px;
   border: 1px solid #ccc;
   text-align: center;
@@ -98,7 +101,8 @@
   font-weight: 500;
   transition: 0.2s;
   background: #fff;
-  padding: 0 6px;
+  padding: 0 8px;
+  box-sizing: border-box;
 }
 
 .tabela input:focus,
@@ -110,8 +114,6 @@
 
 /* ==========================
    📝 CAMPO COM JUSTIFICATIVA
-   input + botão lado a lado
-   sem quebrar posição
 ========================== */
 .campo-tabela-com-justificativa {
   display: inline-flex;
@@ -129,10 +131,10 @@
 
 .campo-tabela-com-justificativa .input-valor-tabela,
 .campo-tabela-com-justificativa input[data-campo="valor"] {
-  width: 58px;
-  min-width: 58px;
-  max-width: 58px;
-  height: 28px;
+  width: 68px;
+  min-width: 68px;
+  max-width: 68px;
+  height: 30px;
   border-radius: 8px;
   border: 1px solid #ccc;
   text-align: center;
@@ -142,7 +144,7 @@
   padding: 0 6px;
   box-sizing: border-box;
   transition: 0.2s;
-  flex: 0 0 58px;
+  flex: 0 0 68px;
 }
 
 .campo-tabela-com-justificativa .input-valor-tabela:focus,
@@ -152,7 +154,6 @@
   outline: none;
 }
 
-/* input com justificativa selecionada e sem valor */
 .campo-tabela-com-justificativa .input-valor-tabela.input-com-justificativa,
 .campo-tabela-com-justificativa input[data-campo="valor"].input-com-justificativa {
   border: 1px solid #d32f2f !important;
@@ -160,7 +161,6 @@
   color: #b71c1c !important;
 }
 
-/* foco do campo quando já está com justificativa */
 .campo-tabela-com-justificativa .input-valor-tabela.input-com-justificativa:focus,
 .campo-tabela-com-justificativa input[data-campo="valor"].input-com-justificativa:focus {
   border: 2px solid #d32f2f !important;
@@ -271,7 +271,6 @@
   font-size: 10px;
   border-radius: 4px;
 }
-
 
 @keyframes pulseJustificativa {
   0% {
@@ -459,7 +458,6 @@ th.coluna-atual {
   transition: all 0.2s ease;
 }
 
-/* marcador visual de subnível */
 .sidebar_menu .submenu li::before,
 .submenu-item::before {
   content: "";
@@ -474,14 +472,12 @@ th.coluna-atual {
   opacity: 0.9;
 }
 
-/* hover */
 .sidebar_menu .submenu li:hover,
 .submenu-item:hover {
   background: rgba(76, 175, 80, 0.12);
   color: #81C784;
 }
 
-/* marcador no hover */
 .sidebar_menu .submenu li:hover::before,
 .submenu-item:hover::before {
   background: #81C784;
@@ -495,27 +491,28 @@ th.coluna-atual {
   display: inline-block;
 }
 
-.sidebar_menu .menu>ul>li {
+.sidebar_menu .menu > ul > li {
   font-weight: 600;
 }
 
 /* ==========================
    📏 TABELAS ESPECIAIS / RH
-   AJUSTE FORTE PARA CABER NA TELA
+   AJUSTE MAIS FLEXÍVEL
 ========================== */
 .tabela-compacta-container,
 .tabela-rh-ajustada {
   width: 100%;
-  overflow-x: hidden !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
 }
 
-/* neutraliza a min-width da base nessas tabelas */
+/* neutraliza a trava forte da base */
 .tabela-especial-compacta,
 .tabela-rh-compacta {
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-  table-layout: fixed !important;
+  width: max-content !important;
+  min-width: 100% !important;
+  max-width: none !important;
+  table-layout: auto !important;
   border-collapse: collapse;
 }
 
@@ -524,31 +521,32 @@ th.coluna-atual {
 .tabela-especial-compacta td,
 .tabela-rh-compacta th,
 .tabela-rh-compacta td {
-  padding: 4px 3px;
+  padding: 5px 4px;
   font-size: 10px;
   text-align: center;
   vertical-align: middle;
 }
 
-/* mantém cabeçalhos sem quebra */
+/* cabeçalhos centralizados */
 .tabela-especial-compacta th,
 .tabela-rh-compacta th {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: center !important;
 }
 
 /* colunas especiais padrão */
 .col-codigo {
-  width: 52px !important;
-  min-width: 52px !important;
-  max-width: 52px !important;
+  width: 54px !important;
+  min-width: 54px !important;
+  max-width: 54px !important;
 }
 
 .col-loja {
-  width: 120px !important;
-  min-width: 120px !important;
-  max-width: 120px !important;
+  width: 130px !important;
+  min-width: 130px !important;
+  max-width: 130px !important;
   text-align: left !important;
   white-space: nowrap;
   overflow: hidden;
@@ -561,17 +559,17 @@ th.coluna-atual {
   max-width: 58px !important;
 }
 
-/* colunas RH ainda mais compactas */
+/* colunas RH */
 .col-codigo-rh {
-  width: 48px !important;
-  min-width: 48px !important;
-  max-width: 48px !important;
+  width: 52px !important;
+  min-width: 52px !important;
+  max-width: 52px !important;
 }
 
 .col-loja-rh {
-  width: 100px !important;
-  min-width: 100px !important;
-  max-width: 100px !important;
+  width: 110px !important;
+  min-width: 110px !important;
+  max-width: 110px !important;
   text-align: left !important;
   white-space: nowrap;
   overflow: hidden;
@@ -579,33 +577,47 @@ th.coluna-atual {
 }
 
 .col-regional-rh {
-  width: 54px !important;
-  min-width: 54px !important;
-  max-width: 54px !important;
+  width: 56px !important;
+  min-width: 56px !important;
+  max-width: 56px !important;
 }
 
-/* inputs especiais compactos */
+/* IMPORTANTE:
+   não travar mais com força os inputs especiais/RH,
+   deixar o JS controlar melhor com width inline
+*/
 .input-tabela-compacto {
-  width: 50px !important;
-  min-width: 50px !important;
-  max-width: 50px !important;
-  height: 24px !important;
+  min-height: 26px;
   font-size: 10px !important;
   text-align: center;
-  padding: 0 2px !important;
+  padding: 0 4px !important;
   border-radius: 6px;
+  box-sizing: border-box;
 }
 
-/* RH ainda mais enxuto */
 .input-tabela-rh {
-  width: 46px !important;
-  min-width: 46px !important;
-  max-width: 46px !important;
-  height: 24px !important;
+  min-height: 26px;
   font-size: 10px !important;
   text-align: center;
-  padding: 0 2px !important;
+  padding: 0 4px !important;
   border-radius: 6px;
+  box-sizing: border-box;
+}
+
+/* wrappers específicos */
+.campo-tabela-especial,
+.campo-tabela-rh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.celula-especial-valor,
+.celula-rh-valor {
+  text-align: center !important;
+  vertical-align: middle !important;
 }
 
 /* alinhamento adicional */
@@ -622,42 +634,28 @@ th.coluna-atual {
 
 /* ==========================
    🔧 CABEÇALHO INTERNO DAS TABELAS ESPECIAIS / RH
-   reduz nomes da 2ª linha
 ========================== */
-
-/* segunda linha do cabeçalho - tabela especial */
-.tabela-especial-compacta thead tr:nth-child(2) th {
-  font-size: 9px !important;
-  font-weight: 600;
-  padding: 3px 2px !important;
-  line-height: 1.05;
-  letter-spacing: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* segunda linha do cabeçalho - RH */
+.tabela-especial-compacta thead tr:nth-child(2) th,
 .tabela-rh-compacta thead tr:nth-child(2) th {
   font-size: 9px !important;
   font-weight: 600;
-  padding: 3px 2px !important;
-  line-height: 1.05;
+  padding: 4px 3px !important;
+  line-height: 1.08;
   letter-spacing: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: center !important;
 }
 
-/* primeira linha (SEMANA XX) */
 .tabela-especial-compacta thead tr:first-child th,
 .tabela-rh-compacta thead tr:first-child th {
   font-size: 11px !important;
-  padding: 6px 3px !important;
-  line-height: 1.05;
+  padding: 6px 4px !important;
+  line-height: 1.08;
+  text-align: center !important;
 }
 
-/* cabeçalho geral compacto nas especiais */
 .tabela-especial-compacta th,
 .tabela-rh-compacta th {
   text-transform: uppercase;
@@ -768,9 +766,9 @@ th.coluna-atual {
   }
 
   .col-loja {
-    width: 110px !important;
-    min-width: 110px !important;
-    max-width: 110px !important;
+    width: 116px !important;
+    min-width: 116px !important;
+    max-width: 116px !important;
   }
 
   .col-regional {
@@ -780,27 +778,15 @@ th.coluna-atual {
   }
 
   .col-loja-rh {
-    width: 90px !important;
-    min-width: 90px !important;
-    max-width: 90px !important;
+    width: 96px !important;
+    min-width: 96px !important;
+    max-width: 96px !important;
   }
 
   .col-regional-rh {
-    width: 50px !important;
-    min-width: 50px !important;
-    max-width: 50px !important;
-  }
-
-  .input-tabela-compacto {
-    width: 46px !important;
-    min-width: 46px !important;
-    max-width: 46px !important;
-  }
-
-  .input-tabela-rh {
-    width: 42px !important;
-    min-width: 42px !important;
-    max-width: 42px !important;
+    width: 52px !important;
+    min-width: 52px !important;
+    max-width: 52px !important;
   }
 
   .tabela-especial-compacta th,
@@ -808,7 +794,7 @@ th.coluna-atual {
   .tabela-rh-compacta th,
   .tabela-rh-compacta td {
     font-size: 10px;
-    padding: 4px 2px;
+    padding: 4px 3px;
   }
 
   .tabela-especial-compacta thead tr:nth-child(2) th,
@@ -834,7 +820,7 @@ th.coluna-atual {
 
   .tabela-especial-compacta,
   .tabela-rh-compacta {
-    min-width: 0 !important;
+    min-width: max-content !important;
   }
 }
 
@@ -908,34 +894,27 @@ th.coluna-atual {
 
   .tabela input,
   .input-tabela {
-    width: 55px;
+    width: 60px;
     font-size: 12px;
   }
 
-  /* especiais / RH mantêm compactação forte */
   .col-loja {
-    width: 95px !important;
-    min-width: 95px !important;
-    max-width: 95px !important;
+    width: 100px !important;
+    min-width: 100px !important;
+    max-width: 100px !important;
   }
 
   .col-loja-rh {
-    width: 82px !important;
-    min-width: 82px !important;
-    max-width: 82px !important;
+    width: 86px !important;
+    min-width: 86px !important;
+    max-width: 86px !important;
   }
 
   .input-tabela-compacto {
-    width: 42px !important;
-    min-width: 42px !important;
-    max-width: 42px !important;
     font-size: 9px !important;
   }
 
   .input-tabela-rh {
-    width: 40px !important;
-    min-width: 40px !important;
-    max-width: 40px !important;
     font-size: 9px !important;
   }
 
@@ -959,7 +938,6 @@ th.coluna-atual {
 }
 
 @media (min-width: 1600px) {
-
   .tabela th,
   .tabela td {
     font-size: 16px;
@@ -968,9 +946,9 @@ th.coluna-atual {
 
   .tabela input,
   .input-tabela {
-    width: 100px;
+    width: 104px;
     font-size: 15px;
-    height: 36px;
+    height: 38px;
   }
 
   .btn-justificativa-celula {
@@ -987,25 +965,30 @@ th.coluna-atual {
     font-size: 22px;
   }
 
-  /* em telas grandes, especiais continuam compactas mas respiram um pouco */
-  .input-tabela-compacto {
-    width: 56px !important;
-    min-width: 56px !important;
-    max-width: 56px !important;
-    height: 26px !important;
-    font-size: 11px !important;
-  }
-
-  .input-tabela-rh {
-    width: 50px !important;
-    min-width: 50px !important;
-    max-width: 50px !important;
-    height: 25px !important;
-    font-size: 10px !important;
-  }
-
   .tabela-especial-compacta thead tr:nth-child(2) th,
   .tabela-rh-compacta thead tr:nth-child(2) th {
     font-size: 9px !important;
+  }
+}
+
+@media (min-width: 2200px) {
+  .card-conteudo {
+    padding: 18px;
+  }
+
+  .tabela th,
+  .tabela td {
+    font-size: 17px;
+    padding: 15px;
+  }
+
+  .header-tabela h2 {
+    font-size: 24px;
+  }
+
+  .filtros-novos input,
+  .filtro-semana {
+    height: 44px;
+    font-size: 15px;
   }
 }

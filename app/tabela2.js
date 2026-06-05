@@ -5,10 +5,20 @@
 
 const TABELA_ESPECIAL_STATE = {
   salvando: new Set(),
-  botaoAtivo: null,
-  clicandoBotao: false,
-  timeoutClique: null,
 };
+
+const TABELA_ESPECIAL_UI = {
+  ocultarColunaRegional: true,
+  usarJustificativa: false,
+  estilosInjetados: false,
+  compactarSemanaSelecionada: true,
+};
+
+console.log("✅ tabela-especial.js carregado", {
+  ocultarColunaRegional: TABELA_ESPECIAL_UI.ocultarColunaRegional,
+  usarJustificativa: TABELA_ESPECIAL_UI.usarJustificativa,
+  compactarSemanaSelecionada: TABELA_ESPECIAL_UI.compactarSemanaSelecionada,
+});
 
 // ==========================
 // 🗝️ CHAVE DE REGISTRO ESPECIAL
@@ -74,6 +84,15 @@ function escapeCssSelectorEspecial(valor) {
   }
 
   const texto = (valor || "").toString();
+
+  try {
+    if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+      return CSS.escape(texto);
+    }
+  } catch (erro) {
+    console.warn("⚠️ CSS.escape indisponível em especial, usando fallback:", erro);
+  }
+
   return texto.replace(/([ !"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, "\\$1");
 }
 
@@ -84,34 +103,304 @@ function normalizarTextoEspecial(valor) {
   return (valor || "").toString().trim();
 }
 
+function normalizarTextoEspecialUpper(valor) {
+  return normalizarTextoEspecial(valor).toUpperCase();
+}
+
 function valorCampoEstaVazioEspecial(valor) {
   return normalizarTextoEspecial(valor) === "";
 }
 
-function getListaJustificativasEspecial() {
-  if (
-    typeof JUSTIFICATIVAS_SEM_RESPOSTA !== "undefined" &&
-    Array.isArray(JUSTIFICATIVAS_SEM_RESPOSTA) &&
-    JUSTIFICATIVAS_SEM_RESPOSTA.length
-  ) {
-    return JUSTIFICATIVAS_SEM_RESPOSTA;
+function tipoEhMonetarioEspecial(tipo) {
+  const t = normalizarTextoEspecialUpper(tipo);
+  return (
+    t === "MOEDA" ||
+    t === "R$" ||
+    t === "CURRENCY" ||
+    t === "MONETARIO" ||
+    t === "MONETÁRIO" ||
+    t === "VALOR"
+  );
+}
+
+function tipoEhPercentualEspecial(tipo) {
+  const t = normalizarTextoEspecialUpper(tipo);
+  return t === "PERCENTUAL" || t === "%" || t === "PORCENTAGEM";
+}
+
+function getClasseLarguraCampoEspecial(tipo) {
+  if (tipoEhMonetarioEspecial(tipo)) return "tipo-moeda";
+  if (tipoEhPercentualEspecial(tipo)) return "tipo-percentual";
+  return "tipo-padrao";
+}
+
+function getSemanaCompactaEspecialAtual() {
+  const semana = (
+    semanaSelecionada ||
+    localStorage.getItem("semana") ||
+    getSemanaAtual().toString().padStart(2, "0")
+  )
+    .toString()
+    .padStart(2, "0");
+
+  return semana;
+}
+
+function semanaEhCompactaEspecial(semana) {
+  if (!TABELA_ESPECIAL_UI.compactarSemanaSelecionada) return false;
+
+  const semanaNorm = (semana || "").toString().padStart(2, "0");
+  const semanaCompacta = getSemanaCompactaEspecialAtual();
+
+  return semanaNorm === semanaCompacta;
+}
+
+function getLarguraCampoEspecialPx(indicador, campo, tipo, semana = null) {
+  const indicadorNorm = normalizarTextoEspecialUpper(indicador || "");
+  const campoNorm = normalizarTextoEspecialUpper(campo || "");
+  const tipoNorm = normalizarTextoEspecialUpper(tipo || "");
+  const compacta = semanaEhCompactaEspecial(semana);
+
+  let base = 150;
+
+  // SELF-CHECKOUT
+  // Aqui estamos equilibrando para caber melhor dentro da tela
+  if (indicadorNorm === "SELF-CHECKOUT") {
+    if (campoNorm === "VALOR") {
+      base = compacta ? 165 : 185;
+    } else if (campoNorm === "VALOR2") {
+      base = compacta ? 92 : 105;
+    } else {
+      base = compacta ? 135 : 150;
+    }
+  }
+  // PART.TELEVENDAS
+  else if (indicadorNorm === "PART.TELEVENDAS") {
+    if (campoNorm === "VALOR") {
+      base = compacta ? 155 : 175;
+    } else if (campoNorm === "VALOR2") {
+      base = compacta ? 155 : 175;
+    } else {
+      base = compacta ? 145 : 165;
+    }
+  }
+  // fallback geral
+  else {
+    if (
+      tipoNorm === "MOEDA" ||
+      tipoNorm === "R$" ||
+      tipoNorm === "MONETARIO" ||
+      tipoNorm === "MONETÁRIO"
+    ) {
+      base = compacta ? 190 : 220;
+    } else if (
+      tipoNorm === "PERCENTUAL" ||
+      tipoNorm === "%" ||
+      tipoNorm === "PORCENTAGEM"
+    ) {
+      base = compacta ? 150 : 170;
+    } else {
+      base = compacta ? 135 : 150;
+    }
   }
 
-  return [
-    "Mudança Layout / Reforma",
-    "Inventário Geral",
-    "Falha Wifi",
-    "Falta Energia",
-    "Greve Ônibus",
-    "Feriado Municipal",
-    "Problema Zebra",
-    "Interdição",
-    "Fenômeno da Natureza",
-    "Troca Servidor",
-    "Falta Equipe",
-    "Alteração de Cluster",
-    "Alinhado com Gerente Operações",
-  ];
+  const final = Math.max(base, 88);
+
+  console.log("📏 Largura calculada do campo especial:", {
+    indicador: indicadorNorm,
+    campo: campoNorm,
+    tipo: tipoNorm,
+    semana,
+    compacta,
+    final,
+  });
+
+  return final;
+}
+
+function getAlturaCampoEspecialPx(indicador, campo, tipo, semana = null) {
+  const indicadorNorm = normalizarTextoEspecialUpper(indicador || "");
+  const campoNorm = normalizarTextoEspecialUpper(campo || "");
+  const compacta = semanaEhCompactaEspecial(semana);
+
+  let altura = compacta ? 30 : 32;
+
+  if (indicadorNorm === "SELF-CHECKOUT") {
+    if (campoNorm === "VALOR") {
+      altura = compacta ? 30 : 34;
+    } else if (campoNorm === "VALOR2") {
+      altura = compacta ? 30 : 32;
+    }
+  }
+
+  console.log("📐 Altura calculada do campo especial:", {
+    indicador: indicadorNorm,
+    campo: campoNorm,
+    semana,
+    compacta,
+    altura,
+  });
+
+  return altura;
+}
+
+function getClassAttrEspecial(classes = []) {
+  const lista = (classes || []).filter(Boolean).join(" ").trim();
+  return lista ? ` class="${lista}"` : "";
+}
+
+function garantirEstilosTabelaEspecial() {
+  if (TABELA_ESPECIAL_UI.estilosInjetados) return;
+
+  const styleId = "estilos-tabela-especial-ajustes";
+  if (document.getElementById(styleId)) {
+    TABELA_ESPECIAL_UI.estilosInjetados = true;
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.id = styleId;
+  style.textContent = `
+    .tabela-especial-compacta {
+      width: max-content !important;
+      min-width: 100% !important;
+      table-layout: auto !important;
+      border-collapse: collapse;
+    }
+
+    .tabela-especial-compacta .col-regional-oculta,
+    .tabela-especial-compacta th[data-coluna="regional"],
+    .tabela-especial-compacta td[data-coluna="regional"] {
+      display: none !important;
+    }
+
+    .tabela-especial-compacta th,
+    .tabela-especial-compacta td {
+      vertical-align: middle;
+      box-sizing: border-box;
+      white-space: nowrap;
+    }
+
+    .tabela-especial-compacta .col-codigo {
+      width: 58px !important;
+      min-width: 58px !important;
+      max-width: 58px !important;
+    }
+
+    .tabela-especial-compacta .col-loja {
+      min-width: 170px !important;
+      max-width: 220px !important;
+      width: 170px !important;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tabela-especial-compacta .celula-especial-valor {
+      box-sizing: border-box;
+      padding: 5px 6px !important;
+    }
+
+    .tabela-especial-compacta .campo-tabela-especial {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .tabela-especial-compacta .input-tabela-compacto {
+      box-sizing: border-box;
+      width: 100% !important;
+      max-width: none !important;
+      padding: 5px 8px !important;
+      line-height: 1.2 !important;
+      font-size: 11px !important;
+      border-radius: 6px;
+    }
+
+    .tabela-especial-compacta .coluna-semana-compacta {
+      opacity: 0.98;
+    }
+
+    .tabela-especial-compacta .coluna-semana-compacta th,
+    .tabela-especial-compacta th.coluna-semana-compacta {
+      font-size: 10px !important;
+    }
+
+    .tabela-compacta-container {
+      overflow-x: auto !important;
+      overflow-y: visible !important;
+      width: 100%;
+    }
+  `;
+
+  document.head.appendChild(style);
+  TABELA_ESPECIAL_UI.estilosInjetados = true;
+
+  console.log("🎨 Estilos da tabela especial injetados com largura/altura reforçadas");
+}
+
+function aplicarLayoutTabelaEspecial(container = null) {
+  garantirEstilosTabelaEspecial();
+
+  const alvo = container || document;
+  const tabelas = alvo.querySelectorAll(".tabela-especial-compacta");
+
+  let totalTabelas = 0;
+  let totalColunasOcultadas = 0;
+
+  tabelas.forEach((table) => {
+    totalTabelas++;
+
+    const headers = [...table.querySelectorAll("thead th")];
+    let indicesRegional = [];
+
+    headers.forEach((th, idx) => {
+      const texto = normalizarTextoEspecialUpper(th.textContent || "");
+      const dataColuna = normalizarTextoEspecialUpper(th.dataset.coluna || "");
+
+      if (
+        texto === "REGIONAL" ||
+        dataColuna === "REGIONAL" ||
+        th.classList.contains("col-regional")
+      ) {
+        indicesRegional.push(idx);
+        th.classList.add("col-regional-oculta");
+        th.dataset.coluna = "regional";
+      }
+    });
+
+    if (!indicesRegional.length) {
+      console.log("ℹ️ Nenhuma coluna Regional encontrada na tabela especial");
+      return;
+    }
+
+    table.querySelectorAll("tbody tr").forEach((tr) => {
+      const tds = tr.querySelectorAll("td");
+
+      indicesRegional.forEach((idx) => {
+        const td = tds[idx];
+        if (td) {
+          td.classList.add("col-regional-oculta");
+          td.dataset.coluna = "regional";
+        }
+      });
+    });
+
+    totalColunasOcultadas += indicesRegional.length;
+  });
+
+  console.log("👁️ Layout/ocultação aplicado na tabela especial:", {
+    totalTabelas,
+    totalColunasOcultadas,
+    semanaCompacta: getSemanaCompactaEspecialAtual(),
+  });
+}
+
+// ==========================
+// 🧹 JUSTIFICATIVAS DESATIVADAS
+// ==========================
+function getListaJustificativasEspecial() {
+  return [];
 }
 
 function getIndicadorEspecialAtualNormalizado() {
@@ -158,338 +447,59 @@ function getInputEspecial(loja, semana, campo) {
   return el;
 }
 
-function getBotaoJustificativaEspecial(loja, semana, campo) {
-  const lojaEsc = escapeCssSelectorEspecial(loja);
-  const semanaEsc = escapeCssSelectorEspecial(semana);
-  const campoEsc = escapeCssSelectorEspecial(campo);
-
-  const el = document.querySelector(
-    `#tbody-especial button[data-loja="${lojaEsc}"][data-semana="${semanaEsc}"][data-campo="${campoEsc}"][data-role="justificativa-especial"]`
-  );
-
-  if (!el) {
-    console.warn("⚠️ Botão de justificativa especial não encontrado:", {
-      loja,
-      semana,
-      campo,
-    });
-  }
-
-  return el;
+function getBotaoJustificativaEspecial() {
+  return null;
 }
 
-function getBotaoEspecialDoInput(input) {
-  if (!input) return null;
-  return getBotaoJustificativaEspecial(
-    input.dataset.loja,
-    input.dataset.semana,
-    input.dataset.campo
-  );
+function getBotaoEspecialDoInput() {
+  return null;
 }
 
-function getInputDoBotaoEspecial(botao) {
-  if (!botao) return null;
-  return getInputEspecial(botao.dataset.loja, botao.dataset.semana, botao.dataset.campo);
+function getInputDoBotaoEspecial() {
+  return null;
 }
 
 function prepararCliqueJustificativaEspecial(event = null) {
-  console.log("🖱️ prepararCliqueJustificativaEspecial");
-
-  TABELA_ESPECIAL_STATE.clicandoBotao = true;
-
-  if (TABELA_ESPECIAL_STATE.timeoutClique) {
-    clearTimeout(TABELA_ESPECIAL_STATE.timeoutClique);
-    TABELA_ESPECIAL_STATE.timeoutClique = null;
-  }
-
+  console.log("ℹ️ prepararCliqueJustificativaEspecial ignorado: justificativas removidas");
   if (event) {
     event.preventDefault();
     event.stopPropagation();
   }
 }
 
-function finalizarCliqueJustificativaEspecial(delay = 180) {
-  if (TABELA_ESPECIAL_STATE.timeoutClique) {
-    clearTimeout(TABELA_ESPECIAL_STATE.timeoutClique);
-    TABELA_ESPECIAL_STATE.timeoutClique = null;
-  }
-
-  TABELA_ESPECIAL_STATE.timeoutClique = setTimeout(() => {
-    TABELA_ESPECIAL_STATE.clicandoBotao = false;
-    TABELA_ESPECIAL_STATE.timeoutClique = null;
-    console.log("🖱️ Estado de clique especial finalizado");
-  }, delay);
+function finalizarCliqueJustificativaEspecial() {
+  console.log("ℹ️ finalizarCliqueJustificativaEspecial ignorado: justificativas removidas");
 }
 
-function atualizarEstadoVisualBotaoEspecial(botao) {
-  if (!botao) return;
-
-  const justificativaAtual = normalizarTextoEspecial(
-    botao.dataset.justificativaAtual || ""
-  );
-
-  botao.classList.toggle("ativo", !!justificativaAtual);
-  botao.title = justificativaAtual || `Selecionar justificativa - ${getLabelCampoEspecial(botao.dataset.campo)}`;
-
-  console.log("🎯 Estado visual do botão especial atualizado:", {
-    campo: botao.dataset.campo,
-    justificativaAtual,
-    ativo: !!justificativaAtual,
-  });
+function atualizarEstadoVisualBotaoEspecial() {
+  return;
 }
 
-function atualizarEstadoVisualInputEspecialComJustificativa(input, botao = null) {
+function atualizarEstadoVisualInputEspecialComJustificativa(input) {
   if (!input) return;
-
-  const botaoRef = botao || getBotaoEspecialDoInput(input);
-
-  if (!botaoRef) {
-    input.classList.remove("input-com-justificativa");
-    console.warn("⚠️ Botão especial não encontrado para atualizar input:", {
-      loja: input.dataset?.loja,
-      semana: input.dataset?.semana,
-      campo: input.dataset?.campo,
-    });
-    return;
-  }
-
-  const temValor = !valorCampoEstaVazioEspecial(input.value);
-  const justificativaAtual = normalizarTextoEspecial(
-    botaoRef.dataset.justificativaAtual ||
-      botaoRef.dataset.original ||
-      ""
-  );
-
-  const deveDestacar = !temValor && !!justificativaAtual;
-
-  input.classList.toggle("input-com-justificativa", deveDestacar);
-
-  console.log("🎨 Estado visual do input especial atualizado:", {
-    loja: input.dataset?.loja,
-    semana: input.dataset?.semana,
-    campo: input.dataset?.campo,
-    temValor,
-    justificativaAtual,
-    destacado: deveDestacar,
-  });
+  input.classList.remove("input-com-justificativa");
 }
 
-function atualizarVisibilidadeJustificativaEspecial(input, limparSeTiverValor = true) {
+function atualizarVisibilidadeJustificativaEspecial(input) {
   if (!input) return;
-
-  const botao = getBotaoEspecialDoInput(input);
-  if (!botao) return;
-
-  const temValor = !valorCampoEstaVazioEspecial(input.value);
-  const bloqueado =
-    input.disabled || input.readOnly || input.dataset.bloqueado === "true";
-
-  if (temValor) {
-    if (limparSeTiverValor) {
-      botao.dataset.justificativaAtual = "";
-      botao.dataset.original = "";
-      atualizarEstadoVisualBotaoEspecial(botao);
-    }
-
-    botao.classList.add("oculto");
-    botao.disabled = true;
-    botao.classList.remove("pendente");
-    input.classList.remove("input-com-justificativa");
-
-    console.log("👁️ Botão especial ocultado porque existe valor", {
-      loja: input.dataset.loja,
-      semana: input.dataset.semana,
-      campo: input.dataset.campo,
-    });
-
-    return;
-  }
-
-  botao.classList.remove("oculto");
-  botao.disabled = bloqueado;
-  botao.classList.toggle("bloqueado", bloqueado);
-  atualizarEstadoVisualBotaoEspecial(botao);
-  atualizarEstadoVisualInputEspecialComJustificativa(input, botao);
-
-  console.log("👁️ Botão especial exibido", {
-    loja: input.dataset.loja,
-    semana: input.dataset.semana,
-    campo: input.dataset.campo,
-    bloqueado,
-  });
+  input.classList.remove("input-com-justificativa");
 }
 
 function sincronizarJustificativasComPermissoesTabelaEspecial() {
-  console.log("🔐 Sincronizando justificativas da tabela especial com permissões...");
-
-  const inputs = document.querySelectorAll(
-    '#tbody-especial input[data-loja][data-semana][data-campo]'
-  );
-
-  inputs.forEach((input) => {
-    const botao = getBotaoEspecialDoInput(input);
-    if (!botao) return;
-
-    const bloqueado =
-      input.disabled || input.readOnly || input.dataset.bloqueado === "true";
-
-    if (bloqueado) {
-      botao.disabled = true;
-      botao.classList.add("bloqueado");
-      botao.title = input.dataset.motivo || input.title || "Campo bloqueado";
-    } else {
-      botao.disabled = false;
-      botao.classList.remove("bloqueado");
-      atualizarVisibilidadeJustificativaEspecial(input, false);
-    }
-  });
-
-  console.log("✅ Sincronização especial concluída");
+  console.log("ℹ️ Justificativas da tabela especial desativadas definitivamente");
 }
 
-// ==========================
-// 🪟 PAINEL DE JUSTIFICATIVA ESPECIAL
-// ==========================
 function garantirPainelJustificativaEspecial() {
-  let painel = document.getElementById("painel-justificativa-especial-flutuante");
-
-  if (painel) {
-    console.log("🪟 Painel especial já existente");
-    return painel;
-  }
-
-  console.log("🪟 Criando painel de justificativa especial...");
-
-  painel = document.createElement("div");
-  painel.id = "painel-justificativa-especial-flutuante";
-  painel.className = "painel-justificativa-flutuante";
-
-  painel.innerHTML = `
-    <div class="painel-justificativa-box">
-      <div class="painel-justificativa-header">
-        <strong id="titulo-painel-justificativa-especial">Selecionar justificativa</strong>
-        <button
-          type="button"
-          class="btn-fechar-painel-justificativa"
-          id="btn-fechar-painel-justificativa-especial"
-        >
-          ✕
-        </button>
-      </div>
-
-      <div class="painel-justificativa-lista" id="painel-justificativa-especial-lista"></div>
-    </div>
-  `;
-
-  document.body.appendChild(painel);
-
-  const lista = painel.querySelector("#painel-justificativa-especial-lista");
-  const justificativas = getListaJustificativasEspecial();
-
-  justificativas.forEach((motivo) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "item-justificativa-painel";
-    btn.dataset.motivo = motivo;
-    btn.textContent = motivo;
-
-    btn.addEventListener("click", async () => {
-      console.log("📝 Justificativa especial clicada:", motivo);
-      await selecionarJustificativaPainelEspecial(motivo);
-    });
-
-    lista.appendChild(btn);
-  });
-
-  const btnFechar = painel.querySelector("#btn-fechar-painel-justificativa-especial");
-  if (btnFechar) {
-    btnFechar.addEventListener("click", fecharPainelJustificativaEspecial);
-  }
-
-  document.addEventListener("click", (event) => {
-    const painelAberto = document.getElementById(
-      "painel-justificativa-especial-flutuante"
-    );
-
-    if (!painelAberto || !painelAberto.classList.contains("ativo")) return;
-
-    const clicouNoPainel = painelAberto.contains(event.target);
-    const clicouNoBotao = event.target.closest(
-      ".btn-justificativa-especial, .btn-justificativa-celula"
-    );
-
-    if (!clicouNoPainel && !clicouNoBotao) {
-      console.log("🪟 Clique fora do painel especial detectado. Fechando...");
-      fecharPainelJustificativaEspecial();
-    }
-  });
-
-  window.addEventListener("resize", () => {
-    if (TABELA_ESPECIAL_STATE.botaoAtivo) {
-      posicionarPainelJustificativaEspecial(TABELA_ESPECIAL_STATE.botaoAtivo);
-    }
-  });
-
-  window.addEventListener("scroll", () => {
-    if (TABELA_ESPECIAL_STATE.botaoAtivo) {
-      posicionarPainelJustificativaEspecial(TABELA_ESPECIAL_STATE.botaoAtivo);
-    }
-  });
-
-  console.log("✅ Painel especial criado com sucesso");
-  return painel;
+  console.log("ℹ️ Painel de justificativa especial desativado");
+  return null;
 }
 
-function posicionarPainelJustificativaEspecial(botao) {
-  const painel = garantirPainelJustificativaEspecial();
-  const caixa = painel.querySelector(".painel-justificativa-box");
-  if (!caixa || !botao) return;
-
-  const rect = botao.getBoundingClientRect();
-  const larguraPainel = 280;
-  const margem = 12;
-
-  let left = rect.left;
-  let top = rect.bottom + 8;
-
-  if (left + larguraPainel > window.innerWidth - margem) {
-    left = window.innerWidth - larguraPainel - margem;
-  }
-
-  if (left < margem) {
-    left = margem;
-  }
-
-  const alturaAproximada = 320;
-  if (top + alturaAproximada > window.innerHeight - margem) {
-    top = rect.top - alturaAproximada - 8;
-  }
-
-  if (top < margem) {
-    top = margem;
-  }
-
-  caixa.style.left = `${left}px`;
-  caixa.style.top = `${top}px`;
-
-  console.log("📍 Painel especial posicionado:", { left, top });
+function posicionarPainelJustificativaEspecial() {
+  return;
 }
 
-function marcarJustificativaSelecionadaNoPainelEspecial(botao) {
-  const painel = garantirPainelJustificativaEspecial();
-  const atual = normalizarTextoEspecial(botao?.dataset.justificativaAtual || "");
-
-  painel.querySelectorAll(".item-justificativa-painel").forEach((item) => {
-    const motivo = normalizarTextoEspecial(item.dataset.motivo || "");
-    item.classList.toggle("ativo", motivo === atual);
-  });
-
-  const titulo = painel.querySelector("#titulo-painel-justificativa-especial");
-  if (titulo && botao) {
-    titulo.textContent = `Justificativa - ${getLabelCampoEspecial(botao.dataset.campo)}`;
-  }
-
-  console.log("✅ Justificativa especial marcada no painel:", atual || "(nenhuma)");
+function marcarJustificativaSelecionadaNoPainelEspecial() {
+  return;
 }
 
 function abrirPainelJustificativaEspecial(botao, event = null) {
@@ -498,28 +508,7 @@ function abrirPainelJustificativaEspecial(botao, event = null) {
     event.stopPropagation();
   }
 
-  if (!botao || botao.disabled) {
-    console.warn("⚠️ Botão especial inválido ou desabilitado");
-    finalizarCliqueJustificativaEspecial();
-    return;
-  }
-
-  TABELA_ESPECIAL_STATE.botaoAtivo = botao;
-
-  const painel = garantirPainelJustificativaEspecial();
-  painel.classList.add("ativo");
-
-  posicionarPainelJustificativaEspecial(botao);
-  marcarJustificativaSelecionadaNoPainelEspecial(botao);
-
-  console.log("🪟 Painel especial aberto", {
-    loja: botao.dataset.loja,
-    semana: botao.dataset.semana,
-    campo: botao.dataset.campo,
-    justificativaAtual: botao.dataset.justificativaAtual || "",
-  });
-
-  finalizarCliqueJustificativaEspecial(220);
+  console.log("ℹ️ Painel especial não abre: justificativas removidas");
 }
 
 function fecharPainelJustificativaEspecial() {
@@ -528,51 +517,12 @@ function fecharPainelJustificativaEspecial() {
     painel.classList.remove("ativo");
   }
 
-  console.log("🪟 Painel especial fechado");
-
-  TABELA_ESPECIAL_STATE.botaoAtivo = null;
-  TABELA_ESPECIAL_STATE.clicandoBotao = false;
-
-  if (TABELA_ESPECIAL_STATE.timeoutClique) {
-    clearTimeout(TABELA_ESPECIAL_STATE.timeoutClique);
-    TABELA_ESPECIAL_STATE.timeoutClique = null;
-  }
+  console.log("ℹ️ Painel especial fechado/ignorado");
 }
 
 async function selecionarJustificativaPainelEspecial(motivo) {
-  const botao = TABELA_ESPECIAL_STATE.botaoAtivo;
-  if (!botao) {
-    console.warn("⚠️ Nenhum botão especial ativo para aplicar justificativa");
-    return;
-  }
-
-  const input = getInputDoBotaoEspecial(botao);
-  if (!input) {
-    console.warn("⚠️ Input especial relacionado ao botão não encontrado");
-    return;
-  }
-
-  console.log("📝 Selecionando justificativa especial:", {
-    motivo,
-    loja: botao.dataset.loja,
-    semana: botao.dataset.semana,
-    campo: botao.dataset.campo,
-  });
-
-  botao.dataset.justificativaAtual = normalizarTextoEspecial(motivo || "");
-  botao.classList.remove("pendente", "oculto");
-
-  atualizarEstadoVisualBotaoEspecial(botao);
-  atualizarEstadoVisualInputEspecialComJustificativa(input, botao);
-
-  const salvou = await processarAutoSalvarEspecialCampo(input, botao);
-
-  if (salvou) {
-    console.log("✅ Justificativa especial salva com sucesso");
-    fecharPainelJustificativaEspecial();
-  } else {
-    console.warn("⚠️ Falha ao salvar justificativa especial selecionada");
-  }
+  console.log("ℹ️ selecionarJustificativaPainelEspecial ignorado:", motivo);
+  return false;
 }
 
 // ==========================
@@ -616,7 +566,7 @@ function getConfigTabelaEspecial(indicador, classeSelecionada = null) {
   if (indicadorNorm === "SELF-CHECKOUT") {
     return {
       titulo: "SELF-CHECKOUT",
-      col1: "Participação",
+      col1: "Participação de Vendas",
       col2: "Qtd Passantes",
       tipo1: "moeda",
       tipo2: "numero",
@@ -642,6 +592,18 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
     classeSelecionada
   );
   const semanaAtualReal = getSemanaAtual().toString().padStart(2, "0");
+  const semanaCompacta = getSemanaCompactaEspecialAtual();
+
+  console.log("🧩 Montando tabela especial:", {
+    indicadorSelecionado,
+    classeSelecionada,
+    config,
+    totalLojas: lojas?.length || 0,
+    totalSemanas: semanas?.length || 0,
+    ocultarColunaRegional: TABELA_ESPECIAL_UI.ocultarColunaRegional,
+    usarJustificativa: TABELA_ESPECIAL_UI.usarJustificativa,
+    semanaCompacta,
+  });
 
   let html = `
     <div class="card-conteudo">
@@ -678,23 +640,40 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
         <table class="tabela tabela-especial-compacta">
           <thead>
             <tr>
-              <th rowspan="2" class="col-codigo">Código</th>
-              <th rowspan="2" class="col-loja">Loja</th>
-              <th rowspan="2" class="col-regional">Regional</th>
+              <th rowspan="2" class="col-codigo" data-coluna="codigo">Código</th>
+              <th rowspan="2" class="col-loja" data-coluna="loja">Loja</th>
+              <th
+                rowspan="2"
+                class="col-regional ${TABELA_ESPECIAL_UI.ocultarColunaRegional ? "col-regional-oculta" : ""}"
+                data-coluna="regional"
+              >
+                Regional
+              </th>
   `;
 
   semanas.forEach((semana) => {
-    const destaque = semana === semanaAtualReal ? ' class="coluna-atual"' : "";
-    html += `<th colspan="2"${destaque}>Semana ${semana}</th>`;
+    const semanaNorm = (semana || "").toString().padStart(2, "0");
+    const classesSemana = [];
+    if (semanaNorm === semanaAtualReal) classesSemana.push("coluna-atual");
+    if (semanaNorm === semanaCompacta) classesSemana.push("coluna-semana-compacta");
+
+    html += `<th colspan="2"${getClassAttrEspecial(classesSemana)}>Semana ${semanaNorm}</th>`;
   });
 
   html += `</tr><tr>`;
 
   semanas.forEach((semana) => {
-    const destaque = semana === semanaAtualReal ? ' class="coluna-atual"' : "";
+    const semanaNorm = (semana || "").toString().padStart(2, "0");
+
+    const classesSemana1 = [];
+    if (semanaNorm === semanaAtualReal) classesSemana1.push("coluna-atual");
+    if (semanaNorm === semanaCompacta) classesSemana1.push("coluna-semana-compacta");
+
+    const classesSemana2 = [...classesSemana1];
+
     html += `
-      <th${destaque}>${config.col1}</th>
-      <th${destaque}>${config.col2}</th>
+      <th${getClassAttrEspecial(classesSemana1)}>${config.col1}</th>
+      <th${getClassAttrEspecial(classesSemana2)}>${config.col2}</th>
     `;
   });
 
@@ -707,21 +686,36 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
   lojas.forEach((loja) => {
     const chaveLoja = `${loja.codigo} - ${loja.nome}`;
 
-    html += `<tr>`;
-    html += `<td class="col-codigo">${loja.codigo}</td>`;
-    html += `<td class="col-loja">${loja.nome}</td>`;
-    html += `<td class="col-regional">${loja.regional || "-"}</td>`;
+    html += `
+      <tr
+        data-loja-codigo="${escapeHtmlEspecial(loja.codigo)}"
+        data-loja-nome="${escapeHtmlEspecial(loja.nome)}"
+        data-regional="${escapeHtmlEspecial(loja.regional || "-")}"
+      >
+    `;
+
+    html += `<td class="col-codigo" data-coluna="codigo">${loja.codigo}</td>`;
+    html += `<td class="col-loja" data-coluna="loja">${loja.nome}</td>`;
+    html += `
+      <td
+        class="col-regional ${TABELA_ESPECIAL_UI.ocultarColunaRegional ? "col-regional-oculta" : ""}"
+        data-coluna="regional"
+      >
+        ${loja.regional || "-"}
+      </td>
+    `;
 
     semanas.forEach((semana) => {
-      const key = `${chaveLoja}-${semana}`;
+      const semanaNorm = (semana || "").toString().padStart(2, "0");
+      const key = `${chaveLoja}-${semanaNorm}`;
       const item = mapa[key] || {};
-      const destaque = semana === semanaAtualReal ? "coluna-atual" : "";
+
+      const classesCelula = ["celula-especial-valor"];
+      if (semanaNorm === semanaAtualReal) classesCelula.push("coluna-atual");
+      if (semanaNorm === semanaCompacta) classesCelula.push("coluna-semana-compacta");
 
       const valor = item.valor ?? "";
       const valor2 = item.valor2 ?? "";
-
-      const justificativa1 = item[getColunaJustificativaEspecial("valor")] ?? "";
-      const justificativa2 = item[getColunaJustificativaEspecial("valor2")] ?? "";
 
       const valorFormatado =
         typeof formatarValorParaInput === "function"
@@ -743,90 +737,100 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
           ? ""
           : String(valor2);
 
-      const mostrarBotao1 =
-        valor === null || valor === undefined || valor === "";
+      const classeCampo1 = getClasseLarguraCampoEspecial(config.tipo1);
+      const classeCampo2 = getClasseLarguraCampoEspecial(config.tipo2);
 
-      const mostrarBotao2 =
-        valor2 === null || valor2 === undefined || valor2 === "";
+      const largura1 = getLarguraCampoEspecialPx(
+        indicadorSelecionado,
+        "valor",
+        config.tipo1,
+        semanaNorm
+      );
+      const largura2 = getLarguraCampoEspecialPx(
+        indicadorSelecionado,
+        "valor2",
+        config.tipo2,
+        semanaNorm
+      );
+
+      const altura1 = getAlturaCampoEspecialPx(
+        indicadorSelecionado,
+        "valor",
+        config.tipo1,
+        semanaNorm
+      );
+      const altura2 = getAlturaCampoEspecialPx(
+        indicadorSelecionado,
+        "valor2",
+        config.tipo2,
+        semanaNorm
+      );
+
+      const larguraInput1 = Math.max(largura1 - 18, 88);
+      const larguraInput2 = Math.max(largura2 - 18, 80);
 
       html += `
-        <td class="${destaque}">
-          <div class="campo-tabela-com-justificativa">
+        <td
+          ${getClassAttrEspecial([...classesCelula, classeCampo1])}
+          style="min-width:${largura1}px; width:${largura1}px;"
+        >
+          <div
+            class="campo-tabela-especial ${classeCampo1}"
+            style="min-width:${largura1}px; width:${largura1}px;"
+          >
             <input
               type="text"
               inputmode="decimal"
               value="${escapeHtmlEspecial(valorFormatado)}"
-              class="input-tabela input-tabela-compacto ${justificativa1 && !mostrarBotao1 ? "" : ""} ${justificativa1 && mostrarBotao1 ? "input-com-justificativa" : ""}"
+              class="input-tabela input-tabela-compacto"
+              style="
+                min-width:${larguraInput1}px;
+                width:${larguraInput1}px;
+                max-width:${larguraInput1}px;
+                min-height:${altura1}px;
+                height:${altura1}px;
+              "
               data-loja="${escapeHtmlEspecial(chaveLoja)}"
-              data-semana="${escapeHtmlEspecial(semana)}"
+              data-semana="${escapeHtmlEspecial(semanaNorm)}"
               data-campo="valor"
               data-tipo="${escapeHtmlEspecial(config.tipo1)}"
               data-original="${escapeHtmlEspecial(original1)}"
-              data-original-justificativa="${escapeHtmlEspecial(justificativa1)}"
+              data-original-justificativa=""
               onfocus="prepararInputEspecial(this)"
-              oninput="atualizarVisibilidadeJustificativaEspecial(this)"
               onblur="autoSalvarEspecial(this)"
             >
-
-            <button
-              type="button"
-              class="btn-justificativa-celula btn-justificativa-especial ${justificativa1 ? "ativo" : ""} ${
-                mostrarBotao1 ? "" : "oculto"
-              }"
-              data-role="justificativa-especial"
-              data-loja="${escapeHtmlEspecial(chaveLoja)}"
-              data-semana="${escapeHtmlEspecial(semana)}"
-              data-campo="valor"
-              data-original="${escapeHtmlEspecial(justificativa1)}"
-              data-justificativa-atual="${escapeHtmlEspecial(justificativa1)}"
-              onmousedown="prepararCliqueJustificativaEspecial(event)"
-              onclick="abrirPainelJustificativaEspecial(this, event)"
-              title="${escapeHtmlEspecial(
-                justificativa1 || `Selecionar justificativa - ${config.col1}`
-              )}"
-            >
-              !
-            </button>
           </div>
         </td>
 
-        <td class="${destaque}">
-          <div class="campo-tabela-com-justificativa">
+        <td
+          ${getClassAttrEspecial([...classesCelula, classeCampo2])}
+          style="min-width:${largura2}px; width:${largura2}px;"
+        >
+          <div
+            class="campo-tabela-especial ${classeCampo2}"
+            style="min-width:${largura2}px; width:${largura2}px;"
+          >
             <input
               type="text"
               inputmode="decimal"
               value="${escapeHtmlEspecial(valor2Formatado)}"
-              class="input-tabela input-tabela-compacto ${justificativa2 && mostrarBotao2 ? "input-com-justificativa" : ""}"
+              class="input-tabela input-tabela-compacto"
+              style="
+                min-width:${larguraInput2}px;
+                width:${larguraInput2}px;
+                max-width:${larguraInput2}px;
+                min-height:${altura2}px;
+                height:${altura2}px;
+              "
               data-loja="${escapeHtmlEspecial(chaveLoja)}"
-              data-semana="${escapeHtmlEspecial(semana)}"
+              data-semana="${escapeHtmlEspecial(semanaNorm)}"
               data-campo="valor2"
               data-tipo="${escapeHtmlEspecial(config.tipo2)}"
               data-original="${escapeHtmlEspecial(original2)}"
-              data-original-justificativa="${escapeHtmlEspecial(justificativa2)}"
+              data-original-justificativa=""
               onfocus="prepararInputEspecial(this)"
-              oninput="atualizarVisibilidadeJustificativaEspecial(this)"
               onblur="autoSalvarEspecial(this)"
             >
-
-            <button
-              type="button"
-              class="btn-justificativa-celula btn-justificativa-especial ${justificativa2 ? "ativo" : ""} ${
-                mostrarBotao2 ? "" : "oculto"
-              }"
-              data-role="justificativa-especial"
-              data-loja="${escapeHtmlEspecial(chaveLoja)}"
-              data-semana="${escapeHtmlEspecial(semana)}"
-              data-campo="valor2"
-              data-original="${escapeHtmlEspecial(justificativa2)}"
-              data-justificativa-atual="${escapeHtmlEspecial(justificativa2)}"
-              onmousedown="prepararCliqueJustificativaEspecial(event)"
-              onclick="abrirPainelJustificativaEspecial(this, event)"
-              title="${escapeHtmlEspecial(
-                justificativa2 || `Selecionar justificativa - ${config.col2}`
-              )}"
-            >
-              !
-            </button>
           </div>
         </td>
       `;
@@ -844,8 +848,8 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
   `;
 
   requestAnimationFrame(() => {
+    aplicarLayoutTabelaEspecial(document.getElementById("conteudo"));
     ativarFiltroEspecial();
-    garantirPainelJustificativaEspecial();
     sincronizarJustificativasComPermissoesTabelaEspecial();
   });
 
@@ -880,6 +884,7 @@ function prepararInputEspecial(input) {
 
 // ==========================
 // 🔎 FILTRO TABELA ESPECIAL
+// ✅ usa dataset, sem depender da coluna visível
 // ==========================
 function ativarFiltroEspecial() {
   const input = document.getElementById("filtroEspecial");
@@ -898,9 +903,17 @@ function ativarFiltroEspecial() {
     document.querySelectorAll("#tbody-especial tr").forEach((row) => {
       const dentroDoEscopo = row.dataset.escopoPermitido !== "false";
 
-      const codigo = row.children[0]?.textContent.toLowerCase() || "";
-      const loja = row.children[1]?.textContent.toLowerCase() || "";
-      const regional = row.children[2]?.textContent.toLowerCase() || "";
+      const codigo = (row.dataset.lojaCodigo || row.children[0]?.textContent || "")
+        .toString()
+        .toLowerCase();
+
+      const loja = (row.dataset.lojaNome || row.children[1]?.textContent || "")
+        .toString()
+        .toLowerCase();
+
+      const regional = (row.dataset.regional || "")
+        .toString()
+        .toLowerCase();
 
       const matchBusca =
         !termo || codigo.includes(termo) || loja.includes(termo);
@@ -922,16 +935,22 @@ function ativarFiltroEspecial() {
       btn.classList.add("ativo");
 
       regionalSelecionada = btn.dataset.regional || "TODAS";
+
+      console.log("🌍 Filtro especial regional alterado:", regionalSelecionada);
       aplicar();
     });
   });
+
+  aplicar();
+
+  console.log("✅ Filtro especial ativado com sucesso");
 }
 
 // ==========================
 // 💾 PROCESSAR AUTOSAVE ESPECIAL
-// valor + justificativa por campo
+// ✅ sem justificativa
 // ==========================
-async function processarAutoSalvarEspecialCampo(input, botao = null) {
+async function processarAutoSalvarEspecialCampo(input) {
   if (!input) return false;
 
   const loja = input.dataset.loja;
@@ -939,39 +958,8 @@ async function processarAutoSalvarEspecialCampo(input, botao = null) {
   const campo = input.dataset.campo;
   const tipo = input.dataset.tipo || "numero";
 
-  const botaoJustificativa = botao || getBotaoEspecialDoInput(input);
-
   const valorDigitado = (input.value || "").toString().trim();
-  let justificativaSelecionada = normalizarTextoEspecial(
-    botaoJustificativa?.dataset.justificativaAtual || ""
-  );
-
   const valorOriginal = input.dataset.original ?? "";
-  const justificativaOriginal = input.dataset.originalJustificativa ?? "";
-
-  if (!valorCampoEstaVazioEspecial(valorDigitado)) {
-    justificativaSelecionada = "";
-
-    if (botaoJustificativa) {
-      botaoJustificativa.dataset.justificativaAtual = "";
-      botaoJustificativa.dataset.original = "";
-      botaoJustificativa.classList.add("oculto");
-      botaoJustificativa.disabled = true;
-      botaoJustificativa.classList.remove("ativo", "pendente");
-      botaoJustificativa.title = `Selecionar justificativa - ${getLabelCampoEspecial(campo)}`;
-    }
-
-    input.classList.remove("input-com-justificativa");
-  } else {
-    if (botaoJustificativa) {
-      botaoJustificativa.classList.remove("oculto");
-      botaoJustificativa.disabled =
-        input.disabled || input.readOnly || input.dataset.bloqueado === "true";
-
-      atualizarEstadoVisualBotaoEspecial(botaoJustificativa);
-      atualizarEstadoVisualInputEspecialComJustificativa(input, botaoJustificativa);
-    }
-  }
 
   let valorLimpo = null;
 
@@ -1000,40 +988,19 @@ async function processarAutoSalvarEspecialCampo(input, botao = null) {
   const valorComparacao =
     valorLimpo === null || valorLimpo === undefined ? "" : String(valorLimpo);
 
-  if (
-    valorComparacao === valorOriginal &&
-    justificativaSelecionada === justificativaOriginal
-  ) {
+  if (valorComparacao === valorOriginal) {
     console.log("ℹ️ Nenhuma alteração especial detectada, salvamento ignorado", {
       loja,
       semana,
       campo,
       valor: valorComparacao,
-      justificativa: justificativaSelecionada,
     });
 
     if (valorLimpo !== null && typeof formatarValorParaInput === "function") {
       input.value = formatarValorParaInput(valorLimpo, tipo);
     }
 
-    atualizarEstadoVisualInputEspecialComJustificativa(input, botaoJustificativa);
     return true;
-  }
-
-  if (valorLimpo === null && !justificativaSelecionada) {
-    console.warn("⚠️ Campo especial sem valor e sem justificativa. Salvamento bloqueado.", {
-      loja,
-      semana,
-      campo,
-    });
-
-    if (botaoJustificativa) {
-      botaoJustificativa.classList.add("pendente");
-      abrirPainelJustificativaEspecial(botaoJustificativa, null);
-    }
-
-    aplicarStatusInputEspecial(input, "erro");
-    return false;
   }
 
   if (valorLimpo !== null && typeof formatarValorParaInput === "function") {
@@ -1045,7 +1012,6 @@ async function processarAutoSalvarEspecialCampo(input, botao = null) {
     semana,
     campo,
     valor: valorLimpo,
-    justificativa: justificativaSelecionada,
     tipo,
   });
 
@@ -1055,23 +1021,12 @@ async function processarAutoSalvarEspecialCampo(input, botao = null) {
     loja,
     semana,
     campo,
-    valorLimpo,
-    justificativaSelecionada
+    valorLimpo
   );
 
   if (salvou) {
     input.dataset.original = valorComparacao;
-    input.dataset.originalJustificativa = justificativaSelecionada;
-
-    if (botaoJustificativa) {
-      botaoJustificativa.dataset.original = justificativaSelecionada;
-      botaoJustificativa.dataset.justificativaAtual = justificativaSelecionada;
-      botaoJustificativa.classList.remove("pendente");
-      atualizarEstadoVisualBotaoEspecial(botaoJustificativa);
-    }
-
-    atualizarEstadoVisualInputEspecialComJustificativa(input, botaoJustificativa);
-    atualizarVisibilidadeJustificativaEspecial(input, false);
+    input.dataset.originalJustificativa = "";
 
     aplicarStatusInputEspecial(input, "sucesso");
     return true;
@@ -1086,20 +1041,14 @@ async function processarAutoSalvarEspecialCampo(input, botao = null) {
 // ==========================
 async function autoSalvarEspecial(input) {
   if (!input) return;
-
-  if (TABELA_ESPECIAL_STATE.clicandoBotao === true) {
-    console.log("ℹ️ AutoSave especial ignorado temporariamente por clique no botão");
-    return;
-  }
-
   await processarAutoSalvarEspecialCampo(input);
 }
 
 // ==========================
 // 💾 SALVAR VALOR ESPECIAL
-// com justificativa por campo
+// ✅ sem justificativa
 // ==========================
-async function salvarValorEspecial(loja, semana, campo, valor, justificativa = "") {
+async function salvarValorEspecial(loja, semana, campo, valor) {
   const numero =
     valor === null || valor === undefined || valor === ""
       ? null
@@ -1109,8 +1058,6 @@ async function salvarValorEspecial(loja, semana, campo, valor, justificativa = "
     console.warn("⚠️ salvarValorEspecial ignorado por número inválido:", valor);
     return false;
   }
-
-  const justificativaFinal = normalizarTextoEspecial(justificativa || "") || null;
 
   const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
   const indicadorNormalizado = (indicadorSelecionado || "")
@@ -1127,8 +1074,8 @@ async function salvarValorEspecial(loja, semana, campo, valor, justificativa = "
     typeof getClasseIndicador === "function"
       ? getClasseIndicador(indicadorNormalizado, classeSelecionada)
       : typeof obterClasse === "function"
-        ? obterClasse(indicadorNormalizado, classeSelecionada)
-        : classeSelecionada || "Outros";
+      ? obterClasse(indicadorNormalizado, classeSelecionada)
+      : classeSelecionada || "Outros";
 
   const colunaJustificativa = getColunaJustificativaEspecial(campo);
 
@@ -1155,8 +1102,7 @@ async function salvarValorEspecial(loja, semana, campo, valor, justificativa = "
     semana,
     campo,
     numero,
-    colunaJustificativa,
-    justificativa: justificativaFinal,
+    justificativaDesativada: true,
   });
 
   try {
@@ -1186,7 +1132,7 @@ async function salvarValorEspecial(loja, semana, campo, valor, justificativa = "
 
     const updateData = {};
     updateData[campo] = numero;
-    updateData[colunaJustificativa] = numero !== null ? null : justificativaFinal;
+    updateData[colunaJustificativa] = null;
 
     if (registros.length >= 1) {
       const idAlvo = registros[0].id;
@@ -1205,7 +1151,7 @@ async function salvarValorEspecial(loja, semana, campo, valor, justificativa = "
         campo,
         valor: numero,
         colunaJustificativa,
-        justificativa: updateData[colunaJustificativa],
+        justificativaLimpa: true,
       });
 
       return true;
@@ -1220,7 +1166,7 @@ async function salvarValorEspecial(loja, semana, campo, valor, justificativa = "
       valor2: campo === "valor2" ? numero : null,
     };
 
-    payload[colunaJustificativa] = numero !== null ? null : justificativaFinal;
+    payload[colunaJustificativa] = null;
 
     const { data: inserido, error: erroInsert } = await window.db
       .from("resultados")
@@ -1237,7 +1183,7 @@ async function salvarValorEspecial(loja, semana, campo, valor, justificativa = "
       campo,
       valor: numero,
       colunaJustificativa,
-      justificativa: payload[colunaJustificativa],
+      justificativaLimpa: true,
     });
 
     return true;

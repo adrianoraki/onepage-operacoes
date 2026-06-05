@@ -5,10 +5,18 @@
 
 const TABELA_RH_STATE = {
   salvando: new Set(),
-  botaoAtivo: null,
-  clicandoBotao: false,
-  timeoutClique: null,
 };
+
+const TABELA_RH_UI = {
+  ocultarColunaRegional: true,
+  usarJustificativa: false,
+  estilosInjetados: false,
+};
+
+console.log("✅ tabela-rh.js carregado", {
+  ocultarColunaRegional: TABELA_RH_UI.ocultarColunaRegional,
+  usarJustificativa: TABELA_RH_UI.usarJustificativa,
+});
 
 // ==========================
 // 🗝️ CHAVE DE REGISTRO RH
@@ -74,6 +82,15 @@ function escapeCssSelectorRH(valor) {
   }
 
   const texto = (valor || "").toString();
+
+  try {
+    if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+      return CSS.escape(texto);
+    }
+  } catch (erro) {
+    console.warn("⚠️ CSS.escape indisponível em RH, usando fallback:", erro);
+  }
+
   return texto.replace(/([ !"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, "\\$1");
 }
 
@@ -84,34 +101,270 @@ function normalizarTextoRH(valor) {
   return (valor || "").toString().trim();
 }
 
+function normalizarTextoRHUpper(valor) {
+  return normalizarTextoRH(valor).toUpperCase();
+}
+
 function valorCampoEstaVazioRH(valor) {
   return normalizarTextoRH(valor) === "";
 }
 
-function getListaJustificativasRH() {
+function tipoEhMonetarioRH(tipo) {
+  const t = normalizarTextoRHUpper(tipo);
+  return (
+    t === "MOEDA" ||
+    t === "R$" ||
+    t === "CURRENCY" ||
+    t === "MONETARIO" ||
+    t === "MONETÁRIO" ||
+    t === "VALOR"
+  );
+}
+
+function tipoEhPercentualRH(tipo) {
+  const t = normalizarTextoRHUpper(tipo);
+  return t === "PERCENTUAL" || t === "%" || t === "PORCENTAGEM";
+}
+
+function getClasseLarguraCampoRH(tipo) {
+  if (tipoEhMonetarioRH(tipo)) return "tipo-moeda";
+  if (tipoEhPercentualRH(tipo)) return "tipo-percentual";
+  return "tipo-padrao";
+}
+
+function getLarguraCampoRHPx(indicador, campo, tipo, semana = null) {
+  const indicadorNorm = normalizarTextoRHUpper(indicador || "");
+  const campoNorm = normalizarTextoRHUpper(campo || "");
+  const tipoNorm = normalizarTextoRHUpper(tipo || "");
+
+  let base = 135;
+
+  // Banco de horas / RH operacional
   if (
-    typeof JUSTIFICATIVAS_SEM_RESPOSTA !== "undefined" &&
-    Array.isArray(JUSTIFICATIVAS_SEM_RESPOSTA) &&
-    JUSTIFICATIVAS_SEM_RESPOSTA.length
+    indicadorNorm === "BANCOS DE HORAS" ||
+    indicadorNorm === "BANCO DE HORAS" ||
+    indicadorNorm === "RH / OPERACIONAL"
   ) {
-    return JUSTIFICATIVAS_SEM_RESPOSTA;
+    if (campoNorm === "VALOR") {
+      base = 145; // Horas +
+    } else if (campoNorm === "VALOR2") {
+      base = 145; // Horas -
+    } else {
+      base = 135;
+    }
+  } else if (
+    tipoNorm === "MOEDA" ||
+    tipoNorm === "R$" ||
+    tipoNorm === "MONETARIO" ||
+    tipoNorm === "MONETÁRIO"
+  ) {
+    base = 170;
+  } else if (
+    tipoNorm === "PERCENTUAL" ||
+    tipoNorm === "%" ||
+    tipoNorm === "PORCENTAGEM"
+  ) {
+    base = 145;
+  } else {
+    base = 135;
   }
 
-  return [
-    "Mudança Layout / Reforma",
-    "Inventário Geral",
-    "Falha Wifi",
-    "Falta Energia",
-    "Greve Ônibus",
-    "Feriado Municipal",
-    "Problema Zebra",
-    "Interdição",
-    "Fenômeno da Natureza",
-    "Troca Servidor",
-    "Falta Equipe",
-    "Alteração de Cluster",
-    "Alinhado com Gerente Operações",
-  ];
+  const final = Math.max(base, 110);
+
+  console.log("📏 Largura calculada do campo RH:", {
+    indicador: indicadorNorm,
+    campo: campoNorm,
+    tipo: tipoNorm,
+    semana,
+    final,
+  });
+
+  return final;
+}
+
+function getAlturaCampoRHPx(indicador, campo, tipo, semana = null) {
+  const indicadorNorm = normalizarTextoRHUpper(indicador || "");
+  const campoNorm = normalizarTextoRHUpper(campo || "");
+  const tipoNorm = normalizarTextoRHUpper(tipo || "");
+
+  let altura = 32;
+
+  if (
+    indicadorNorm === "BANCOS DE HORAS" ||
+    indicadorNorm === "BANCO DE HORAS" ||
+    indicadorNorm === "RH / OPERACIONAL"
+  ) {
+    if (campoNorm === "VALOR" || campoNorm === "VALOR2") {
+      altura = 34;
+    }
+  } else if (
+    tipoNorm === "MOEDA" ||
+    tipoNorm === "R$" ||
+    tipoNorm === "MONETARIO" ||
+    tipoNorm === "MONETÁRIO"
+  ) {
+    altura = 34;
+  }
+
+  console.log("📐 Altura calculada do campo RH:", {
+    indicador: indicadorNorm,
+    campo: campoNorm,
+    tipo: tipoNorm,
+    semana,
+    altura,
+  });
+
+  return altura;
+}
+
+function getClassAttrRH(classes = []) {
+  const lista = (classes || []).filter(Boolean).join(" ").trim();
+  return lista ? ` class="${lista}"` : "";
+}
+
+function garantirEstilosTabelaRH() {
+  if (TABELA_RH_UI.estilosInjetados) return;
+
+  const styleId = "estilos-tabela-rh-ajustes";
+  if (document.getElementById(styleId)) {
+    TABELA_RH_UI.estilosInjetados = true;
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.id = styleId;
+  style.textContent = `
+    .tabela-rh-compacta {
+      width: max-content !important;
+      min-width: 100% !important;
+      table-layout: auto !important;
+      border-collapse: collapse;
+    }
+
+    .tabela-rh-compacta .col-regional-oculta,
+    .tabela-rh-compacta th[data-coluna="regional"],
+    .tabela-rh-compacta td[data-coluna="regional"] {
+      display: none !important;
+    }
+
+    .tabela-rh-compacta th,
+    .tabela-rh-compacta td {
+      vertical-align: middle;
+      box-sizing: border-box;
+      white-space: nowrap;
+    }
+
+    .tabela-rh-compacta .col-codigo-rh {
+      width: 58px !important;
+      min-width: 58px !important;
+      max-width: 58px !important;
+    }
+
+    .tabela-rh-compacta .col-loja-rh {
+      min-width: 170px !important;
+      max-width: 220px !important;
+      width: 170px !important;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tabela-rh-compacta .celula-rh-valor {
+      box-sizing: border-box;
+      padding: 5px 6px !important;
+    }
+
+    .tabela-rh-compacta .campo-tabela-rh {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .tabela-rh-compacta .input-tabela-rh {
+      box-sizing: border-box;
+      width: 100% !important;
+      max-width: none !important;
+      padding: 5px 8px !important;
+      line-height: 1.2 !important;
+      font-size: 11px !important;
+      border-radius: 6px;
+    }
+
+    .tabela-rh-ajustada {
+      overflow-x: auto !important;
+      overflow-y: visible !important;
+      width: 100%;
+    }
+  `;
+
+  document.head.appendChild(style);
+  TABELA_RH_UI.estilosInjetados = true;
+
+  console.log("🎨 Estilos da tabela RH injetados com campo ajustado");
+}
+
+function aplicarLayoutTabelaRH(container = null) {
+  garantirEstilosTabelaRH();
+
+  const alvo = container || document;
+  const tabelas = alvo.querySelectorAll(".tabela-rh-compacta");
+
+  let totalTabelas = 0;
+  let totalColunasOcultadas = 0;
+
+  tabelas.forEach((table) => {
+    totalTabelas++;
+
+    const headers = [...table.querySelectorAll("thead th")];
+    let indicesRegional = [];
+
+    headers.forEach((th, idx) => {
+      const texto = normalizarTextoRHUpper(th.textContent || "");
+      const dataColuna = normalizarTextoRHUpper(th.dataset.coluna || "");
+
+      if (
+        texto === "REGIONAL" ||
+        dataColuna === "REGIONAL" ||
+        th.classList.contains("col-regional-rh")
+      ) {
+        indicesRegional.push(idx);
+        th.classList.add("col-regional-oculta");
+        th.dataset.coluna = "regional";
+      }
+    });
+
+    if (!indicesRegional.length) {
+      console.log("ℹ️ Nenhuma coluna Regional encontrada na tabela RH");
+      return;
+    }
+
+    table.querySelectorAll("tbody tr").forEach((tr) => {
+      const tds = tr.querySelectorAll("td");
+
+      indicesRegional.forEach((idx) => {
+        const td = tds[idx];
+        if (td) {
+          td.classList.add("col-regional-oculta");
+          td.dataset.coluna = "regional";
+        }
+      });
+    });
+
+    totalColunasOcultadas += indicesRegional.length;
+  });
+
+  console.log("👁️ Layout/ocultação aplicado na tabela RH:", {
+    totalTabelas,
+    totalColunasOcultadas,
+  });
+}
+
+// ==========================
+// 🧹 JUSTIFICATIVAS DESATIVADAS
+// mantidas como compatibilidade / no-op
+// ==========================
+function getListaJustificativasRH() {
+  return [];
 }
 
 function getIndicadorRHAtualNormalizado() {
@@ -162,359 +415,68 @@ function getInputRH(loja, semana, campo) {
   return el;
 }
 
-function getBotaoJustificativaRH(loja, semana, campo) {
-  const lojaEsc = escapeCssSelectorRH(loja);
-  const semanaEsc = escapeCssSelectorRH(semana);
-  const campoEsc = escapeCssSelectorRH(campo);
-
-  const el = document.querySelector(
-    `#tbody-rh button[data-loja="${lojaEsc}"][data-semana="${semanaEsc}"][data-campo="${campoEsc}"][data-role="justificativa-rh"]`
-  );
-
-  if (!el) {
-    console.warn("⚠️ Botão de justificativa RH não encontrado:", {
-      loja,
-      semana,
-      campo,
-    });
-  }
-
-  return el;
+function getBotaoJustificativaRH() {
+  return null;
 }
 
-function getBotaoRHDoInput(input) {
-  if (!input) return null;
-  return getBotaoJustificativaRH(
-    input.dataset.loja,
-    input.dataset.semana,
-    input.dataset.campo
-  );
+function getBotaoRHDoInput() {
+  return null;
 }
 
-function getInputDoBotaoRH(botao) {
-  if (!botao) return null;
-  return getInputRH(
-    botao.dataset.loja,
-    botao.dataset.semana,
-    botao.dataset.campo
-  );
+function getInputDoBotaoRH() {
+  return null;
 }
 
 // ==========================
 // 🖱️ CONTROLE DE CLIQUE RH
 // ==========================
 function prepararCliqueJustificativaRH(event = null) {
-  console.log("🖱️ prepararCliqueJustificativaRH");
-
-  TABELA_RH_STATE.clicandoBotao = true;
-
-  if (TABELA_RH_STATE.timeoutClique) {
-    clearTimeout(TABELA_RH_STATE.timeoutClique);
-    TABELA_RH_STATE.timeoutClique = null;
-  }
-
+  console.log("ℹ️ prepararCliqueJustificativaRH ignorado: justificativas removidas");
   if (event) {
     event.preventDefault();
     event.stopPropagation();
   }
 }
 
-function finalizarCliqueJustificativaRH(delay = 180) {
-  if (TABELA_RH_STATE.timeoutClique) {
-    clearTimeout(TABELA_RH_STATE.timeoutClique);
-    TABELA_RH_STATE.timeoutClique = null;
-  }
-
-  TABELA_RH_STATE.timeoutClique = setTimeout(() => {
-    TABELA_RH_STATE.clicandoBotao = false;
-    TABELA_RH_STATE.timeoutClique = null;
-    console.log("🖱️ Estado de clique RH finalizado");
-  }, delay);
+function finalizarCliqueJustificativaRH() {
+  console.log("ℹ️ finalizarCliqueJustificativaRH ignorado: justificativas removidas");
 }
 
 // ==========================
 // 🎨 ESTADO VISUAL RH
 // ==========================
-function atualizarEstadoVisualBotaoRH(botao) {
-  if (!botao) return;
-
-  const justificativaAtual = normalizarTextoRH(
-    botao.dataset.justificativaAtual || ""
-  );
-
-  botao.classList.toggle("ativo", !!justificativaAtual);
-  botao.title =
-    justificativaAtual ||
-    `Selecionar justificativa - ${getLabelCampoRH(botao.dataset.campo)}`;
-
-  console.log("🎯 Estado visual do botão RH atualizado:", {
-    campo: botao.dataset.campo,
-    justificativaAtual,
-    ativo: !!justificativaAtual,
-  });
+function atualizarEstadoVisualBotaoRH() {
+  return;
 }
 
-function atualizarEstadoVisualInputRHComJustificativa(input, botao = null) {
+function atualizarEstadoVisualInputRHComJustificativa(input) {
   if (!input) return;
-
-  const botaoRef = botao || getBotaoRHDoInput(input);
-
-  if (!botaoRef) {
-    input.classList.remove("input-com-justificativa");
-    console.warn("⚠️ Botão RH não encontrado para atualizar input:", {
-      loja: input.dataset?.loja,
-      semana: input.dataset?.semana,
-      campo: input.dataset?.campo,
-    });
-    return;
-  }
-
-  const temValor = !valorCampoEstaVazioRH(input.value);
-
-  if (temValor) {
-    input.classList.remove("input-com-justificativa");
-    return;
-  }
-
-  const justificativaAtual = normalizarTextoRH(
-    botaoRef.dataset.justificativaAtual ||
-      botaoRef.dataset.original ||
-      ""
-  );
-
-  const deveDestacar = !!justificativaAtual;
-
-  input.classList.toggle("input-com-justificativa", deveDestacar);
-
-  console.log("🎨 Estado visual do input RH atualizado:", {
-    loja: input.dataset?.loja,
-    semana: input.dataset?.semana,
-    campo: input.dataset?.campo,
-    temValor,
-    justificativaAtual,
-    destacado: deveDestacar,
-  });
+  input.classList.remove("input-com-justificativa");
 }
 
-function atualizarVisibilidadeJustificativaRH(input, limparSeTiverValor = true) {
+function atualizarVisibilidadeJustificativaRH(input) {
   if (!input) return;
-
-  const botao = getBotaoRHDoInput(input);
-  if (!botao) return;
-
-  const temValor = !valorCampoEstaVazioRH(input.value);
-  const bloqueado =
-    input.disabled || input.readOnly || input.dataset.bloqueado === "true";
-
-  if (temValor) {
-    if (limparSeTiverValor) {
-      botao.dataset.justificativaAtual = "";
-      botao.dataset.original = "";
-      atualizarEstadoVisualBotaoRH(botao);
-    }
-
-    botao.classList.add("oculto");
-    botao.disabled = true;
-    botao.classList.remove("pendente");
-
-    input.classList.remove("input-com-justificativa");
-    aplicarStatusInputRH(input, "normal");
-
-    console.log("👁️ Botão RH ocultado porque existe valor", {
-      loja: input.dataset.loja,
-      semana: input.dataset.semana,
-      campo: input.dataset.campo,
-    });
-
-    return;
-  }
-
-  botao.classList.remove("oculto");
-  botao.disabled = bloqueado;
-  botao.classList.toggle("bloqueado", bloqueado);
-
-  atualizarEstadoVisualBotaoRH(botao);
-  atualizarEstadoVisualInputRHComJustificativa(input, botao);
-
-  console.log("👁️ Botão RH exibido", {
-    loja: input.dataset.loja,
-    semana: input.dataset.semana,
-    campo: input.dataset.campo,
-    bloqueado,
-  });
+  input.classList.remove("input-com-justificativa");
 }
 
 function sincronizarJustificativasComPermissoesTabelaRH() {
-  console.log("🔐 Sincronizando justificativas RH com permissões...");
-
-  const inputs = document.querySelectorAll(
-    '#tbody-rh input[data-loja][data-semana][data-campo]'
-  );
-
-  inputs.forEach((input) => {
-    const botao = getBotaoRHDoInput(input);
-    if (!botao) return;
-
-    const bloqueado =
-      input.disabled || input.readOnly || input.dataset.bloqueado === "true";
-
-    if (bloqueado) {
-      botao.disabled = true;
-      botao.classList.add("bloqueado");
-      botao.title = input.dataset.motivo || input.title || "Campo bloqueado";
-    } else {
-      botao.disabled = false;
-      botao.classList.remove("bloqueado");
-      atualizarVisibilidadeJustificativaRH(input, false);
-    }
-  });
-
-  console.log("✅ Sincronização RH concluída");
+  console.log("ℹ️ Justificativas da tabela RH desativadas definitivamente");
 }
 
 // ==========================
-// 🪟 PAINEL DE JUSTIFICATIVA RH
+// 🪟 PAINEL DE JUSTIFICATIVA RH DESATIVADO
 // ==========================
 function garantirPainelJustificativaRH() {
-  let painel = document.getElementById("painel-justificativa-rh-flutuante");
-
-  if (painel) {
-    console.log("🪟 Painel RH já existente");
-    return painel;
-  }
-
-  console.log("🪟 Criando painel de justificativa RH...");
-
-  painel = document.createElement("div");
-  painel.id = "painel-justificativa-rh-flutuante";
-  painel.className = "painel-justificativa-flutuante";
-
-  painel.innerHTML = `
-    <div class="painel-justificativa-box">
-      <div class="painel-justificativa-header">
-        <strong id="titulo-painel-justificativa-rh">Selecionar justificativa</strong>
-        <button
-          type="button"
-          class="btn-fechar-painel-justificativa"
-          id="btn-fechar-painel-justificativa-rh"
-        >
-          ✕
-        </button>
-      </div>
-
-      <div class="painel-justificativa-lista" id="painel-justificativa-rh-lista"></div>
-    </div>
-  `;
-
-  document.body.appendChild(painel);
-
-  const lista = painel.querySelector("#painel-justificativa-rh-lista");
-  const justificativas = getListaJustificativasRH();
-
-  justificativas.forEach((motivo) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "item-justificativa-painel";
-    btn.dataset.motivo = motivo;
-    btn.textContent = motivo;
-
-    btn.addEventListener("click", async () => {
-      console.log("📝 Justificativa RH clicada:", motivo);
-      await selecionarJustificativaPainelRH(motivo);
-    });
-
-    lista.appendChild(btn);
-  });
-
-  const btnFechar = painel.querySelector("#btn-fechar-painel-justificativa-rh");
-  if (btnFechar) {
-    btnFechar.addEventListener("click", fecharPainelJustificativaRH);
-  }
-
-  document.addEventListener("click", (event) => {
-    const painelAberto = document.getElementById(
-      "painel-justificativa-rh-flutuante"
-    );
-
-    if (!painelAberto || !painelAberto.classList.contains("ativo")) return;
-
-    const clicouNoPainel = painelAberto.contains(event.target);
-    const clicouNoBotao = event.target.closest(
-      ".btn-justificativa-rh, .btn-justificativa-celula"
-    );
-
-    if (!clicouNoPainel && !clicouNoBotao) {
-      console.log("🪟 Clique fora do painel RH detectado. Fechando...");
-      fecharPainelJustificativaRH();
-    }
-  });
-
-  window.addEventListener("resize", () => {
-    if (TABELA_RH_STATE.botaoAtivo) {
-      posicionarPainelJustificativaRH(TABELA_RH_STATE.botaoAtivo);
-    }
-  });
-
-  window.addEventListener("scroll", () => {
-    if (TABELA_RH_STATE.botaoAtivo) {
-      posicionarPainelJustificativaRH(TABELA_RH_STATE.botaoAtivo);
-    }
-  });
-
-  console.log("✅ Painel RH criado com sucesso");
-  return painel;
+  console.log("ℹ️ Painel RH desativado");
+  return null;
 }
 
-function posicionarPainelJustificativaRH(botao) {
-  const painel = garantirPainelJustificativaRH();
-  const caixa = painel.querySelector(".painel-justificativa-box");
-  if (!caixa || !botao) return;
-
-  const rect = botao.getBoundingClientRect();
-  const larguraPainel = 280;
-  const margem = 12;
-
-  let left = rect.left;
-  let top = rect.bottom + 8;
-
-  if (left + larguraPainel > window.innerWidth - margem) {
-    left = window.innerWidth - larguraPainel - margem;
-  }
-
-  if (left < margem) {
-    left = margem;
-  }
-
-  const alturaAproximada = 320;
-  if (top + alturaAproximada > window.innerHeight - margem) {
-    top = rect.top - alturaAproximada - 8;
-  }
-
-  if (top < margem) {
-    top = margem;
-  }
-
-  caixa.style.left = `${left}px`;
-  caixa.style.top = `${top}px`;
-
-  console.log("📍 Painel RH posicionado:", { left, top });
+function posicionarPainelJustificativaRH() {
+  return;
 }
 
-function marcarJustificativaSelecionadaNoPainelRH(botao) {
-  const painel = garantirPainelJustificativaRH();
-  const atual = normalizarTextoRH(botao?.dataset.justificativaAtual || "");
-
-  painel.querySelectorAll(".item-justificativa-painel").forEach((item) => {
-    const motivo = normalizarTextoRH(item.dataset.motivo || "");
-    item.classList.toggle("ativo", motivo === atual);
-  });
-
-  const titulo = painel.querySelector("#titulo-painel-justificativa-rh");
-  if (titulo && botao) {
-    titulo.textContent = `Justificativa - ${getLabelCampoRH(botao.dataset.campo)}`;
-  }
-
-  console.log("✅ Justificativa RH marcada no painel:", atual || "(nenhuma)");
+function marcarJustificativaSelecionadaNoPainelRH() {
+  return;
 }
 
 function abrirPainelJustificativaRH(botao, event = null) {
@@ -523,28 +485,7 @@ function abrirPainelJustificativaRH(botao, event = null) {
     event.stopPropagation();
   }
 
-  if (!botao || botao.disabled) {
-    console.warn("⚠️ Botão RH inválido ou desabilitado");
-    finalizarCliqueJustificativaRH();
-    return;
-  }
-
-  TABELA_RH_STATE.botaoAtivo = botao;
-
-  const painel = garantirPainelJustificativaRH();
-  painel.classList.add("ativo");
-
-  posicionarPainelJustificativaRH(botao);
-  marcarJustificativaSelecionadaNoPainelRH(botao);
-
-  console.log("🪟 Painel RH aberto", {
-    loja: botao.dataset.loja,
-    semana: botao.dataset.semana,
-    campo: botao.dataset.campo,
-    justificativaAtual: botao.dataset.justificativaAtual || "",
-  });
-
-  finalizarCliqueJustificativaRH(220);
+  console.log("ℹ️ Painel RH não abre: justificativas removidas");
 }
 
 function fecharPainelJustificativaRH() {
@@ -553,51 +494,12 @@ function fecharPainelJustificativaRH() {
     painel.classList.remove("ativo");
   }
 
-  console.log("🪟 Painel RH fechado");
-
-  TABELA_RH_STATE.botaoAtivo = null;
-  TABELA_RH_STATE.clicandoBotao = false;
-
-  if (TABELA_RH_STATE.timeoutClique) {
-    clearTimeout(TABELA_RH_STATE.timeoutClique);
-    TABELA_RH_STATE.timeoutClique = null;
-  }
+  console.log("ℹ️ Painel RH fechado/ignorado");
 }
 
 async function selecionarJustificativaPainelRH(motivo) {
-  const botao = TABELA_RH_STATE.botaoAtivo;
-  if (!botao) {
-    console.warn("⚠️ Nenhum botão RH ativo para aplicar justificativa");
-    return;
-  }
-
-  const input = getInputDoBotaoRH(botao);
-  if (!input) {
-    console.warn("⚠️ Input RH relacionado ao botão não encontrado");
-    return;
-  }
-
-  console.log("📝 Selecionando justificativa RH:", {
-    motivo,
-    loja: botao.dataset.loja,
-    semana: botao.dataset.semana,
-    campo: botao.dataset.campo,
-  });
-
-  botao.dataset.justificativaAtual = normalizarTextoRH(motivo || "");
-  botao.classList.remove("pendente", "oculto");
-
-  atualizarEstadoVisualBotaoRH(botao);
-  atualizarEstadoVisualInputRHComJustificativa(input, botao);
-
-  const salvou = await processarAutoSalvarRHCampo(input, botao);
-
-  if (salvou) {
-    console.log("✅ Justificativa RH salva com sucesso");
-    fecharPainelJustificativaRH();
-  } else {
-    console.warn("⚠️ Falha ao salvar justificativa RH selecionada");
-  }
+  console.log("ℹ️ selecionarJustificativaPainelRH ignorado:", motivo);
+  return false;
 }
 
 // ==========================
@@ -643,6 +545,16 @@ function montarTabelaRH(lojas, mapa, semanas) {
   const config = getConfigTabelaRH(indicadorSelecionado, classeSelecionada);
   const semanaAtualReal = getSemanaAtual().toString().padStart(2, "0");
 
+  console.log("🧩 Montando tabela RH:", {
+    indicadorSelecionado,
+    classeSelecionada,
+    config,
+    totalLojas: lojas?.length || 0,
+    totalSemanas: semanas?.length || 0,
+    ocultarColunaRegional: TABELA_RH_UI.ocultarColunaRegional,
+    usarJustificativa: TABELA_RH_UI.usarJustificativa,
+  });
+
   let html = `
     <div class="card-conteudo">
 
@@ -678,14 +590,23 @@ function montarTabelaRH(lojas, mapa, semanas) {
         <table class="tabela tabela-rh-compacta">
           <thead>
             <tr>
-              <th rowspan="2" class="col-codigo-rh">Código</th>
-              <th rowspan="2" class="col-loja-rh">Loja</th>
-              <th rowspan="2" class="col-regional-rh">Regional</th>
+              <th rowspan="2" class="col-codigo-rh" data-coluna="codigo">Código</th>
+              <th rowspan="2" class="col-loja-rh" data-coluna="loja">Loja</th>
+              <th
+                rowspan="2"
+                class="col-regional-rh ${TABELA_RH_UI.ocultarColunaRegional ? "col-regional-oculta" : ""}"
+                data-coluna="regional"
+              >
+                Regional
+              </th>
   `;
 
   semanas.forEach((semana) => {
-    const destaque = semana === semanaAtualReal ? ' class="coluna-atual"' : "";
-    html += `<th colspan="2"${destaque}>Semana ${semana}</th>`;
+    const semanaNorm = (semana || "").toString().padStart(2, "0");
+    const classesSemana = [];
+    if (semanaNorm === semanaAtualReal) classesSemana.push("coluna-atual");
+
+    html += `<th colspan="2"${getClassAttrRH(classesSemana)}>Semana ${semanaNorm}</th>`;
   });
 
   html += `
@@ -694,10 +615,14 @@ function montarTabelaRH(lojas, mapa, semanas) {
   `;
 
   semanas.forEach((semana) => {
-    const destaque = semana === semanaAtualReal ? ' class="coluna-atual"' : "";
+    const semanaNorm = (semana || "").toString().padStart(2, "0");
+    const classesSemana1 = [];
+    if (semanaNorm === semanaAtualReal) classesSemana1.push("coluna-atual");
+    const classesSemana2 = [...classesSemana1];
+
     html += `
-      <th${destaque}>${config.col1}</th>
-      <th${destaque}>${config.col2}</th>
+      <th${getClassAttrRH(classesSemana1)}>${config.col1}</th>
+      <th${getClassAttrRH(classesSemana2)}>${config.col2}</th>
     `;
   });
 
@@ -711,22 +636,30 @@ function montarTabelaRH(lojas, mapa, semanas) {
     const chaveLoja = `${loja.codigo} - ${loja.nome}`;
 
     html += `
-      <tr>
-        <td class="col-codigo-rh">${loja.codigo}</td>
-        <td class="col-loja-rh">${loja.nome}</td>
-        <td class="col-regional-rh">${loja.regional || "-"}</td>
+      <tr
+        data-loja-codigo="${escapeHtmlRH(loja.codigo)}"
+        data-loja-nome="${escapeHtmlRH(loja.nome)}"
+        data-regional="${escapeHtmlRH(loja.regional || "-")}"
+      >
+        <td class="col-codigo-rh" data-coluna="codigo">${loja.codigo}</td>
+        <td class="col-loja-rh" data-coluna="loja">${loja.nome}</td>
+        <td
+          class="col-regional-rh ${TABELA_RH_UI.ocultarColunaRegional ? "col-regional-oculta" : ""}"
+          data-coluna="regional"
+        >
+          ${loja.regional || "-"}
+        </td>
     `;
 
     semanas.forEach((semana) => {
-      const key = `${chaveLoja}-${semana}`;
+      const semanaNorm = (semana || "").toString().padStart(2, "0");
+      const key = `${chaveLoja}-${semanaNorm}`;
       const item = mapa[key] || {};
 
       const horasMais = item.valor ?? "";
       const horasMenos = item.valor2 ?? "";
-      const destaque = semana === semanaAtualReal ? "coluna-atual" : "";
-
-      const justificativa1 = item[getColunaJustificativaRH("valor")] ?? "";
-      const justificativa2 = item[getColunaJustificativaRH("valor2")] ?? "";
+      const classesCelula = ["celula-rh-valor"];
+      if (semanaNorm === semanaAtualReal) classesCelula.push("coluna-atual");
 
       const valorFormatado =
         typeof formatarValorParaInput === "function"
@@ -748,90 +681,102 @@ function montarTabelaRH(lojas, mapa, semanas) {
           ? ""
           : String(horasMenos);
 
-      const mostrarBotao1 =
-        horasMais === null || horasMais === undefined || horasMais === "";
+      const classeCampo1 = getClasseLarguraCampoRH(config.tipo1);
+      const classeCampo2 = getClasseLarguraCampoRH(config.tipo2);
 
-      const mostrarBotao2 =
-        horasMenos === null || horasMenos === undefined || horasMenos === "";
+      const largura1 = getLarguraCampoRHPx(
+        indicadorSelecionado,
+        "valor",
+        config.tipo1,
+        semanaNorm
+      );
+
+      const largura2 = getLarguraCampoRHPx(
+        indicadorSelecionado,
+        "valor2",
+        config.tipo2,
+        semanaNorm
+      );
+
+      const altura1 = getAlturaCampoRHPx(
+        indicadorSelecionado,
+        "valor",
+        config.tipo1,
+        semanaNorm
+      );
+
+      const altura2 = getAlturaCampoRHPx(
+        indicadorSelecionado,
+        "valor2",
+        config.tipo2,
+        semanaNorm
+      );
+
+      const larguraInput1 = Math.max(largura1 - 18, 100);
+      const larguraInput2 = Math.max(largura2 - 18, 100);
 
       html += `
-        <td class="${destaque}">
-          <div class="campo-tabela-com-justificativa">
+        <td
+          ${getClassAttrRH([...classesCelula, classeCampo1])}
+          style="min-width:${largura1}px; width:${largura1}px;"
+        >
+          <div
+            class="campo-tabela-rh ${classeCampo1}"
+            style="min-width:${largura1}px; width:${largura1}px;"
+          >
             <input
               type="text"
               inputmode="decimal"
               value="${escapeHtmlRH(valorFormatado)}"
               data-loja="${escapeHtmlRH(chaveLoja)}"
-              data-semana="${escapeHtmlRH(semana)}"
+              data-semana="${escapeHtmlRH(semanaNorm)}"
               data-campo="valor"
               data-tipo="${escapeHtmlRH(config.tipo1)}"
               data-original="${escapeHtmlRH(original1)}"
-              data-original-justificativa="${escapeHtmlRH(justificativa1)}"
-              class="input-tabela input-tabela-rh ${justificativa1 && mostrarBotao1 ? "input-com-justificativa" : ""}"
+              data-original-justificativa=""
+              class="input-tabela input-tabela-rh"
+              style="
+                min-width:${larguraInput1}px;
+                width:${larguraInput1}px;
+                max-width:${larguraInput1}px;
+                min-height:${altura1}px;
+                height:${altura1}px;
+              "
               onfocus="prepararInputRH(this)"
-              oninput="atualizarVisibilidadeJustificativaRH(this)"
               onblur="autoSalvarRH(this)"
             >
-
-            <button
-              type="button"
-              class="btn-justificativa-celula btn-justificativa-rh ${justificativa1 ? "ativo" : ""} ${
-                mostrarBotao1 ? "" : "oculto"
-              }"
-              data-role="justificativa-rh"
-              data-loja="${escapeHtmlRH(chaveLoja)}"
-              data-semana="${escapeHtmlRH(semana)}"
-              data-campo="valor"
-              data-original="${escapeHtmlRH(justificativa1)}"
-              data-justificativa-atual="${escapeHtmlRH(justificativa1)}"
-              onmousedown="prepararCliqueJustificativaRH(event)"
-              onclick="abrirPainelJustificativaRH(this, event)"
-              title="${escapeHtmlRH(
-                justificativa1 || `Selecionar justificativa - ${config.col1}`
-              )}"
-            >
-              !
-            </button>
           </div>
         </td>
 
-        <td class="${destaque}">
-          <div class="campo-tabela-com-justificativa">
+        <td
+          ${getClassAttrRH([...classesCelula, classeCampo2])}
+          style="min-width:${largura2}px; width:${largura2}px;"
+        >
+          <div
+            class="campo-tabela-rh ${classeCampo2}"
+            style="min-width:${largura2}px; width:${largura2}px;"
+          >
             <input
               type="text"
               inputmode="decimal"
               value="${escapeHtmlRH(valor2Formatado)}"
               data-loja="${escapeHtmlRH(chaveLoja)}"
-              data-semana="${escapeHtmlRH(semana)}"
+              data-semana="${escapeHtmlRH(semanaNorm)}"
               data-campo="valor2"
               data-tipo="${escapeHtmlRH(config.tipo2)}"
               data-original="${escapeHtmlRH(original2)}"
-              data-original-justificativa="${escapeHtmlRH(justificativa2)}"
-              class="input-tabela input-tabela-rh ${justificativa2 && mostrarBotao2 ? "input-com-justificativa" : ""}"
+              data-original-justificativa=""
+              class="input-tabela input-tabela-rh"
+              style="
+                min-width:${larguraInput2}px;
+                width:${larguraInput2}px;
+                max-width:${larguraInput2}px;
+                min-height:${altura2}px;
+                height:${altura2}px;
+              "
               onfocus="prepararInputRH(this)"
-              oninput="atualizarVisibilidadeJustificativaRH(this)"
               onblur="autoSalvarRH(this)"
             >
-
-            <button
-              type="button"
-              class="btn-justificativa-celula btn-justificativa-rh ${justificativa2 ? "ativo" : ""} ${
-                mostrarBotao2 ? "" : "oculto"
-              }"
-              data-role="justificativa-rh"
-              data-loja="${escapeHtmlRH(chaveLoja)}"
-              data-semana="${escapeHtmlRH(semana)}"
-              data-campo="valor2"
-              data-original="${escapeHtmlRH(justificativa2)}"
-              data-justificativa-atual="${escapeHtmlRH(justificativa2)}"
-              onmousedown="prepararCliqueJustificativaRH(event)"
-              onclick="abrirPainelJustificativaRH(this, event)"
-              title="${escapeHtmlRH(
-                justificativa2 || `Selecionar justificativa - ${config.col2}`
-              )}"
-            >
-              !
-            </button>
           </div>
         </td>
       `;
@@ -849,8 +794,8 @@ function montarTabelaRH(lojas, mapa, semanas) {
   `;
 
   requestAnimationFrame(() => {
+    aplicarLayoutTabelaRH(document.getElementById("conteudo"));
     ativarFiltroRH();
-    garantirPainelJustificativaRH();
     sincronizarJustificativasComPermissoesTabelaRH();
   });
 
@@ -902,9 +847,17 @@ function ativarFiltroRH() {
     document.querySelectorAll("#tbody-rh tr").forEach((row) => {
       const dentroDoEscopo = row.dataset.escopoPermitido !== "false";
 
-      const codigo = row.children[0]?.textContent.toLowerCase() || "";
-      const loja = row.children[1]?.textContent.toLowerCase() || "";
-      const regional = row.children[2]?.textContent.toLowerCase() || "";
+      const codigo = (row.dataset.lojaCodigo || row.children[0]?.textContent || "")
+        .toString()
+        .toLowerCase();
+
+      const loja = (row.dataset.lojaNome || row.children[1]?.textContent || "")
+        .toString()
+        .toLowerCase();
+
+      const regional = (row.dataset.regional || "")
+        .toString()
+        .toLowerCase();
 
       const matchBusca =
         !termo || codigo.includes(termo) || loja.includes(termo);
@@ -926,15 +879,21 @@ function ativarFiltroRH() {
       btn.classList.add("ativo");
 
       regionalSelecionada = btn.dataset.regional || "TODAS";
+      console.log("🌍 Filtro RH regional alterado:", regionalSelecionada);
       aplicar();
     });
   });
+
+  aplicar();
+
+  console.log("✅ Filtro RH ativado com sucesso");
 }
 
 // ==========================
 // 💾 PROCESSAR AUTOSAVE RH
+// ✅ sem justificativa
 // ==========================
-async function processarAutoSalvarRHCampo(input, botao = null) {
+async function processarAutoSalvarRHCampo(input) {
   if (!input) return false;
 
   const loja = input.dataset.loja;
@@ -942,40 +901,8 @@ async function processarAutoSalvarRHCampo(input, botao = null) {
   const campo = input.dataset.campo;
   const tipo = input.dataset.tipo || "numero";
 
-  const botaoJustificativa = botao || getBotaoRHDoInput(input);
-
   const valorDigitado = (input.value || "").toString().trim();
-  let justificativaSelecionada = normalizarTextoRH(
-    botaoJustificativa?.dataset.justificativaAtual || ""
-  );
-
   const valorOriginal = input.dataset.original ?? "";
-  const justificativaOriginal = input.dataset.originalJustificativa ?? "";
-
-  if (!valorCampoEstaVazioRH(valorDigitado)) {
-    justificativaSelecionada = "";
-
-    if (botaoJustificativa) {
-      botaoJustificativa.dataset.justificativaAtual = "";
-      botaoJustificativa.dataset.original = "";
-      botaoJustificativa.classList.add("oculto");
-      botaoJustificativa.disabled = true;
-      botaoJustificativa.classList.remove("ativo", "pendente");
-      botaoJustificativa.title = `Selecionar justificativa - ${getLabelCampoRH(campo)}`;
-    }
-
-    input.classList.remove("input-com-justificativa");
-    aplicarStatusInputRH(input, "normal");
-  } else {
-    if (botaoJustificativa) {
-      botaoJustificativa.classList.remove("oculto");
-      botaoJustificativa.disabled =
-        input.disabled || input.readOnly || input.dataset.bloqueado === "true";
-
-      atualizarEstadoVisualBotaoRH(botaoJustificativa);
-      atualizarEstadoVisualInputRHComJustificativa(input, botaoJustificativa);
-    }
-  }
 
   let valorLimpo = null;
 
@@ -988,11 +915,11 @@ async function processarAutoSalvarRHCampo(input, botao = null) {
     }
 
     if (valorLimpo === null || Number.isNaN(valorLimpo)) {
-      console.warn("⚠️ Valor RH inválido ou vazio, salvamento ignorado", {
+      console.warn("⚠️ Valor RH inválido, salvamento ignorado", {
         loja,
         semana,
         campo,
-        valorDigitado: input.value,
+        valorDigitado,
         tipo,
       });
 
@@ -1003,48 +930,20 @@ async function processarAutoSalvarRHCampo(input, botao = null) {
 
   const comparacao = valorLimpo === null ? "" : String(valorLimpo);
 
-  if (
-    comparacao === valorOriginal &&
-    justificativaSelecionada === justificativaOriginal
-  ) {
+  if (comparacao === valorOriginal) {
     console.log("ℹ️ Valor RH não alterado, salvamento ignorado", {
       loja,
       semana,
       campo,
       valor: comparacao,
-      justificativa: justificativaSelecionada,
     });
 
     if (valorLimpo !== null && typeof formatarValorParaInput === "function") {
       input.value = formatarValorParaInput(valorLimpo, tipo);
     }
 
-    atualizarEstadoVisualInputRHComJustificativa(input, botaoJustificativa);
-
-    if (valorLimpo !== null) {
-      aplicarStatusInputRH(input, "normal");
-    }
-
+    aplicarStatusInputRH(input, "normal");
     return true;
-  }
-
-  if (valorLimpo === null && !justificativaSelecionada) {
-    console.warn(
-      "⚠️ Campo RH sem valor e sem justificativa. Salvamento bloqueado.",
-      {
-        loja,
-        semana,
-        campo,
-      }
-    );
-
-    if (botaoJustificativa) {
-      botaoJustificativa.classList.add("pendente");
-      abrirPainelJustificativaRH(botaoJustificativa, null);
-    }
-
-    aplicarStatusInputRH(input, "erro");
-    return false;
   }
 
   if (valorLimpo !== null && typeof formatarValorParaInput === "function") {
@@ -1061,18 +960,18 @@ async function processarAutoSalvarRHCampo(input, botao = null) {
     typeof getClasseIndicador === "function"
       ? getClasseIndicador(indicadorNormalizado, classeSelecionada)
       : typeof obterClasse === "function"
-        ? obterClasse(indicadorNormalizado, classeSelecionada)
-        : classeSelecionada || "RH / Operacional";
+      ? obterClasse(indicadorNormalizado, classeSelecionada)
+      : classeSelecionada || "RH / Operacional";
 
   console.log("⚡ AUTOSAVE RH:", {
     loja,
     semana,
     campo,
     valor: valorLimpo,
-    justificativa: justificativaSelecionada,
     tipo,
     indicador: indicadorNormalizado,
     classe,
+    justificativaDesativada: true,
   });
 
   aplicarStatusInputRH(input, "salvando");
@@ -1083,23 +982,13 @@ async function processarAutoSalvarRHCampo(input, botao = null) {
     campo,
     valorLimpo,
     indicadorNormalizado,
-    classe,
-    justificativaSelecionada
+    classe
   );
 
   if (salvou) {
     input.dataset.original = comparacao;
-    input.dataset.originalJustificativa = justificativaSelecionada;
+    input.dataset.originalJustificativa = "";
 
-    if (botaoJustificativa) {
-      botaoJustificativa.dataset.original = justificativaSelecionada;
-      botaoJustificativa.dataset.justificativaAtual = justificativaSelecionada;
-      botaoJustificativa.classList.remove("pendente");
-      atualizarEstadoVisualBotaoRH(botaoJustificativa);
-    }
-
-    atualizarEstadoVisualInputRHComJustificativa(input, botaoJustificativa);
-    atualizarVisibilidadeJustificativaRH(input, false);
     aplicarStatusInputRH(input, "sucesso");
     return true;
   }
@@ -1113,17 +1002,12 @@ async function processarAutoSalvarRHCampo(input, botao = null) {
 // ==========================
 async function autoSalvarRH(input) {
   if (!input) return;
-
-  if (TABELA_RH_STATE.clicandoBotao === true) {
-    console.log("ℹ️ AutoSave RH ignorado temporariamente por clique no botão");
-    return;
-  }
-
   await processarAutoSalvarRHCampo(input);
 }
 
 // ==========================
 // 💾 SALVAR VALOR RH
+// ✅ sem justificativa
 // ==========================
 async function salvarValorRH(
   loja,
@@ -1131,8 +1015,7 @@ async function salvarValorRH(
   campo,
   valor,
   indicadorNormalizado,
-  classe,
-  justificativa = ""
+  classe
 ) {
   const numero =
     valor === null || valor === undefined || valor === ""
@@ -1143,8 +1026,6 @@ async function salvarValorRH(
     console.warn("⚠️ salvarValorRH ignorado por número inválido:", valor);
     return false;
   }
-
-  const justificativaFinal = normalizarTextoRH(justificativa || "") || null;
 
   const indicadorBanco =
     typeof getIndicadorBanco === "function"
@@ -1179,8 +1060,7 @@ async function salvarValorRH(
     indicador: indicadorNormalizado,
     indicadorBanco,
     classe,
-    colunaJustificativa,
-    justificativa: justificativaFinal,
+    justificativaDesativada: true,
   });
 
   try {
@@ -1210,8 +1090,7 @@ async function salvarValorRH(
 
     const updateData = {};
     updateData[campo] = numero;
-    updateData[colunaJustificativa] =
-      numero !== null ? null : justificativaFinal;
+    updateData[colunaJustificativa] = null;
 
     if (registros.length >= 1) {
       const idAlvo = registros[0].id;
@@ -1230,7 +1109,7 @@ async function salvarValorRH(
         campo,
         valor: numero,
         colunaJustificativa,
-        justificativa: updateData[colunaJustificativa],
+        justificativaLimpa: true,
       });
 
       return true;
@@ -1245,8 +1124,7 @@ async function salvarValorRH(
       valor2: campo === "valor2" ? numero : null,
     };
 
-    novoRegistro[colunaJustificativa] =
-      numero !== null ? null : justificativaFinal;
+    novoRegistro[colunaJustificativa] = null;
 
     const { data: inserido, error: insertError } = await window.db
       .from("resultados")
@@ -1263,7 +1141,7 @@ async function salvarValorRH(
       campo,
       valor: numero,
       colunaJustificativa,
-      justificativa: novoRegistro[colunaJustificativa],
+      justificativaLimpa: true,
     });
 
     return true;

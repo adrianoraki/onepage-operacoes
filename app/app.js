@@ -115,7 +115,6 @@ function validarBootstrapPerfil() {
     "getUsuarioLogado",
     "getPermissoesSistemaUsuario",
     "getEscopoUsuarioSistema",
-    "aplicarPermissoesTabela",
     "abrirConfiguracoes",
   ];
 
@@ -633,7 +632,7 @@ function getPermissoesIndicadoresApp(user = null) {
   const usuario = user || getUsuarioEfetivoApp();
   const permissoes = usuario?.permissoes || {};
 
-  return {
+  const resultado = {
     acesso_total: permissoes.acesso_total === true,
     indicadores: Array.isArray(permissoes.indicadores)
       ? permissoes.indicadores.map((i) => normalizarTextoAppUpper(i))
@@ -645,6 +644,9 @@ function getPermissoesIndicadoresApp(user = null) {
       ? permissoes.subclasses.map((s) => normalizarTextoAppUpper(s))
       : [],
   };
+
+  console.log("🎯 Permissões de indicadores do app:", resultado);
+  return resultado;
 }
 
 function getMetaIndicadorApp(indicador, classeFallback = "") {
@@ -669,7 +671,9 @@ function getMetaIndicadorApp(indicador, classeFallback = "") {
 function getTokenSubclasseApp(classe, subclasse) {
   if (typeof window.getTokenSubclasse === "function") {
     try {
-      return normalizarTextoAppUpper(window.getTokenSubclasse(classe, subclasse));
+      return normalizarTextoAppUpper(
+        window.getTokenSubclasse(classe, subclasse)
+      );
     } catch (erro) {
       console.warn("⚠️ Falha ao usar getTokenSubclasse:", erro);
     }
@@ -678,22 +682,6 @@ function getTokenSubclasseApp(classe, subclasse) {
   return `${normalizarTextoAppUpper(classe)}___SUB___${normalizarTextoAppUpper(
     subclasse || "GERAL"
   )}`;
-}
-
-function usuarioTemAcessoClasseApp(classe, user = null) {
-  const permissoes = getPermissoesIndicadoresApp(user);
-
-  if (permissoes.acesso_total) return true;
-  if (permissoes.classes.includes(normalizarTextoAppUpper(classe))) return true;
-
-  const temIndicadorNaClasse = Object.values(classesIndicadores[classe] || []).some(
-    (item) => {
-      const valor = item?.valor || item;
-      return permissoes.indicadores.includes(normalizarTextoAppUpper(valor));
-    }
-  );
-
-  return temIndicadorNaClasse;
 }
 
 function usuarioTemAcessoIndicadorApp(indicador, classe = "", user = null) {
@@ -790,6 +778,10 @@ function renderAcessoNegadoTela(nomeTela) {
   `;
 }
 
+function permsFalse(valor) {
+  return valor !== true;
+}
+
 function aplicarPermissoesMenuPrincipal() {
   try {
     const usuario = getUsuarioEfetivoApp();
@@ -808,10 +800,7 @@ function aplicarPermissoesMenuPrincipal() {
 
       let esconder = false;
 
-      if (
-        texto.includes("dashboard") ||
-        onclickAttr.includes("dashboard")
-      ) {
+      if (texto.includes("dashboard") || onclickAttr.includes("dashboard")) {
         esconder = permsFalse(permissoes.pode_ver_dashboard);
       }
 
@@ -839,10 +828,6 @@ function aplicarPermissoesMenuPrincipal() {
   } catch (erro) {
     console.warn("⚠️ Falha ao aplicar permissões ao menu principal:", erro);
   }
-}
-
-function permsFalse(valor) {
-  return valor !== true;
 }
 
 // ==========================
@@ -936,7 +921,7 @@ function limparItensDinamicosMenu(menu) {
 
 // ==========================
 // 🧭 MENU POR CLASSE
-// ✅ agora respeita permissões por classe / indicador
+// ✅ respeita permissões por classe / indicador
 // ==========================
 function montarMenuIndicadores() {
   const menu = document.querySelector("#menu-list");
@@ -1037,7 +1022,7 @@ function toggleClasse(id) {
 
 // ==========================
 // ✅ SELECIONAR INDICADOR
-// ✅ agora valida permissão antes de abrir
+// ✅ valida permissão antes de abrir
 // ==========================
 function selecionarIndicador(indicador) {
   const usuario = getUsuarioEfetivoApp();
@@ -1166,7 +1151,7 @@ function definirTelaAtiva(tela, extras = {}) {
 
 // ==========================
 // 🔄 ABRIR TELA INTERNA
-// ✅ agora valida permissão de módulo
+// ✅ valida permissão de módulo
 // ==========================
 async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
   try {
@@ -1623,8 +1608,12 @@ window.pararAtualizacaoSilenciosa = pararAtualizacaoSilenciosa;
 window.atualizarTelaSilenciosamente = atualizarTelaSilenciosamente;
 
 window.usuarioTemAcessoIndicadorApp = usuarioTemAcessoIndicadorApp;
-window.usuarioTemAcessoClasseApp = usuarioTemAcessoClasseApp;
 window.usuarioPodeAbrirTelaApp = usuarioPodeAbrirTelaApp;
+window.montarMenuIndicadores = montarMenuIndicadores;
+window.aplicarPermissoesMenuPrincipal = aplicarPermissoesMenuPrincipal;
+
+window.classesIndicadores = classesIndicadores;
+window.APP_STATE = APP_STATE;
 
 // ==========================
 // ✅ LOG FINAL DE BOOTSTRAP
@@ -1637,4 +1626,6 @@ console.log("✅ app.js pronto", {
   selecionarIndicador: typeof window.selecionarIndicador,
   usuarioTemAcessoIndicadorApp: typeof window.usuarioTemAcessoIndicadorApp,
   usuarioPodeAbrirTelaApp: typeof window.usuarioPodeAbrirTelaApp,
+  montarMenuIndicadores: typeof window.montarMenuIndicadores,
+  aplicarPermissoesMenuPrincipal: typeof window.aplicarPermissoesMenuPrincipal,
 });
