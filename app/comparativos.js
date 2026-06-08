@@ -1,38 +1,27 @@
 // ==========================
-// 📊 COMPARATIVOS COM CHART.JS
+// 📊 COMPARATIVOS — HEATMAP VIBRANTE
 // ==========================
 console.log("✅ comparativos.js carregado");
 
 // ==========================
-// 🧠 ESTADO GLOBAL DOS COMPARATIVOS
+// 🧠 ESTADO GLOBAL
 // ==========================
 const COMPARATIVO_STATE = {
   semana:
-    localStorage.getItem("semana") ||
-    getSemanaAtual().toString().padStart(2, "0"),
+    (typeof getSemanaAtual === "function"
+      ? getSemanaAtual()
+      : parseInt(localStorage.getItem("semana") || "1", 10)
+    )
+      .toString()
+      .padStart(2, "0"),
 
-  visao: "regional",
-  classe: "TODAS",
+  modoPeriodo: "semanal", // "semanal" | "mensal"
   indicador: "TODOS",
-  regional: "TODAS",
-  loja: "TODAS",
-
-  // ✅ semanal | mensal
-  modoPeriodo: "semanal",
-};
-
-const LIMITE_COMPARATIVO_RANKING = 10;
-
-// ==========================
-// 📈 INSTÂNCIAS DOS GRÁFICOS
-// ==========================
-window.comparativoCharts = window.comparativoCharts || {
-  principal: null,
-  classes: null,
+  abaRegional: localStorage.getItem("comparativoAba") || "AMBAS", // "AMBAS" | "NE1" | "NE2"
 };
 
 // ==========================
-// 🔠 HELPERS
+// 🔠 HELPERS DE TEXTO/NÚMERO
 // ==========================
 function normalizarTextoComparativo(valor) {
   return (valor || "").toString().trim();
@@ -42,647 +31,322 @@ function normalizarTextoComparativoUpper(valor) {
   return normalizarTextoComparativo(valor).toUpperCase();
 }
 
-function normalizarTextoComparativoLower(valor) {
-  return normalizarTextoComparativo(valor).toLowerCase();
-}
-
-function formatarNumeroComparativo(valor, casas = 2) {
-  const numero = Number(valor);
-  if (!isFinite(numero)) return "-";
-
-  return numero.toLocaleString("pt-BR", {
-    minimumFractionDigits: casas,
-    maximumFractionDigits: casas,
-  });
+function normalizarSemanaComparativo(semana) {
+  return String(semana == null ? "" : semana)
+    .trim()
+    .padStart(2, "0");
 }
 
 function calcularMediaComparativo(lista = []) {
   const numeros = (lista || [])
     .map((v) => Number(v))
-    .filter((v) => !isNaN(v));
-
+    .filter((v) => !isNaN(v) && isFinite(v));
   if (!numeros.length) return 0;
   return numeros.reduce((a, b) => a + b, 0) / numeros.length;
 }
 
-function getChaveLojaComparativo(loja) {
-  return `${loja.codigo} - ${loja.nome}`;
+function somarComparativo(lista = []) {
+  return (lista || [])
+    .map((v) => Number(v))
+    .filter((v) => !isNaN(v) && isFinite(v))
+    .reduce((a, b) => a + b, 0);
 }
 
+// ==========================
+// 💲 FORMATAÇÃO POR TIPO
+// ==========================
 function tipoPercentualComparativo(tipo) {
-  const t = normalizarTextoComparativoLower(tipo);
-  return t.includes("percent") || t.includes("porcent") || t === "%";
+  const t = normalizarTextoComparativoUpper(tipo);
+  return t.includes("PERCENT") || t.includes("PORCENT") || t === "%";
 }
 
-function formatarKpiComparativo(valor, { percentual = false, casas = 2 } = {}) {
+function tipoMoedaComparativo(tipo) {
+  const t = normalizarTextoComparativoUpper(tipo);
+  return t.includes("MOEDA") || t.includes("R$") || t.includes("REAL");
+}
+
+/**
+ * Indicadores que devem SOMAR (total do mês) em vez de tirar média:
+ *  - moeda (R$): desconto, cancelamento, devolução, troca
+ *  - banco de horas (especial-rh)
+ * Os demais (percentual, número, especial) tiram MÉDIA.
+ */
+function tipoSomaComparativo(tipo) {
+  const t = normalizarTextoComparativoUpper(tipo);
+  return (
+    tipoMoedaComparativo(tipo) ||
+    t.includes("ESPECIAL-RH") ||
+    t.includes("ESPECIAL_RH") ||
+    t.replace(/[^A-Z]/g, "") === "ESPECIALRH"
+  );
+}
+
+/**
+ * Agrega uma lista de valores conforme o tipo:
+ *  - soma   → R$ e banco de horas (total)
+ *  - média  → percentual, número, especial
+ * No modo semanal (1 registro) soma e média coincidem.
+ */
+function agregarValoresComparativo(arr, tipo) {
+  if (!arr || !arr.length) return null;
+  return tipoSomaComparativo(tipo) ? somarComparativo(arr) : calcularMediaComparativo(arr);
+}
+
+function formatarValorComparativo(valor, tipo) {
   const numero = Number(valor);
   if (!isFinite(numero)) return "-";
 
-  const texto = formatarNumeroComparativo(numero, casas);
-  return percentual ? `${texto}%` : texto;
-}
-
-function formatarDeltaPctComparativo(valor) {
-  const numero = Number(valor);
-  if (!isFinite(numero)) return "-";
-  return `${formatarNumeroComparativo(numero, 1)}%`;
-}
-
-function calcularDeltaPctComparativo(atual, anterior) {
-  const a = Number(atual || 0);
-  const b = Number(anterior || 0);
-
-  if (!isFinite(a) || !isFinite(b)) return 0;
-
-  if (b === 0 && a === 0) return 0;
-  if (b === 0 && a !== 0) return 100;
-
-  return ((a - b) / Math.abs(b)) * 100;
-}
-
-function quebrarNomeLojaComparativo(loja) {
-  const texto = normalizarTextoComparativo(loja);
-
-  if (!texto.includes("-")) {
-    return {
-      codigo: "",
-      nome: texto || "-",
-    };
+  if (tipoMoedaComparativo(tipo)) {
+    return numero.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
   }
 
-  const partes = texto.split("-");
-  const codigo = normalizarTextoComparativo(partes.shift());
-  const nome = normalizarTextoComparativo(partes.join("-"));
+  if (tipoPercentualComparativo(tipo)) {
+    return (
+      numero.toLocaleString("pt-BR", {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }) + "%"
+    );
+  }
 
-  return {
-    codigo,
-    nome: nome || texto,
-  };
+  // número genérico
+  return numero.toLocaleString("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
 }
 
 // ==========================
-// 🏷️ HELPERS DE INDICADOR
+// 🏷️ CONFIG DE INDICADOR
 // ==========================
-function getIndicadorBancoComparativo(indicador, classeSelecionada = null) {
+function getIndicadorBancoComparativo(indicador) {
   if (typeof getIndicadorBanco === "function") {
-    return getIndicadorBanco(indicador, classeSelecionada);
+    return getIndicadorBanco(indicador, null);
   }
-
   return normalizarTextoComparativoUpper(indicador);
 }
 
-function getTipoCampoComparativo(
-  indicador,
-  campoKey = "valor",
-  classeSelecionada = null
-) {
+function getTipoCampoComparativo(indicador) {
   if (typeof getCampoConfig === "function") {
-    return (
-      getCampoConfig(indicador, campoKey, classeSelecionada)?.tipo || "numero"
-    );
+    try {
+      return getCampoConfig(indicador, "valor", null)?.tipo || "numero";
+    } catch (e) {
+      /* noop */
+    }
   }
   return "numero";
 }
 
-function getOrdemRankingComparativo(indicador, classeSelecionada = null) {
-  try {
-    if (typeof getIndicadorConfig === "function") {
-      const cfg = getIndicadorConfig(indicador, classeSelecionada);
-      if (cfg?.ordemRanking === "asc") return "asc";
-      if (cfg?.ordemRanking === "desc") return "desc";
+/**
+ * Lê a direção do ranking do indicador (do indicadores-config.js):
+ *  - "asc"  → MENOR é melhor (ex: desconto, ruptura, quebra, turnover)
+ *  - "desc" → MAIOR é melhor (ex: NPS, PSV, visita prospecção)
+ * Retorna true quando MENOR é melhor.
+ */
+function menorEhMelhorComparativo(indicador) {
+  if (indicador === "TODOS") return false; // misto: trata maior como melhor por padrão
+  if (typeof getIndicadorConfig === "function") {
+    try {
+      const cfg = getIndicadorConfig(indicador, null);
+      return normalizarTextoComparativoUpper(cfg?.ordemRanking) === "ASC";
+    } catch (e) {
+      /* noop */
     }
-  } catch (erro) {
-    console.warn("⚠️ Falha ao obter ordem do ranking em comparativos:", erro);
   }
-
-  return "desc";
-}
-
-function menorEhMelhorComparativo(tipoValorPrincipal) {
-  if (tipoPercentualComparativo(tipoValorPrincipal)) return true;
-
-  if (
-    COMPARATIVO_STATE.indicador &&
-    COMPARATIVO_STATE.indicador !== "TODOS"
-  ) {
-    const ordem = getOrdemRankingComparativo(
-      COMPARATIVO_STATE.indicador,
-      COMPARATIVO_STATE.classe === "TODAS" ? null : COMPARATIVO_STATE.classe
-    );
-
-    return ordem === "asc";
-  }
-
   return false;
 }
 
-function getClassesComparativoDisponiveis() {
-  if (typeof classesIndicadores === "object") {
-    return Object.keys(classesIndicadores);
-  }
+function getIndicadoresComparativoLista() {
+  // usa o catálogo central (window.classesIndicadores) construído em indicadores-config.js
+  const lista = [];
+  const catalogo = window.classesIndicadores || {};
 
-  return [
-    "Auditoria",
-    "Frente de Caixa",
-    "Operações",
-    "Prevenção",
-    "RH / Operacional",
-  ];
-}
-
-function getIndicadoresComparativoPorClasse(classe) {
-  if (!classe || classe === "TODAS") {
-    const lista = [];
-
-    Object.entries(classesIndicadores || {}).forEach(([nomeClasse, itens]) => {
-      itens.forEach((item) => {
-        lista.push({
-          nome: item.nome || item,
-          valor: item.valor || item,
-          classe: nomeClasse,
-        });
+  Object.entries(catalogo).forEach(([nomeClasse, itens]) => {
+    (itens || []).forEach((i) => {
+      lista.push({
+        valor: i.valor,
+        nome: i.nome,
+        classe: nomeClasse,
       });
     });
+  });
 
-    return lista;
-  }
-
-  const itens = classesIndicadores?.[classe] || [];
-
-  return itens.map((item) => ({
-    nome: item.nome || item,
-    valor: item.valor || item,
-    classe,
-  }));
+  return lista;
 }
 
 // ==========================
-// 📆 SEMANAS / MESES
+// 🗓️ SEMANA / MÊS
 // ==========================
-function getSemanaAnteriorComparativo(semanaAtual) {
-  const semana = parseInt(semanaAtual || getSemanaAtual(), 10);
-  const anterior = semana - 1 <= 0 ? 52 : semana - 1;
-  return anterior.toString().padStart(2, "0");
+function getSemanaAtualComparativo() {
+  if (typeof getSemanaAtual === "function") {
+    try {
+      return getSemanaAtual();
+    } catch (e) {
+      /* noop */
+    }
+  }
+  // fallback simples (semana ISO aproximada)
+  const hoje = new Date();
+  const inicioAno = new Date(hoje.getFullYear(), 0, 1);
+  const dias = Math.floor((hoje - inicioAno) / 86400000);
+  return Math.ceil((dias + inicioAno.getDay() + 1) / 7);
 }
 
 function getNumeroSemanaPorDataComparativo(data) {
   const hoje = new Date(data);
   const inicioAno = new Date(hoje.getFullYear(), 0, 1);
-  const dias = Math.floor((hoje - inicioAno) / (24 * 60 * 60 * 1000));
+  const dias = Math.floor((hoje - inicioAno) / 86400000);
   return Math.ceil((dias + inicioAno.getDay() + 1) / 7);
 }
 
-function getSemanasMesRelativoComparativo(offsetMes = 0) {
-  const base = new Date();
-  base.setMonth(base.getMonth() + offsetMes);
+/**
+ * Dada uma semana (número), descobre a qual mês ela pertence e retorna
+ * TODAS as semanas daquele mês (no formato "NN").
+ * Baseia-se em datas reais do ano corrente.
+ */
+function getSemanasDoMesPorSemanaComparativo(semana) {
+  const ano = new Date().getFullYear();
+  const semanaAlvo = parseInt(semana, 10);
 
-  const ano = base.getFullYear();
-  const mes = base.getMonth();
+  // Estima uma data dentro da semana alvo: dia ~ (semana * 7)
+  const dataAprox = new Date(ano, 0, 1);
+  dataAprox.setDate(dataAprox.getDate() + (semanaAlvo - 1) * 7);
 
+  const mes = dataAprox.getMonth();
   const primeiroDia = new Date(ano, mes, 1);
   const ultimoDia = new Date(ano, mes + 1, 0);
 
   const semanasSet = new Set();
-
   for (
     let d = new Date(primeiroDia);
     d <= ultimoDia;
     d.setDate(d.getDate() + 1)
   ) {
-    semanasSet.add(
-      getNumeroSemanaPorDataComparativo(d).toString().padStart(2, "0")
-    );
+    semanasSet.add(normalizarSemanaComparativo(getNumeroSemanaPorDataComparativo(d)));
   }
+
+  // Garante que a própria semana selecionada esteja inclusa
+  semanasSet.add(normalizarSemanaComparativo(semanaAlvo));
 
   return [...semanasSet];
 }
 
 // ==========================
-// 📈 CHART.JS
+// 🏬 MAPA LOJA → REGIONAL
 // ==========================
-function chartComparativoDisponivel() {
-  const ok = typeof Chart !== "undefined";
-  if (!ok) {
-    console.error("❌ Chart.js não encontrado em comparativos.js");
-  }
-  return ok;
+function getChaveLojaComparativo(loja) {
+  return `${loja.codigo} - ${loja.nome}`;
 }
 
-function destruirGraficosComparativos() {
-  try {
-    if (window.comparativoCharts.principal) {
-      window.comparativoCharts.principal.destroy();
-      window.comparativoCharts.principal = null;
-    }
-
-    if (window.comparativoCharts.classes) {
-      window.comparativoCharts.classes.destroy();
-      window.comparativoCharts.classes = null;
-    }
-  } catch (erro) {
-    console.error("❌ Erro ao destruir gráficos de comparativos:", erro);
-  }
-}
-
-function ajustarAlturaChartComparativo(
-  canvasId,
-  quantidade,
-  { minimo = 220, maximo = 360, pxPorItem = 20 } = {}
-) {
-  try {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas || !canvas.parentElement) return;
-
-    const altura = Math.max(minimo, Math.min(maximo, quantidade * pxPorItem));
-    canvas.parentElement.style.height = `${altura}px`;
-  } catch (erro) {
-    console.warn("⚠️ Falha ao ajustar altura do chart comparativo:", erro);
-  }
-}
-
-// ==========================
-// 🎯 ESCOPO BASE / VISUAL
-// ==========================
-function aplicarEscopoBaseLojasComparativo(lojas, contexto) {
-  let lista = [...(lojas || [])];
-
-  if (!contexto) return lista;
-
-  if (COMPARATIVO_STATE.visao === "regional") {
-    if (!contexto.podeTrocarVisao && contexto.escopo?.regional) {
-      lista = lista.filter(
-        (l) =>
-          normalizarTextoComparativoUpper(l.regional) ===
-          normalizarTextoComparativoUpper(contexto.escopo.regional)
-      );
-    }
-
-    return lista;
-  }
-
-  if (!contexto.podeTrocarVisao && contexto.escopo?.loja) {
-    return lista.filter(
-      (l) => getChaveLojaComparativo(l) === contexto.escopo.loja
-    );
-  }
-
-  return lista;
-}
-
-function aplicarFiltrosVisuaisLojasComparativo(lojas) {
-  let lista = [...(lojas || [])];
-
-  if (COMPARATIVO_STATE.visao === "regional") {
-    if (COMPARATIVO_STATE.regional !== "TODAS") {
-      lista = lista.filter(
-        (l) =>
-          normalizarTextoComparativoUpper(l.regional) ===
-          normalizarTextoComparativoUpper(COMPARATIVO_STATE.regional)
-      );
-    }
-
-    return lista;
-  }
-
-  if (COMPARATIVO_STATE.loja && COMPARATIVO_STATE.loja !== "TODAS") {
-    return lista.filter(
-      (l) => getChaveLojaComparativo(l) === COMPARATIVO_STATE.loja
-    );
-  }
-
-  return lista;
-}
-
-// ==========================
-// 🧩 AGRUPADORES
-// ==========================
-function agruparComparativoPorLoja(
-  resultadosAtual,
-  resultadosAnterior,
-  tipoValorPrincipal
-) {
+/**
+ * Constrói: { "codigo - nome": "NE1", ... }
+ * A coluna `loja` da tabela resultados é exatamente essa chave.
+ */
+function montarMapaLojaRegionalComparativo(lojas = []) {
   const mapa = {};
-
-  resultadosAtual.forEach((r) => {
-    if (!mapa[r.loja]) {
-      mapa[r.loja] = {
-        nome: r.loja,
-        atual: [],
-        anterior: [],
-      };
-    }
-    mapa[r.loja].atual.push(Number(r.valor));
+  (lojas || []).forEach((l) => {
+    mapa[getChaveLojaComparativo(l)] = normalizarTextoComparativoUpper(l.regional || "");
   });
-
-  resultadosAnterior.forEach((r) => {
-    if (!mapa[r.loja]) {
-      mapa[r.loja] = {
-        nome: r.loja,
-        atual: [],
-        anterior: [],
-      };
-    }
-    mapa[r.loja].anterior.push(Number(r.valor));
-  });
-
-  const lista = Object.values(mapa).map((item) => {
-    const atual = calcularMediaComparativo(item.atual);
-    const anterior = calcularMediaComparativo(item.anterior);
-    const delta = atual - anterior;
-    const deltaPct = calcularDeltaPctComparativo(atual, anterior);
-
-    return {
-      nome: item.nome,
-      atual,
-      anterior,
-      delta,
-      deltaPct,
-    };
-  });
-
-  const menorMelhor = menorEhMelhorComparativo(tipoValorPrincipal);
-
-  const ordenado = [...lista].sort((a, b) => {
-    if (menorMelhor) return a.atual - b.atual;
-    return b.atual - a.atual;
-  });
-
-  return ordenado;
-}
-
-function agruparComparativoPorIndicador(
-  resultadosAtual,
-  resultadosAnterior,
-  tipoValorPrincipal
-) {
-  const mapa = {};
-
-  resultadosAtual.forEach((r) => {
-    if (!mapa[r.indicador]) {
-      mapa[r.indicador] = {
-        nome: r.indicador,
-        atual: [],
-        anterior: [],
-      };
-    }
-    mapa[r.indicador].atual.push(Number(r.valor));
-  });
-
-  resultadosAnterior.forEach((r) => {
-    if (!mapa[r.indicador]) {
-      mapa[r.indicador] = {
-        nome: r.indicador,
-        atual: [],
-        anterior: [],
-      };
-    }
-    mapa[r.indicador].anterior.push(Number(r.valor));
-  });
-
-  const lista = Object.values(mapa).map((item) => {
-    const atual = calcularMediaComparativo(item.atual);
-    const anterior = calcularMediaComparativo(item.anterior);
-    const delta = atual - anterior;
-    const deltaPct = calcularDeltaPctComparativo(atual, anterior);
-
-    return {
-      nome: item.nome,
-      atual,
-      anterior,
-      delta,
-      deltaPct,
-    };
-  });
-
-  const menorMelhor = menorEhMelhorComparativo(tipoValorPrincipal);
-
-  const ordenado = [...lista].sort((a, b) => {
-    if (menorMelhor) return a.atual - b.atual;
-    return b.atual - a.atual;
-  });
-
-  return ordenado;
-}
-
-// ✅ mostra todas as classes sempre
-function agruparComparativoPorClasse(
-  resultadosAtual,
-  resultadosAnterior
-) {
-  const classesBase = getClassesComparativoDisponiveis();
-  const mapa = {};
-
-  classesBase.forEach((classe) => {
-    mapa[classe] = {
-      nome: classe,
-      atual: [],
-      anterior: [],
-    };
-  });
-
-  resultadosAtual.forEach((r) => {
-    if (!mapa[r.classe]) {
-      mapa[r.classe] = {
-        nome: r.classe,
-        atual: [],
-        anterior: [],
-      };
-    }
-    mapa[r.classe].atual.push(Number(r.valor));
-  });
-
-  resultadosAnterior.forEach((r) => {
-    if (!mapa[r.classe]) {
-      mapa[r.classe] = {
-        nome: r.classe,
-        atual: [],
-        anterior: [],
-      };
-    }
-    mapa[r.classe].anterior.push(Number(r.valor));
-  });
-
-  return Object.values(mapa).map((item) => {
-    const atual = item.atual.length ? calcularMediaComparativo(item.atual) : 0;
-    const anterior = item.anterior.length
-      ? calcularMediaComparativo(item.anterior)
-      : 0;
-    const delta = atual - anterior;
-    const deltaPct = calcularDeltaPctComparativo(atual, anterior);
-
-    return {
-      nome: item.nome,
-      atual,
-      anterior,
-      delta,
-      deltaPct,
-    };
-  });
-}
-
-function calcularKpisComparativos(lista) {
-  const mediaAtual = calcularMediaComparativo((lista || []).map((i) => i.atual));
-  const mediaAnterior = calcularMediaComparativo(
-    (lista || []).map((i) => i.anterior)
-  );
-  const delta = mediaAtual - mediaAnterior;
-  const deltaPct = calcularDeltaPctComparativo(mediaAtual, mediaAnterior);
-
-  return {
-    mediaAtual,
-    mediaAnterior,
-    delta,
-    deltaPct,
-  };
-}
-
-function calcularMaiorGanhoPerdaComparativo(lista, tipoValorPrincipal) {
-  if (!lista?.length) {
-    return {
-      maiorGanho: null,
-      maiorPerda: null,
-    };
-  }
-
-  const menorMelhor = menorEhMelhorComparativo(tipoValorPrincipal);
-
-  const porDelta = [...lista].sort((a, b) => {
-    // se menor é melhor, delta menor (mais negativo) é ganho
-    if (menorMelhor) return a.delta - b.delta;
-
-    // se maior é melhor, delta maior é ganho
-    return b.delta - a.delta;
-  });
-
-  return {
-    maiorGanho: porDelta[0] || null,
-    maiorPerda: porDelta[porDelta.length - 1] || null,
-  };
+  return mapa;
 }
 
 // ==========================
-// 🧱 TELA BASE
+// 🌡️ HEATMAP VIBRANTE
+// ==========================
+
+/**
+ * Normaliza um valor em 0..1.
+ * Por padrão (menorMelhor=false): maior valor → 1 (verde).
+ * Se menorMelhor=true: menor valor → 1 (verde).
+ */
+function calcularIntensidadeHeatmap(valor, min, max, menorMelhor = false) {
+  const range = max - min;
+  if (range === 0) return 0.5;
+  let i = (valor - min) / range; // 0..1 (1 = maior)
+  if (menorMelhor) i = 1 - i;
+  return Math.max(0, Math.min(1, i));
+}
+
+/**
+ * Cores vibrantes: vermelho vivo (#FF3333) → verde limão (#33DD44)
+ */
+function heatmapCorVibrante(intensidade) {
+  const i = Math.max(0, Math.min(1, intensidade));
+  const r = Math.round(255 * (1 - i) + 51 * i); // 255 → 51
+  const g = Math.round(51 * (1 - i) + 221 * i); // 51 → 221
+  const b = Math.round(51 * (1 - i) + 68 * i); // 51 → 68
+  return `rgb(${r},${g},${b})`;
+}
+
+/**
+ * Texto branco em cores escuras (extremos), escuro no meio (claro).
+ */
+function heatmapCorTexto(intensidade) {
+  return intensidade > 0.3 && intensidade < 0.72 ? "#1a2733" : "#ffffff";
+}
+
+// ==========================
+// 📋 TELA PRINCIPAL
 // ==========================
 async function telaComparativos() {
   console.log("📊 Iniciando telaComparativos...");
 
   const container = document.getElementById("conteudo");
   if (!container) {
-    console.error("❌ #conteudo não encontrado em telaComparativos");
+    console.error("❌ #conteudo não encontrado");
     return;
   }
 
   if (!window.db) {
-    mostrarErro("Conexão com banco não iniciada");
+    if (typeof mostrarErro === "function") mostrarErro("Conexão com banco não iniciada");
     return;
-  }
-
-  const contexto =
-    typeof getContextoDashboardUsuario === "function"
-      ? getContextoDashboardUsuario()
-      : null;
-
-  if (!contexto) {
-    mostrarErro("Usuário sem contexto de comparativos");
-    return;
-  }
-
-  // respeita contexto
-  if (!contexto.podeTrocarVisao) {
-    COMPARATIVO_STATE.visao = contexto.visao || "regional";
-  } else if (!COMPARATIVO_STATE.visao) {
-    COMPARATIVO_STATE.visao = contexto.visao || "regional";
-  }
-
-  if (!contexto.podeTrocarVisao && contexto.escopo?.regional) {
-    COMPARATIVO_STATE.regional = contexto.escopo.regional;
-  }
-
-  if (!contexto.podeTrocarVisao && contexto.escopo?.loja) {
-    COMPARATIVO_STATE.loja = contexto.escopo.loja;
   }
 
   container.innerHTML = `
     <div class="pagina-container">
-      <div class="card-conteudo dashboard-container" id="comparativoContainer">
+      <div class="card-conteudo comparativo-container" id="comparativoContainer">
 
-        <div class="dashboard-topo">
-          <div class="dashboard-titulos">
-            <h2 class="dashboard-titulo">Comparativos</h2>
-            <p class="dashboard-subtitulo">
-              Comparação do período atual versus o período anterior
-            </p>
+        <div class="comparativo-topo">
+          <div class="comparativo-titulos">
+            <h2 class="comparativo-titulo">Comparativos Regionais</h2>
+            <p class="comparativo-subtitulo">Ranking de lojas por indicador — NE1 e NE2</p>
           </div>
+          <button id="comparativoBtnTela" class="comparativo-btn-tela" onclick="comparativoToggleTelaCheia()" title="Tela cheia">
+            <i class="fas fa-expand"></i>
+            <span>Tela cheia</span>
+          </button>
         </div>
 
-        <div class="dashboard-filtros">
+        <div class="comparativo-filtros">
           <select id="comparativoSemana" onchange="comparativoAlterarSemana(this.value)">
-            ${gerarOptionsSemanas()}
+            ${gerarOptionsSemanasComparativo()}
           </select>
 
           <select id="comparativoModoPeriodo" onchange="comparativoAlterarModoPeriodo(this.value)">
-            <option value="semanal" ${
-              COMPARATIVO_STATE.modoPeriodo === "semanal" ? "selected" : ""
-            }>Comparação semanal</option>
-            <option value="mensal" ${
-              COMPARATIVO_STATE.modoPeriodo === "mensal" ? "selected" : ""
-            }>Comparação mensal</option>
-          </select>
-
-          ${
-            contexto.podeTrocarVisao
-              ? `
-                <select id="comparativoVisao" onchange="comparativoAlterarVisao(this.value)">
-                  <option value="regional" ${
-                    COMPARATIVO_STATE.visao === "regional" ? "selected" : ""
-                  }>Visão Regional</option>
-                  <option value="gerencial" ${
-                    COMPARATIVO_STATE.visao === "gerencial" ? "selected" : ""
-                  }>Visão Gerencial</option>
-                </select>
-              `
-              : ""
-          }
-
-          <select id="comparativoClasse" onchange="comparativoAlterarClasse(this.value)">
-            ${gerarOptionsClassesComparativo()}
+            <option value="semanal" ${COMPARATIVO_STATE.modoPeriodo === "semanal" ? "selected" : ""}>Por semana</option>
+            <option value="mensal" ${COMPARATIVO_STATE.modoPeriodo === "mensal" ? "selected" : ""}>Total do mês</option>
           </select>
 
           <select id="comparativoIndicador" onchange="comparativoAlterarIndicador(this.value)">
             ${gerarOptionsIndicadoresComparativo()}
           </select>
-
-          ${
-            COMPARATIVO_STATE.visao === "regional" || contexto.podeTrocarVisao
-              ? `
-                <select id="comparativoRegional" onchange="comparativoAlterarRegional(this.value)">
-                  <option value="TODAS">Todas regionais</option>
-                  <option value="NE1" ${
-                    COMPARATIVO_STATE.regional === "NE1" ? "selected" : ""
-                  }>NE1</option>
-                  <option value="NE2" ${
-                    COMPARATIVO_STATE.regional === "NE2" ? "selected" : ""
-                  }>NE2</option>
-                </select>
-              `
-              : ""
-          }
-
-          ${
-            COMPARATIVO_STATE.visao === "gerencial" && contexto.podeTrocarVisao
-              ? `
-                <select id="comparativoLoja" onchange="comparativoAlterarLoja(this.value)">
-                  <option value="TODAS">Todas as lojas</option>
-                </select>
-              `
-              : ""
-          }
         </div>
 
-        <div id="comparativoConteudo" class="dashboard-grid">
-          <div class="dashboard-card span-12">
-            <div class="dashboard-grafico-area">Carregando comparativos...</div>
-          </div>
+        <div class="comparativo-abas" role="tablist" aria-label="Regional">
+          <button class="comparativo-aba" data-aba="AMBAS" role="tab" onclick="comparativoAlterarAba('AMBAS')">
+            <i class="fas fa-layer-group"></i><span>Ambas</span>
+          </button>
+          <button class="comparativo-aba" data-aba="NE1" role="tab" onclick="comparativoAlterarAba('NE1')">NE1</button>
+          <button class="comparativo-aba" data-aba="NE2" role="tab" onclick="comparativoAlterarAba('NE2')">NE2</button>
+        </div>
+
+        <div id="comparativoConteudo" class="comparativo-conteudo">
+          <div class="loading-box">Carregando...</div>
         </div>
 
       </div>
@@ -692,834 +356,576 @@ async function telaComparativos() {
   const selSemana = document.getElementById("comparativoSemana");
   if (selSemana) selSemana.value = COMPARATIVO_STATE.semana;
 
-  const selClasse = document.getElementById("comparativoClasse");
-  if (selClasse) selClasse.value = COMPARATIVO_STATE.classe;
+  comparativoMarcarAbaAtiva();
 
-  const selIndicador = document.getElementById("comparativoIndicador");
-  if (selIndicador) selIndicador.value = COMPARATIVO_STATE.indicador;
-
-  const selRegional = document.getElementById("comparativoRegional");
-  if (selRegional) selRegional.value = COMPARATIVO_STATE.regional;
-
-  destruirGraficosComparativos();
-  await carregarDadosComparativos(contexto);
+  await carregarDadosComparativos();
 }
 
 // ==========================
-// 🔧 OPTIONS
+// 🔧 OPTIONS DOS FILTROS
 // ==========================
-function gerarOptionsClassesComparativo() {
-  const classes = getClassesComparativoDisponiveis();
-  let html = `<option value="TODAS">Todas as classes</option>`;
+function gerarOptionsSemanasComparativo() {
+  // reusa o gerador global se existir (mantém consistência com o resto do app)
+  if (typeof gerarOptionsSemanas === "function") {
+    try {
+      return gerarOptionsSemanas();
+    } catch (e) {
+      /* fallback abaixo */
+    }
+  }
 
-  classes.forEach((classe) => {
-    html += `<option value="${classe}" ${
-      COMPARATIVO_STATE.classe === classe ? "selected" : ""
-    }>${classe}</option>`;
-  });
-
+  const atual = getSemanaAtualComparativo();
+  let html = "";
+  for (let i = atual; i >= Math.max(1, atual - 15); i--) {
+    const s = normalizarSemanaComparativo(i);
+    html += `<option value="${s}" ${COMPARATIVO_STATE.semana === s ? "selected" : ""}>Semana ${s}</option>`;
+  }
   return html;
 }
 
 function gerarOptionsIndicadoresComparativo() {
-  const lista = getIndicadoresComparativoPorClasse(COMPARATIVO_STATE.classe);
-  let html = `<option value="TODOS">Todos os indicadores</option>`;
-
+  const lista = getIndicadoresComparativoLista();
+  let html = `<option value="TODOS" ${COMPARATIVO_STATE.indicador === "TODOS" ? "selected" : ""}>Todos os indicadores</option>`;
   lista.forEach((item) => {
-    html += `<option value="${item.valor}" ${
-      COMPARATIVO_STATE.indicador === item.valor ? "selected" : ""
-    }>${item.nome}</option>`;
+    html += `<option value="${item.valor}" ${COMPARATIVO_STATE.indicador === item.valor ? "selected" : ""}>${item.nome}</option>`;
   });
-
   return html;
 }
 
 // ==========================
-// 🔄 FILTROS
+// 🔄 HANDLERS DOS FILTROS
 // ==========================
 async function comparativoAlterarSemana(semana) {
-  COMPARATIVO_STATE.semana = semana;
-  localStorage.setItem("semana", semana);
-  destruirGraficosComparativos();
-  await carregarDadosComparativos(getContextoDashboardUsuario());
+  COMPARATIVO_STATE.semana = normalizarSemanaComparativo(semana);
+  localStorage.setItem("semana", COMPARATIVO_STATE.semana);
+  await carregarDadosComparativos();
 }
 
 async function comparativoAlterarModoPeriodo(modo) {
   COMPARATIVO_STATE.modoPeriodo = modo || "semanal";
-  destruirGraficosComparativos();
-  await carregarDadosComparativos(getContextoDashboardUsuario());
-}
-
-async function comparativoAlterarClasse(classe) {
-  COMPARATIVO_STATE.classe = classe;
-  COMPARATIVO_STATE.indicador = "TODOS";
-
-  const selIndicador = document.getElementById("comparativoIndicador");
-  if (selIndicador) {
-    selIndicador.innerHTML = gerarOptionsIndicadoresComparativo();
-    selIndicador.value = "TODOS";
-  }
-
-  destruirGraficosComparativos();
-  await carregarDadosComparativos(getContextoDashboardUsuario());
+  await carregarDadosComparativos();
 }
 
 async function comparativoAlterarIndicador(indicador) {
   COMPARATIVO_STATE.indicador = indicador;
-  destruirGraficosComparativos();
-  await carregarDadosComparativos(getContextoDashboardUsuario());
+  await carregarDadosComparativos();
 }
 
-async function comparativoAlterarRegional(regional) {
-  COMPARATIVO_STATE.regional = regional;
-  destruirGraficosComparativos();
-  await carregarDadosComparativos(getContextoDashboardUsuario());
+async function comparativoAlterarAba(aba) {
+  COMPARATIVO_STATE.abaRegional = aba || "AMBAS";
+  localStorage.setItem("comparativoAba", COMPARATIVO_STATE.abaRegional);
+  comparativoMarcarAbaAtiva();
+  await carregarDadosComparativos();
 }
 
-async function comparativoAlterarLoja(loja) {
-  COMPARATIVO_STATE.loja = loja;
-  destruirGraficosComparativos();
-  await carregarDadosComparativos(getContextoDashboardUsuario());
+function comparativoMarcarAbaAtiva() {
+  document.querySelectorAll(".comparativo-aba").forEach((btn) => {
+    const ativa = btn.getAttribute("data-aba") === COMPARATIVO_STATE.abaRegional;
+    btn.classList.toggle("ativa", ativa);
+    btn.setAttribute("aria-selected", ativa ? "true" : "false");
+  });
 }
 
-async function comparativoAlterarVisao(visao) {
-  COMPARATIVO_STATE.visao = visao;
-  destruirGraficosComparativos();
-  await telaComparativos();
+/**
+ * Decide quais regionais renderizar conforme a aba selecionada.
+ */
+function comparativoRegionaisVisiveis() {
+  if (COMPARATIVO_STATE.abaRegional === "NE1") return ["NE1"];
+  if (COMPARATIVO_STATE.abaRegional === "NE2") return ["NE2"];
+  return ["NE1", "NE2"];
 }
 
 // ==========================
-// 📦 BUSCAR DADOS
+// 📦 BUSCAR E RENDERIZAR
 // ==========================
-async function carregarDadosComparativos(contexto) {
+async function carregarDadosComparativos() {
   const alvo = document.getElementById("comparativoConteudo");
   if (!alvo) return;
 
-  alvo.innerHTML = `
-    <div class="dashboard-card span-12">
-      <div class="dashboard-grafico-area">Processando comparativos...</div>
-    </div>
-  `;
+  alvo.innerHTML = `<div class="loading-box">Processando comparativos...</div>`;
 
   try {
-    const semanaAtual = String(COMPARATIVO_STATE.semana).padStart(2, "0");
-    const semanaAnterior = getSemanaAnteriorComparativo(semanaAtual);
-
-    const semanasAtuais =
-      COMPARATIVO_STATE.modoPeriodo === "mensal"
-        ? getSemanasMesRelativoComparativo(0)
-        : [semanaAtual];
-
-    const semanasAnteriores =
-      COMPARATIVO_STATE.modoPeriodo === "mensal"
-        ? getSemanasMesRelativoComparativo(-1)
-        : [semanaAnterior];
-
+    // 1) Lojas (para mapear regional)
     const { data: lojasData, error: lojasError } = await window.db
       .from("lojas")
       .select("*")
       .order("codigo");
-
     if (lojasError) throw lojasError;
 
-    const lojasEscopoBase = aplicarEscopoBaseLojasComparativo(
-      lojasData || [],
-      contexto
-    );
-    const lojasVisuais = aplicarFiltrosVisuaisLojasComparativo(lojasEscopoBase);
+    const mapaLojaRegional = montarMapaLojaRegionalComparativo(lojasData || []);
 
-    if (contexto?.podeTrocarVisao && COMPARATIVO_STATE.visao === "gerencial") {
-      popularSelectLojasComparativo(lojasEscopoBase);
-    }
+    // 2) Semanas a buscar (semanal x mensal)
+    const semanaSel = normalizarSemanaComparativo(COMPARATIVO_STATE.semana);
+    const semanasABuscar =
+      COMPARATIVO_STATE.modoPeriodo === "mensal"
+        ? getSemanasDoMesPorSemanaComparativo(semanaSel)
+        : [semanaSel];
 
-    const lojasBaseSet = new Set(
-      lojasEscopoBase.map((l) => getChaveLojaComparativo(l))
-    );
-    const lojasVisuaisSet = new Set(
-      lojasVisuais.map((l) => getChaveLojaComparativo(l))
-    );
-
+    // 3) Query de resultados
     let query = window.db
       .from("resultados")
       .select("*")
-      .in("semana", [...new Set([...semanasAtuais, ...semanasAnteriores])]);
-
-    if (COMPARATIVO_STATE.classe !== "TODAS") {
-      query = query.eq("classe", COMPARATIVO_STATE.classe);
-    }
+      .in("semana", semanasABuscar);
 
     if (COMPARATIVO_STATE.indicador !== "TODOS") {
-      const indicadorBanco = getIndicadorBancoComparativo(
-        COMPARATIVO_STATE.indicador,
-        COMPARATIVO_STATE.classe === "TODAS" ? null : COMPARATIVO_STATE.classe
-      );
+      const indicadorBanco = getIndicadorBancoComparativo(COMPARATIVO_STATE.indicador);
       query = query.eq("indicador", indicadorBanco);
     }
 
-    const { data: resultadosData, error: resultadosError } = await query;
+    const { data: resultados, error: resultadosError } = await query;
     if (resultadosError) throw resultadosError;
 
-    const resultadosBase = (resultadosData || []).filter((r) =>
-      lojasBaseSet.has(r.loja)
+    // normaliza a semana de cada resultado (para garantir match)
+    const resultadosNorm = (resultados || []).map((r) => ({
+      ...r,
+      _semana: normalizarSemanaComparativo(r.semana),
+      _regional: mapaLojaRegional[r.loja] || "",
+    }));
+
+    // diagnóstico: lojas dos resultados que não casaram com nenhuma regional
+    const semRegional = [
+      ...new Set(
+        resultadosNorm.filter((r) => !r._regional).map((r) => r.loja)
+      ),
+    ];
+    if (semRegional.length) {
+      console.warn(
+        "⚠️ Comparativos: lojas sem regional (verifique se 'loja' em resultados bate com 'codigo - nome' da tabela lojas):",
+        semRegional
+      );
+    }
+    console.log(
+      `📊 Comparativos: ${resultadosNorm.length} registros | semanas: ${semanasABuscar.join(", ")} | ` +
+        `NE1: ${resultadosNorm.filter((r) => r._regional === "NE1").length} | ` +
+        `NE2: ${resultadosNorm.filter((r) => r._regional === "NE2").length}`
     );
 
-    const resultadosVisuais = resultadosBase.filter((r) =>
-      lojasVisuaisSet.has(r.loja)
-    );
-
-    const resultadosAtual = resultadosVisuais.filter((r) =>
-      semanasAtuais.includes(String(r.semana).padStart(2, "0"))
-    );
-
-    const resultadosAnterior = resultadosVisuais.filter((r) =>
-      semanasAnteriores.includes(String(r.semana).padStart(2, "0"))
-    );
-
-    const tipoValorPrincipal =
+    // 4) Tipo do indicador (moeda / percentual / número)
+    const tipoIndicador =
       COMPARATIVO_STATE.indicador !== "TODOS"
-        ? getTipoCampoComparativo(
-            COMPARATIVO_STATE.indicador,
-            "valor",
-            COMPARATIVO_STATE.classe === "TODAS"
-              ? null
-              : COMPARATIVO_STATE.classe
-          )
+        ? getTipoCampoComparativo(COMPARATIVO_STATE.indicador)
         : "numero";
 
-    if (COMPARATIVO_STATE.visao === "regional") {
-      renderComparativosRegional({
-        resultadosAtual,
-        resultadosAnterior,
-        semanaAtual,
-        semanaAnterior,
-        semanasAtuais,
-        semanasAnteriores,
-        tipoValorPrincipal,
-      });
+    // 5) Renderiza (respeitando a aba: AMBAS | NE1 | NE2)
+    const regionais = comparativoRegionaisVisiveis();
+    const umaRegional = regionais.length === 1;
+
+    if (COMPARATIVO_STATE.indicador === "TODOS") {
+      // MATRIZ loja × indicador (cada coluna com sua escala e direção de cor)
+      const indicadoresMeta = getIndicadoresMatrizComparativo();
+      alvo.innerHTML = `
+        <div class="comparativo-matrizes ${umaRegional ? "uma-regional" : ""}">
+          ${regionais
+            .map((reg) => renderMatrizRegional(reg, resultadosNorm, indicadoresMeta))
+            .join("")}
+        </div>
+      `;
     } else {
-      renderComparativosGerencial({
-        resultadosAtual,
-        resultadosAnterior,
-        semanaAtual,
-        semanaAnterior,
-        semanasAtuais,
-        semanasAnteriores,
-        tipoValorPrincipal,
-      });
+      // RANKING de um indicador (cor segue ordemRanking)
+      const menorMelhor = menorEhMelhorComparativo(COMPARATIVO_STATE.indicador);
+      alvo.innerHTML = `
+        <div class="comparativo-regionais ${umaRegional ? "uma-regional" : ""}">
+          ${regionais
+            .map((reg) => renderComparativoRegional(reg, resultadosNorm, tipoIndicador, menorMelhor))
+            .join("")}
+        </div>
+      `;
     }
   } catch (erro) {
     console.error("❌ Erro ao carregar comparativos:", erro);
+    alvo.innerHTML = `<div class="loading-box loading-erro">Erro ao carregar: ${erro.message || erro}</div>`;
+  }
+}
 
-    alvo.innerHTML = `
-      <div class="dashboard-card span-12">
-        <div class="dashboard-grafico-area">Erro ao carregar comparativos.</div>
+// ==========================
+// 🗺️ RENDER DE UMA REGIONAL
+// ==========================
+function renderComparativoRegional(nomeRegional, resultadosNorm, tipoIndicador, menorMelhor) {
+  const regionalUpper = normalizarTextoComparativoUpper(nomeRegional);
+  const isMoeda = tipoMoedaComparativo(tipoIndicador);
+
+  // filtra resultados desta regional
+  const resultadosRegional = resultadosNorm.filter(
+    (r) => r._regional === regionalUpper
+  );
+
+  if (resultadosRegional.length === 0) {
+    return `
+      <div class="regional-card">
+        <h3 class="regional-titulo">${nomeRegional}</h3>
+        <div class="regional-vazio">Sem dados para esta regional nesse período.</div>
       </div>
     `;
   }
-}
 
-// ==========================
-// 🌍 RENDER REGIONAL
-// ==========================
-function renderComparativosRegional({
-  resultadosAtual,
-  resultadosAnterior,
-  semanaAtual,
-  semanaAnterior,
-  semanasAtuais,
-  semanasAnteriores,
-  tipoValorPrincipal,
-}) {
-  const alvo = document.getElementById("comparativoConteudo");
-  if (!alvo) return;
-
-  const listaLojas = agruparComparativoPorLoja(
-    resultadosAtual,
-    resultadosAnterior,
-    tipoValorPrincipal
-  );
-  const listaClasses = agruparComparativoPorClasse(
-    resultadosAtual,
-    resultadosAnterior
-  );
-  const kpis = calcularKpisComparativos(listaLojas);
-  const { maiorGanho, maiorPerda } = calcularMaiorGanhoPerdaComparativo(
-    listaLojas,
-    tipoValorPrincipal
-  );
-
-  alvo.innerHTML = `
-    ${renderKpisComparativos({
-      semanaAtual,
-      semanaAnterior,
-      semanasAtuais,
-      semanasAnteriores,
-      kpis,
-      maiorGanho,
-      maiorPerda,
-      tipoValorPrincipal,
-      rotuloMaior: "loja",
-    })}
-
-    <div class="dashboard-card dashboard-grafico span-6">
-      <div class="dashboard-card-header">
-        <span class="dashboard-card-titulo">Comparativo por loja</span>
-        <span class="dashboard-card-subtitulo">
-          ${
-            COMPARATIVO_STATE.modoPeriodo === "mensal"
-              ? "Mês atual x mês anterior"
-              : "Semana atual x semana anterior"
-          }
-        </span>
-      </div>
-      <div class="dashboard-chart-box">
-        <canvas id="graficoComparativoPrincipal"></canvas>
-      </div>
-    </div>
-
-    <div class="dashboard-card dashboard-grafico span-6">
-      <div class="dashboard-card-header">
-        <span class="dashboard-card-titulo">Comparativo por classe</span>
-        <span class="dashboard-card-subtitulo">
-          Média atual x anterior
-        </span>
-      </div>
-      <div class="dashboard-chart-box">
-        <canvas id="graficoComparativoClasses"></canvas>
-      </div>
-    </div>
-
-    ${renderTabelaComparativa(listaLojas, tipoValorPrincipal, "Loja")}
-  `;
-
-  renderGraficosComparativos({
-    listaPrincipal: listaLojas,
-    listaClasses,
-    tipoValorPrincipal,
-    tituloPrincipalAtual: "Atual",
-    tituloPrincipalAnterior: "Anterior",
-    principalCorAtual: "#1e6091",
-    principalCorAnterior: "#4CAF50",
+  // agrupa por loja (r.loja é "codigo - nome")
+  const mapaLojas = {};
+  resultadosRegional.forEach((r) => {
+    const chave = r.loja || "—";
+    if (!mapaLojas[chave]) {
+      mapaLojas[chave] = { loja: chave, valores: [] };
+    }
+    mapaLojas[chave].valores.push(Number(r.valor) || 0);
   });
-}
 
-// ==========================
-// 🏪 RENDER GERENCIAL
-// ==========================
-function renderComparativosGerencial({
-  resultadosAtual,
-  resultadosAnterior,
-  semanaAtual,
-  semanaAnterior,
-  semanasAtuais,
-  semanasAnteriores,
-  tipoValorPrincipal,
-}) {
-  const alvo = document.getElementById("comparativoConteudo");
-  if (!alvo) return;
+  // calcula valor agregado por loja
+  //  - R$ e banco de horas → SOMA (total)
+  //  - percentual/número    → MÉDIA
+  const listaLojas = Object.values(mapaLojas).map((item) => {
+    const valorAgregado = agregarValoresComparativo(item.valores, tipoIndicador);
 
-  const listaIndicadores = agruparComparativoPorIndicador(
-    resultadosAtual,
-    resultadosAnterior,
-    tipoValorPrincipal
-  );
-  const listaClasses = agruparComparativoPorClasse(
-    resultadosAtual,
-    resultadosAnterior
-  );
-  const kpis = calcularKpisComparativos(listaIndicadores);
-  const { maiorGanho, maiorPerda } = calcularMaiorGanhoPerdaComparativo(
-    listaIndicadores,
-    tipoValorPrincipal
-  );
-
-  alvo.innerHTML = `
-    ${renderKpisComparativos({
-      semanaAtual,
-      semanaAnterior,
-      semanasAtuais,
-      semanasAnteriores,
-      kpis,
-      maiorGanho,
-      maiorPerda,
-      tipoValorPrincipal,
-      rotuloMaior: "indicador",
-    })}
-
-    <div class="dashboard-card dashboard-grafico span-6">
-      <div class="dashboard-card-header">
-        <span class="dashboard-card-titulo">Comparativo por indicador</span>
-        <span class="dashboard-card-subtitulo">
-          ${
-            COMPARATIVO_STATE.modoPeriodo === "mensal"
-              ? "Mês atual x mês anterior"
-              : "Semana atual x semana anterior"
-          }
-        </span>
-      </div>
-      <div class="dashboard-chart-box">
-        <canvas id="graficoComparativoPrincipal"></canvas>
-      </div>
-    </div>
-
-    <div class="dashboard-card dashboard-grafico span-6">
-      <div class="dashboard-card-header">
-        <span class="dashboard-card-titulo">Comparativo por classe</span>
-        <span class="dashboard-card-subtitulo">
-          Média atual x anterior
-        </span>
-      </div>
-      <div class="dashboard-chart-box">
-        <canvas id="graficoComparativoClasses"></canvas>
-      </div>
-    </div>
-
-    ${renderTabelaComparativa(listaIndicadores, tipoValorPrincipal, "Indicador")}
-  `;
-
-  renderGraficosComparativos({
-    listaPrincipal: listaIndicadores,
-    listaClasses,
-    tipoValorPrincipal,
-    tituloPrincipalAtual: "Atual",
-    tituloPrincipalAnterior: "Anterior",
-    principalCorAtual: "#9C27B0",
-    principalCorAnterior: "#FF9800",
+    const partes = quebrarLojaComparativo(item.loja);
+    return {
+      loja: item.loja,
+      codigo: partes.codigo,
+      nome: partes.nome,
+      valor: valorAgregado,
+      qtdSemanas: item.valores.length,
+    };
   });
-}
 
-// ==========================
-// 🔢 KPIS
-// ==========================
-function renderKpisComparativos({
-  semanaAtual,
-  semanaAnterior,
-  semanasAtuais,
-  semanasAnteriores,
-  kpis,
-  maiorGanho,
-  maiorPerda,
-  tipoValorPrincipal,
-}) {
-  const isPercentual = tipoPercentualComparativo(tipoValorPrincipal);
+  // ordena do MAIOR para o MENOR valor (visualmente, sempre)
+  listaLojas.sort((a, b) => b.valor - a.valor);
 
-  const tituloAtual =
-    COMPARATIVO_STATE.modoPeriodo === "mensal"
-      ? "Média mês atual"
-      : `Média semana ${semanaAtual}`;
+  // heatmap conforme a semântica do indicador:
+  //  menorMelhor=true  → menor valor = verde, maior = vermelho
+  //  menorMelhor=false → maior valor = verde, menor = vermelho
+  const valores = listaLojas.map((l) => l.valor);
+  const minVal = Math.min(...valores);
+  const maxVal = Math.max(...valores);
 
-  const tituloAnterior =
-    COMPARATIVO_STATE.modoPeriodo === "mensal"
-      ? "Média mês anterior"
-      : `Média semana ${semanaAnterior}`;
+  const linhas = listaLojas
+    .map((loja, idx) => {
+      const intens = calcularIntensidadeHeatmap(loja.valor, minVal, maxVal, menorMelhor);
+      const corFundo = heatmapCorVibrante(intens);
+      const corTexto = heatmapCorTexto(intens);
 
-  const nomeMaior = maiorGanho?.nome || "-";
-  const lojaQuebrada = quebrarNomeLojaComparativo(nomeMaior);
+      return `
+        <tr class="comparativo-row" style="background-color:${corFundo}; color:${corTexto};">
+          <td class="col-rank">${idx + 1}º</td>
+          <td class="col-nome" title="${loja.loja}">${loja.nome || loja.loja}</td>
+          <td class="col-valor">${formatarValorComparativo(loja.valor, tipoIndicador)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  // rótulo da coluna conforme tipo de agregação
+  const ehSoma = tipoSomaComparativo(tipoIndicador);
+  const ehMensal = COMPARATIVO_STATE.modoPeriodo === "mensal";
+  const unidade = isMoeda ? " (R$)" : "";
+  const labelValor = ehSoma
+    ? (ehMensal ? `Total do mês${unidade}` : `Total${unidade}`)
+    : (ehMensal ? "Média do mês" : "Valor");
+
+  // legenda dinâmica: explica o que verde/vermelho representam para este indicador
+  const legenda =
+    COMPARATIVO_STATE.indicador === "TODOS"
+      ? ""
+      : `<div class="regional-legenda">
+           <span class="legenda-item"><span class="legenda-bola verde"></span>${menorMelhor ? "Menor (melhor)" : "Maior (melhor)"}</span>
+           <span class="legenda-item"><span class="legenda-bola vermelho"></span>${menorMelhor ? "Maior (pior)" : "Menor (pior)"}</span>
+         </div>`;
 
   return `
-    <div class="dashboard-card dashboard-kpi azul span-3">
-      <span class="dashboard-kpi-label">${tituloAtual}</span>
-      <div class="dashboard-kpi-valor">
-        ${formatarKpiComparativo(kpis.mediaAtual, {
-          percentual: isPercentual,
-          casas: 2,
-        })}
-      </div>
-      <div class="dashboard-kpi-rodape">
-        ${
-          COMPARATIVO_STATE.modoPeriodo === "mensal"
-            ? "Período atual"
-            : "Semana atual"
-        }
-      </div>
-    </div>
-
-    <div class="dashboard-card dashboard-kpi verde span-3">
-      <span class="dashboard-kpi-label">${tituloAnterior}</span>
-      <div class="dashboard-kpi-valor">
-        ${formatarKpiComparativo(kpis.mediaAnterior, {
-          percentual: isPercentual,
-          casas: 2,
-        })}
-      </div>
-      <div class="dashboard-kpi-rodape">
-        ${
-          COMPARATIVO_STATE.modoPeriodo === "mensal"
-            ? "Período anterior"
-            : "Semana anterior"
-        }
-      </div>
-    </div>
-
-    <div class="dashboard-card dashboard-kpi laranja span-3">
-      <span class="dashboard-kpi-label">Variação</span>
-      <div class="dashboard-kpi-valor">
-        ${formatarKpiComparativo(kpis.delta, {
-          percentual: isPercentual,
-          casas: 2,
-        })}
-      </div>
-      <div class="dashboard-kpi-rodape">
-        ${formatarDeltaPctComparativo(kpis.deltaPct)}
-      </div>
-    </div>
-
-    <div class="dashboard-card dashboard-kpi roxo span-3">
-      <span class="dashboard-kpi-label">Maior ganho / perda</span>
-
-      <div class="dashboard-kpi-loja">
-        <span class="dashboard-kpi-loja-codigo">${lojaQuebrada.codigo || ""}</span>
-        ${
-          lojaQuebrada.codigo
-            ? `<span class="dashboard-kpi-loja-separador">—</span>`
-            : ""
-        }
-        <span class="dashboard-kpi-loja-nome">${lojaQuebrada.nome || "-"}</span>
-      </div>
-
-      <div class="dashboard-kpi-rodape">
-        ↑ ${
-          maiorGanho
-            ? formatarKpiComparativo(maiorGanho.delta, {
-                percentual: isPercentual,
-                casas: 2,
-              })
-            : "-"
-        }
-        &nbsp; | &nbsp;
-        ↓ ${
-          maiorPerda
-            ? formatarKpiComparativo(maiorPerda.delta, {
-                percentual: isPercentual,
-                casas: 2,
-              })
-            : "-"
-        }
-      </div>
+    <div class="regional-card">
+      <h3 class="regional-titulo">
+        ${nomeRegional}
+        <span class="regional-contagem">${listaLojas.length} lojas</span>
+      </h3>
+      ${legenda}
+      <table class="comparativo-tabela">
+        <thead>
+          <tr>
+            <th class="col-rank">#</th>
+            <th class="col-nome">Loja</th>
+            <th class="col-valor">${labelValor}</th>
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>
     </div>
   `;
 }
 
 // ==========================
-// 📋 TABELA DETALHADA
+// ✂️ QUEBRAR "codigo - nome"
 // ==========================
-function renderTabelaComparativa(lista, tipoValorPrincipal, rotulo) {
-  const isPercentual = tipoPercentualComparativo(tipoValorPrincipal);
+function quebrarLojaComparativo(loja) {
+  const texto = normalizarTextoComparativo(loja);
+  if (!texto.includes("-")) {
+    return { codigo: "", nome: texto || "-" };
+  }
+  const partes = texto.split("-");
+  const codigo = normalizarTextoComparativo(partes.shift());
+  const nome = normalizarTextoComparativo(partes.join("-"));
+  return { codigo, nome: nome || texto };
+}
+
+// ==========================
+// 🖥️ TELA CHEIA (modo apresentação / data show)
+// ==========================
+function comparativoToggleTelaCheia() {
+  const emTela = !!document.fullscreenElement;
+  if (emTela) {
+    comparativoSairTelaCheia();
+  } else {
+    comparativoEntrarTelaCheia();
+  }
+}
+
+async function comparativoEntrarTelaCheia() {
+  const container = document.getElementById("comparativoContainer");
+  if (!container) return;
+
+  try {
+    container.classList.add("modo-apresentacao");
+    if (typeof window.pausarTimerInatividade === "function") {
+      window.pausarTimerInatividade();
+    }
+
+    if (container.requestFullscreen) await container.requestFullscreen();
+    else if (container.webkitRequestFullscreen) await container.webkitRequestFullscreen();
+    else if (container.msRequestFullscreen) await container.msRequestFullscreen();
+
+    comparativoAtualizarBotaoTela(true);
+  } catch (erro) {
+    console.error("❌ Erro ao entrar em tela cheia:", erro);
+    container.classList.remove("modo-apresentacao");
+  }
+}
+
+async function comparativoSairTelaCheia() {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+  } catch (e) {
+    /* noop */
+  }
+  const container = document.getElementById("comparativoContainer");
+  if (container) container.classList.remove("modo-apresentacao");
+  if (typeof window.retomarTimerInatividade === "function") {
+    window.retomarTimerInatividade();
+  }
+  comparativoAtualizarBotaoTela(false);
+}
+
+function comparativoAtualizarBotaoTela(emTela) {
+  const btn = document.getElementById("comparativoBtnTela");
+  if (!btn) return;
+  btn.innerHTML = emTela
+    ? `<i class="fas fa-compress"></i><span>Sair da tela cheia</span>`
+    : `<i class="fas fa-expand"></i><span>Tela cheia</span>`;
+  btn.title = emTela ? "Sair da tela cheia" : "Tela cheia";
+}
+
+// reseta a UI quando o usuário sai do fullscreen pelo ESC
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) {
+    const container = document.getElementById("comparativoContainer");
+    if (container) container.classList.remove("modo-apresentacao");
+    if (typeof window.retomarTimerInatividade === "function") {
+      window.retomarTimerInatividade();
+    }
+    comparativoAtualizarBotaoTela(false);
+  }
+});
+
+// ==========================
+// 🧩 MATRIZ (TODOS OS INDICADORES)
+// ==========================
+
+/**
+ * Lista de indicadores com metadados para as colunas da matriz,
+ * na ordem do catálogo (agrupado por classe).
+ */
+function getIndicadoresMatrizComparativo() {
+  return getIndicadoresComparativoLista().map((i) => ({
+    valor: i.valor,
+    nome: i.nome,
+    classe: i.classe,
+    banco: normalizarTextoComparativoUpper(getIndicadorBancoComparativo(i.valor)),
+    tipo: getTipoCampoComparativo(i.valor),
+    menorMelhor: menorEhMelhorComparativo(i.valor),
+  }));
+}
+
+/**
+ * Formata a célula da matriz com valores reais (sem abreviar):
+ *  - moeda:   1200 → "R$ 1.200,00" · 344300 → "R$ 344.300,00"
+ *  - %:       "5,2%"
+ *  - número:  "1.234" / "82"
+ */
+function formatarCelulaMatriz(valor, tipo) {
+  const n = Number(valor);
+  if (!isFinite(n)) return "—";
+
+  if (tipoPercentualComparativo(tipo)) {
+    return (
+      n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%"
+    );
+  }
+
+  if (tipoMoedaComparativo(tipo)) {
+    return n.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  // número genérico
+  return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+}
+
+function unidadeIndicadorMatriz(tipo) {
+  if (tipoPercentualComparativo(tipo)) return "%";
+  if (tipoMoedaComparativo(tipo)) return "R$";
+  return "";
+}
+
+/**
+ * Renderiza a matriz loja × indicador de uma regional.
+ * Cada coluna (indicador) tem escala e direção de cor próprias.
+ */
+function renderMatrizRegional(nomeRegional, resultadosNorm, indicadoresMeta) {
+  const regionalUpper = normalizarTextoComparativoUpper(nomeRegional);
+  const isMoeda = (tipo) => tipoMoedaComparativo(tipo);
+
+  const resultadosRegional = resultadosNorm.filter((r) => r._regional === regionalUpper);
+
+  if (resultadosRegional.length === 0) {
+    return `
+      <div class="matriz-card">
+        <h3 class="regional-titulo">${nomeRegional}<span class="regional-contagem">0 lojas</span></h3>
+        <div class="regional-vazio">Sem dados para esta regional nesse período.</div>
+      </div>`;
+  }
+
+  // mapa: loja → { indicadorBanco → [valores] }
+  const lojas = {};
+  resultadosRegional.forEach((r) => {
+    const loja = r.loja || "—";
+    const indBanco = normalizarTextoComparativoUpper(r.indicador);
+    if (!lojas[loja]) lojas[loja] = {};
+    if (!lojas[loja][indBanco]) lojas[loja][indBanco] = [];
+    lojas[loja][indBanco].push(Number(r.valor) || 0);
+  });
+
+  // só mantém indicadores que têm ao menos 1 valor nesta regional
+  const colunas = indicadoresMeta.filter((ind) =>
+    Object.values(lojas).some((m) => m[ind.banco] && m[ind.banco].length)
+  );
+
+  // agrega valor por loja/indicador (soma p/ R$ e banco de horas, média p/ resto)
+  const valorCelula = (loja, ind) => {
+    const arr = lojas[loja][ind.banco];
+    if (!arr || !arr.length) return null;
+    return agregarValoresComparativo(arr, ind.tipo);
+  };
+
+  // ===== RANKING GERAL DAS LOJAS =====
+  // Critério: R$ é o MESTRE, % é o SERVO (desempate). Sempre do PIOR p/ o melhor.
+  //  - "pior" de indicador asc (menor é melhor) = MAIOR valor
+  //  - "pior" de indicador desc (maior é melhor) = MENOR valor
+  const colunasMoeda = colunas.filter((c) => isMoeda(c.tipo));
+  const colunasPct = colunas.filter((c) => tipoPercentualComparativo(c.tipo));
+
+  // "peso de pior" de uma loja num conjunto de colunas (quanto maior, pior)
+  const scorePior = (loja, listaCols) =>
+    listaCols.reduce((acc, ind) => {
+      const v = valorCelula(loja, ind);
+      if (v == null || !isFinite(v)) return acc;
+      // se "maior é melhor" (desc), invertemos para que o pior suba
+      return acc + (ind.menorMelhor ? v : -v);
+    }, 0);
+
+  const nomesLojas = Object.keys(lojas).sort((a, b) => {
+    // 1º) MESTRE: indicadores em R$
+    const mA = scorePior(a, colunasMoeda);
+    const mB = scorePior(b, colunasMoeda);
+    if (mB !== mA) return mB - mA; // pior (maior R$) no topo
+    // 2º) SERVO: indicadores em %
+    const pA = scorePior(a, colunasPct);
+    const pB = scorePior(b, colunasPct);
+    if (pB !== pA) return pB - pA;
+    // 3º) desempate final: nome
+    return a.localeCompare(b, "pt-BR");
+  });
+
+  // min/max por coluna (para escala de cor independente)
+  const faixaColuna = {};
+  colunas.forEach((ind) => {
+    const vals = nomesLojas
+      .map((l) => valorCelula(l, ind))
+      .filter((v) => v != null && isFinite(v));
+    faixaColuna[ind.banco] = {
+      min: vals.length ? Math.min(...vals) : 0,
+      max: vals.length ? Math.max(...vals) : 0,
+    };
+  });
+
+  // cabeçalho das colunas
+  const thIndicadores = colunas
+    .map((ind) => {
+      const uni = unidadeIndicadorMatriz(ind.tipo);
+      return `<th class="matriz-th-ind" title="${ind.nome}">
+        <span class="matriz-th-nome">${ind.nome}</span>
+        ${uni ? `<span class="matriz-th-uni">${uni}</span>` : ""}
+      </th>`;
+    })
+    .join("");
+
+  // linhas (lojas)
+  const linhas = nomesLojas
+    .map((loja, idx) => {
+      const partes = quebrarLojaComparativo(loja);
+      const celulas = colunas
+        .map((ind) => {
+          const v = valorCelula(loja, ind);
+          if (v == null) {
+            return `<td class="matriz-celula matriz-vazia">—</td>`;
+          }
+          const { min, max } = faixaColuna[ind.banco];
+          const intens = calcularIntensidadeHeatmap(v, min, max, ind.menorMelhor);
+          const fundo = heatmapCorVibrante(intens);
+          const texto = heatmapCorTexto(intens);
+          return `<td class="matriz-celula" style="background:${fundo}; color:${texto};">
+            ${formatarCelulaMatriz(v, ind.tipo)}
+          </td>`;
+        })
+        .join("");
+
+      return `
+        <tr>
+          <td class="matriz-loja" title="${loja}">
+            <span class="matriz-loja-cod">${partes.codigo}</span>
+            <span class="matriz-loja-nome">${partes.nome}</span>
+          </td>
+          ${celulas}
+        </tr>`;
+    })
+    .join("");
 
   return `
-    <div class="dashboard-card span-12">
-      <div class="dashboard-card-header">
-        <span class="dashboard-card-titulo">
-          Detalhamento comparativo corporativo
-        </span>
-        <span class="dashboard-card-subtitulo">
-          ${
-            COMPARATIVO_STATE.modoPeriodo === "mensal"
-              ? "Mês atual x mês anterior + variação"
-              : "Semana atual x semana anterior + variação"
-          }
-        </span>
-      </div>
-
-      <div class="tabela-container">
-        <table class="tabela">
+    <div class="matriz-card">
+      <h3 class="regional-titulo">
+        ${nomeRegional}
+        <span class="regional-contagem">${nomesLojas.length} lojas</span>
+      </h3>
+      <div class="matriz-scroll">
+        <table class="matriz-tabela">
           <thead>
             <tr>
-              <th>${rotulo}</th>
-              <th>Atual</th>
-              <th>Anterior</th>
-              <th>Δ</th>
-              <th>Δ%</th>
+              <th class="matriz-th-loja">Loja</th>
+              ${thIndicadores}
             </tr>
           </thead>
-          <tbody>
-            ${(lista || [])
-              .map(
-                (item) => `
-              <tr>
-                <td>${item.nome}</td>
-                <td>${formatarKpiComparativo(item.atual, {
-                  percentual: isPercentual,
-                  casas: 2,
-                })}</td>
-                <td>${formatarKpiComparativo(item.anterior, {
-                  percentual: isPercentual,
-                  casas: 2,
-                })}</td>
-                <td>${formatarKpiComparativo(item.delta, {
-                  percentual: isPercentual,
-                  casas: 2,
-                })}</td>
-                <td>${formatarDeltaPctComparativo(item.deltaPct)}</td>
-              </tr>
-            `
-              )
-              .join("")}
-          </tbody>
+          <tbody>${linhas}</tbody>
         </table>
       </div>
-    </div>
-  `;
+    </div>`;
 }
 
-// ==========================
-// 📈 RENDER GRÁFICOS
-// ==========================
-function renderGraficosComparativos({
-  listaPrincipal,
-  listaClasses,
-  tipoValorPrincipal,
-  tituloPrincipalAtual,
-  tituloPrincipalAnterior,
-  principalCorAtual,
-  principalCorAnterior,
-}) {
-  if (!chartComparativoDisponivel()) return;
-
-  requestAnimationFrame(() => {
-    try {
-      renderGraficoPrincipalComparativo(
-        listaPrincipal,
-        tipoValorPrincipal,
-        tituloPrincipalAtual,
-        tituloPrincipalAnterior,
-        principalCorAtual,
-        principalCorAnterior
-      );
-
-      renderGraficoClassesComparativo(
-        listaClasses,
-        tipoValorPrincipal
-      );
-    } catch (erro) {
-      console.error("❌ Erro ao renderizar gráficos comparativos:", erro);
-    }
-  });
-}
-
-function renderGraficoPrincipalComparativo(
-  lista,
-  tipoValorPrincipal,
-  tituloAtual,
-  tituloAnterior,
-  corAtual,
-  corAnterior
-) {
-  const canvas = document.getElementById("graficoComparativoPrincipal");
-  if (!canvas) return;
-
-  if (window.comparativoCharts.principal) {
-    window.comparativoCharts.principal.destroy();
-  }
-
-  const dados = (lista || []).slice(0, LIMITE_COMPARATIVO_RANKING);
-
-  ajustarAlturaChartComparativo("graficoComparativoPrincipal", dados.length, {
-    minimo: 220,
-    maximo: 340,
-    pxPorItem: 20,
-  });
-
-  const isPercentual = tipoPercentualComparativo(tipoValorPrincipal);
-
-  window.comparativoCharts.principal = new Chart(canvas, {
-    type: "bar",
-    data: {
-      labels: dados.map((i) => i.nome),
-      datasets: [
-        {
-          label: `${tituloAtual} (${tipoValorPrincipal})`,
-          data: dados.map((i) => i.atual),
-          backgroundColor: corAtual,
-          borderRadius: 6,
-          maxBarThickness: 16,
-          categoryPercentage: 0.76,
-          barPercentage: 0.72,
-        },
-        {
-          label: `${tituloAnterior} (${tipoValorPrincipal})`,
-          data: dados.map((i) => i.anterior),
-          backgroundColor: corAnterior,
-          borderRadius: 6,
-          maxBarThickness: 16,
-          categoryPercentage: 0.76,
-          barPercentage: 0.72,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: true,
-          labels: {
-            font: {
-              size: 11,
-            },
-            boxWidth: 14,
-            boxHeight: 8,
-          },
-        },
-        tooltip: {
-          callbacks: {
-            label: (ctx) =>
-              ` ${ctx.dataset.label}: ${formatarKpiComparativo(ctx.raw, {
-                percentual: isPercentual,
-                casas: 2,
-              })}`,
-          },
-        },
-      },
-      scales: {
-        x: {
-          ticks: {
-            color: "#5a6872",
-            font: {
-              size: 11,
-            },
-            maxRotation: 25,
-            minRotation: 0,
-          },
-          grid: {
-            display: false,
-          },
-        },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            color: "#5a6872",
-            font: {
-              size: 11,
-            },
-            callback: (value) =>
-              isPercentual
-                ? `${formatarNumeroComparativo(value, 1)}%`
-                : formatarNumeroComparativo(value, 1),
-          },
-          grid: {
-            color: "rgba(10, 61, 98, 0.06)",
-          },
-        },
-      },
-    },
-  });
-}
-
-function renderGraficoClassesComparativo(listaClasses, tipoValorPrincipal) {
-  const canvas = document.getElementById("graficoComparativoClasses");
-  if (!canvas) return;
-
-  if (window.comparativoCharts.classes) {
-    window.comparativoCharts.classes.destroy();
-  }
-
-  const dados = listaClasses || [];
-  const isPercentual = tipoPercentualComparativo(tipoValorPrincipal);
-
-  ajustarAlturaChartComparativo("graficoComparativoClasses", dados.length, {
-    minimo: 220,
-    maximo: 320,
-    pxPorItem: 22,
-  });
-
-  window.comparativoCharts.classes = new Chart(canvas, {
-    type: "bar",
-    data: {
-      labels: dados.map((i) => i.nome),
-      datasets: [
-        {
-          label: `Atual (${tipoValorPrincipal})`,
-          data: dados.map((i) => i.atual),
-          backgroundColor: "#9C27B0",
-          borderRadius: 6,
-          maxBarThickness: 16,
-          categoryPercentage: 0.76,
-          barPercentage: 0.72,
-        },
-        {
-          label: `Anterior (${tipoValorPrincipal})`,
-          data: dados.map((i) => i.anterior),
-          backgroundColor: "#FFB74D",
-          borderRadius: 6,
-          maxBarThickness: 16,
-          categoryPercentage: 0.76,
-          barPercentage: 0.72,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: true,
-          labels: {
-            font: {
-              size: 11,
-            },
-            boxWidth: 14,
-            boxHeight: 8,
-          },
-        },
-        tooltip: {
-          callbacks: {
-            label: (ctx) =>
-              ` ${ctx.dataset.label}: ${formatarKpiComparativo(ctx.raw, {
-                percentual: isPercentual,
-                casas: 2,
-              })}`,
-          },
-        },
-      },
-      scales: {
-        x: {
-          ticks: {
-            color: "#5a6872",
-            font: {
-              size: 11,
-            },
-          },
-          grid: {
-            display: false,
-          },
-        },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            color: "#5a6872",
-            font: {
-              size: 11,
-            },
-            callback: (value) =>
-              isPercentual
-                ? `${formatarNumeroComparativo(value, 1)}%`
-                : formatarNumeroComparativo(value, 1),
-          },
-          grid: {
-            color: "rgba(10, 61, 98, 0.06)",
-          },
-        },
-      },
-    },
-  });
-}
-
-// ==========================
-// 🏬 POPULAR SELECT LOJAS
-// ==========================
-function popularSelectLojasComparativo(lojas) {
-  const select = document.getElementById("comparativoLoja");
-  if (!select) return;
-
-  let html = `<option value="TODAS">Todas as lojas</option>`;
-
-  (lojas || []).forEach((loja) => {
-    const chave = getChaveLojaComparativo(loja);
-    html += `<option value="${chave}" ${
-      COMPARATIVO_STATE.loja === chave ? "selected" : ""
-    }>${chave}</option>`;
-  });
-
-  select.innerHTML = html;
-}
+// expõe a entrada pro router, caso necessário
+window.telaComparativos = telaComparativos;

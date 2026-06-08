@@ -104,6 +104,25 @@
       </div>
     </div>
 
+    <!-- Overlay de carregamento -->
+    <div class="login-overlay" id="loginOverlay">
+      <div class="overlay-content">
+        <img src="/assets/fave.png" alt="" class="overlay-logo" />
+        <div class="atom-loader" id="overlayRing">
+          <div class="nucleus"></div>
+          <div class="electron-orbit orbit-1"><div class="electron"></div></div>
+          <div class="electron-orbit orbit-2"><div class="electron"></div></div>
+          <div class="electron-orbit orbit-3"><div class="electron"></div></div>
+        </div>
+        <svg class="overlay-checkmark" id="overlayCheck" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
+          <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none" stroke="#6ee79a" stroke-width="2.5"/>
+          <path   class="checkmark-tick"   fill="none" stroke="#6ee79a" stroke-width="3"
+                  stroke-linecap="round" stroke-linejoin="round" d="M14 27 l8 8 l16 -16"/>
+        </svg>
+        <p class="overlay-texto" id="overlayTexto">Verificando acesso...</p>
+      </div>
+    </div>
+
     <!-- Toggle da senha -->
     <script>
       function toggleSenhaLogin() {

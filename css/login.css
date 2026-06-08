@@ -337,6 +337,11 @@ body::after {
   transition: all 0.22s ease;
 
   box-shadow: 0 8px 18px rgba(30, 96, 145, 0.26);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .btn-login:hover,
@@ -391,17 +396,209 @@ body::after {
 }
 
 /* ==========================
-   ✨ ANIMAÇÃO
+   ✨ ANIMAÇÃO ENTRADA
 ========================== */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(20px) scale(0.97);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
+}
+
+/* ==========================
+   ⏳ SPINNER DO BOTÃO
+========================== */
+.btn-login-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ==========================
+   🌀 OVERLAY DE CARREGAMENTO
+========================== */
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(4, 8, 18, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.login-overlay.ativo {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: overlayUp 0.35s ease;
+}
+
+.overlay-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  margin-bottom: 32px;
+  opacity: 0.88;
+  animation: overlayPulse 1.8s ease-in-out infinite;
+}
+
+.atom-loader {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin-bottom: 28px;
+}
+
+.atom-loader .nucleus {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  background-color: #00f2fe;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 15px #00f2fe;
+}
+
+.atom-loader .electron-orbit {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 2px solid rgba(0, 242, 254, 0.2);
+  border-radius: 50%;
+}
+
+.atom-loader .electron {
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  background-color: #4facfe;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 0 10px #4facfe;
+}
+
+.atom-loader .orbit-1 {
+  transform: rotateX(70deg) rotateY(20deg);
+  animation: orbit-spin-1 1.5s linear infinite;
+}
+
+.atom-loader .orbit-2 {
+  transform: rotateX(65deg) rotateY(140deg);
+  animation: orbit-spin-2 1.5s linear infinite;
+}
+
+.atom-loader .orbit-3 {
+  transform: rotateX(15deg) rotateY(80deg);
+  animation: orbit-spin-3 1.5s linear infinite;
+}
+
+@keyframes orbit-spin-1 {
+  0%   { transform: rotateX(70deg) rotateY(20deg)  rotateZ(0deg); }
+  100% { transform: rotateX(70deg) rotateY(20deg)  rotateZ(360deg); }
+}
+
+@keyframes orbit-spin-2 {
+  0%   { transform: rotateX(65deg) rotateY(140deg) rotateZ(0deg); }
+  100% { transform: rotateX(65deg) rotateY(140deg) rotateZ(360deg); }
+}
+
+@keyframes orbit-spin-3 {
+  0%   { transform: rotateX(15deg) rotateY(80deg)  rotateZ(0deg); }
+  100% { transform: rotateX(15deg) rotateY(80deg)  rotateZ(360deg); }
+}
+
+.overlay-checkmark {
+  display: none;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 20px;
+}
+
+.overlay-checkmark.visivel {
+  display: block;
+}
+
+.checkmark-circle {
+  stroke-dasharray: 151;
+  stroke-dashoffset: 151;
+}
+
+.checkmark-circle.draw {
+  animation: draw-circle 0.55s ease forwards;
+}
+
+.checkmark-tick {
+  stroke-dasharray: 36;
+  stroke-dashoffset: 36;
+}
+
+.checkmark-tick.draw {
+  animation: draw-tick 0.35s ease forwards;
+  animation-delay: 0.48s;
+}
+
+.overlay-texto {
+  color: rgba(255, 255, 255, 0.80);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  text-align: center;
+  transition: color 0.3s ease;
+}
+
+.overlay-texto.sucesso {
+  color: #6ee79a;
+}
+
+/* ==========================
+   🔑 KEYFRAMES
+========================== */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes overlayUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes overlayPulse {
+  0%, 100% { opacity: 0.88; transform: scale(1); }
+  50%       { opacity: 1;    transform: scale(1.05); }
+}
+
+@keyframes draw-circle {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes draw-tick {
+  to { stroke-dashoffset: 0; }
 }
 
 /* ==========================

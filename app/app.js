@@ -1822,10 +1822,47 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 // ==========================
+// 🔄 SINCRONIZAR PERFIL LOCAL DO BANCO
+// chamada pelo salvarPermissoes e pelo silent refresh
+// ==========================
+async function sincronizarUsuarioLocalDoBanco() {
+  try {
+    const usuarioAtual = getUsuarioLocal();
+
+    if (!usuarioAtual?.auth_user_id) {
+      appLogWarn("sincronizarUsuarioLocalDoBanco: sem auth_user_id no local");
+      return;
+    }
+
+    const { data, error } = await window.db
+      .from("usuarios")
+      .select("*")
+      .eq("auth_user_id", usuarioAtual.auth_user_id)
+      .single();
+
+    if (error || !data) {
+      appLogWarn("sincronizarUsuarioLocalDoBanco: perfil não encontrado", error);
+      return;
+    }
+
+    const usuarioAtualizado = montarUsuarioLocalAPartirDoPerfil(data);
+    setUsuarioLocal(usuarioAtualizado);
+
+    appLogInfo("Perfil sincronizado do banco com sucesso", {
+      email: usuarioAtualizado.email,
+      perfil: usuarioAtualizado.perfil,
+    });
+  } catch (erro) {
+    appLogError("Erro ao sincronizar usuário local do banco", erro);
+  }
+}
+
+// ==========================
 // 🌐 EXPOR FUNÇÕES
 // ==========================
 window.getUsuarioLocal = getUsuarioLocal;
 window.setUsuarioLocal = setUsuarioLocal;
+window.sincronizarUsuarioLocalDoBanco = sincronizarUsuarioLocalDoBanco;
 window.limparSessaoLocal = limparSessaoLocal;
 
 window.initSupabase = initSupabase;

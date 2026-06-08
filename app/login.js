@@ -26,16 +26,74 @@ function resetBotao(btn) {
   if (!btn) return;
 
   btn.disabled = false;
-  btn.textContent = "Entrar";
+  btn.innerHTML = '<span class="btn-login-texto">Entrar</span>';
   loginEmAndamento = false;
+  esconderOverlay();
 }
 
-function bloquearBotao(btn, texto = "🔄 Acessando...") {
+function bloquearBotao(btn, texto = "Acessando...") {
   if (!btn) return;
 
   btn.disabled = true;
-  btn.textContent = texto;
+  btn.innerHTML = `<span class="btn-login-spinner"></span><span class="btn-login-texto">${texto}</span>`;
   loginEmAndamento = true;
+  mostrarOverlay();
+}
+
+// ==========================
+// 🌀 OVERLAY DE CARREGAMENTO
+// ==========================
+function mostrarOverlay(texto) {
+  const overlay = document.getElementById("loginOverlay");
+  const ring    = document.getElementById("overlayRing");
+  const check   = document.getElementById("overlayCheck");
+  const textoEl = document.getElementById("overlayTexto");
+
+  if (!overlay) return;
+
+  if (ring)    ring.style.display    = "block";
+  if (check)   { check.classList.remove("visivel"); check.style.display = "none"; }
+  if (textoEl) { textoEl.textContent = texto || "Verificando acesso..."; textoEl.classList.remove("sucesso"); }
+
+  overlay.classList.add("ativo");
+}
+
+function esconderOverlay() {
+  const overlay = document.getElementById("loginOverlay");
+  if (overlay) overlay.classList.remove("ativo");
+}
+
+function mostrarOverlaySucesso() {
+  const overlay = document.getElementById("loginOverlay");
+  const ring    = document.getElementById("overlayRing");
+  const check   = document.getElementById("overlayCheck");
+  const textoEl = document.getElementById("overlayTexto");
+
+  if (overlay) overlay.classList.add("ativo");
+
+  // Fade out atom-loader
+  if (ring) {
+    ring.style.transition = "opacity 0.3s ease";
+    ring.style.opacity    = "0";
+    setTimeout(() => { ring.style.display = "none"; }, 300);
+  }
+
+  // Exibe SVG e dispara as animações em sequência
+  if (check) {
+    check.style.display = "block"; // remove inline none setado por mostrarOverlay
+    check.classList.add("visivel");
+    setTimeout(() => {
+      const circle = check.querySelector(".checkmark-circle");
+      const tick   = check.querySelector(".checkmark-tick");
+      if (circle) circle.classList.add("draw");
+      if (tick)   tick.classList.add("draw");
+    }, 50);
+  }
+
+  if (textoEl) {
+    textoEl.textContent = "Acesso liberado!";
+    textoEl.classList.add("sucesso");
+  }
 }
 
 // ==========================
@@ -397,11 +455,12 @@ async function fazerLogin() {
     }
 
     // 5) Redirecionar
-    btn.textContent = "✅ Entrando...";
+    btn.innerHTML = '<span class="btn-login-texto">✅ Entrando...</span>';
+    mostrarOverlaySucesso();
 
     setTimeout(() => {
       window.location.replace("index.html");
-    }, 400);
+    }, 1100);
   } catch (err) {
     console.error("❌ Erro inesperado no login:", err);
     setErro("Erro ao conectar com o servidor");

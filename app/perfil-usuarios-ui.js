@@ -1311,26 +1311,23 @@ function inicializarControlesPermissaoIndicador() {
 
   if (checkTotal) {
     checkTotal.addEventListener("change", () => {
-      if (!checkTotal.checked) return;
+      const estado = checkTotal.checked;
 
       document
         .querySelectorAll(
           "#config-conteudo .check-classe-completa, #config-conteudo .check-subclasse-completa, #config-conteudo .check-indicador"
         )
         .forEach((el) => {
-          el.checked = true;
+          el.checked = estado;
         });
 
-      console.log(
-        "✅ Acesso total marcado: todas as permissões de indicador foram marcadas"
-      );
+      console.log("✅ Acesso total alterado:", estado ? "marcado" : "desmarcado");
     });
   }
 
   checksClasse.forEach((checkClasse) => {
     checkClasse.addEventListener("change", () => {
-      if (!checkClasse.checked) return;
-
+      const estado = checkClasse.checked;
       const classe = checkClasse.dataset.classe || "";
 
       document
@@ -1339,17 +1336,22 @@ function inicializarControlesPermissaoIndicador() {
            #config-conteudo .check-indicador[data-classe="${classe}"]`
         )
         .forEach((el) => {
-          el.checked = true;
+          el.checked = estado;
         });
 
-      console.log("✅ Classe completa marcada:", classe);
+      // se desmarcou a classe, desmarca também o "acesso total"
+      if (!estado) {
+        const checkTotalEl = document.getElementById("perm_indicadores_total");
+        if (checkTotalEl) checkTotalEl.checked = false;
+      }
+
+      console.log(`✅ Classe "${classe}" alterada:`, estado ? "marcada" : "desmarcada");
     });
   });
 
   checksSubclasse.forEach((checkSubclasse) => {
     checkSubclasse.addEventListener("change", () => {
-      if (!checkSubclasse.checked) return;
-
+      const estado = checkSubclasse.checked;
       const classe = checkSubclasse.dataset.classe || "";
       const subclasse = checkSubclasse.dataset.subclasse || "";
 
@@ -1358,10 +1360,20 @@ function inicializarControlesPermissaoIndicador() {
           `#config-conteudo .check-indicador[data-classe="${classe}"][data-subclasse="${subclasse}"]`
         )
         .forEach((el) => {
-          el.checked = true;
+          el.checked = estado;
         });
 
-      console.log("✅ Subclasse completa marcada:", { classe, subclasse });
+      // se desmarcou a subclasse, desmarca classe pai e acesso total
+      if (!estado) {
+        const checkClasseEl = document.querySelector(
+          `#config-conteudo .check-classe-completa[data-classe="${classe}"]`
+        );
+        if (checkClasseEl) checkClasseEl.checked = false;
+        const checkTotalEl = document.getElementById("perm_indicadores_total");
+        if (checkTotalEl) checkTotalEl.checked = false;
+      }
+
+      console.log(`✅ Subclasse "${subclasse}" de "${classe}" alterada:`, estado ? "marcada" : "desmarcada");
     });
   });
 }
