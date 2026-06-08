@@ -63,6 +63,12 @@ const STORAGE_KEYS = {
 function getUsuarioLocal() {
   try {
     const valor = localStorage.getItem(STORAGE_KEYS.usuario);
+
+    if (!valor) {
+      appLogInfo("Nenhum usuário local salvo");
+      return null;
+    }
+
     const usuario = JSON.parse(valor);
 
     appLogInfo("Usuário local lido com sucesso", {
@@ -165,7 +171,7 @@ function validarBootstrapPerfil() {
   ];
 
   const faltando = obrigatorias.filter(
-    (nome) => typeof window[nome] !== "function"
+    (nome) => typeof window[nome] !== "function",
   );
 
   if (faltando.length) {
@@ -184,7 +190,7 @@ function getSemanaAtualFallback() {
   const hoje = new Date();
 
   const dataUTC = new Date(
-    Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+    Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()),
   );
 
   const diaSemana = dataUTC.getUTCDay() || 7;
@@ -201,10 +207,7 @@ function obterSemanaAtualApp() {
     try {
       return window.getSemanaAtual();
     } catch (erro) {
-      appLogWarn(
-        "Falha ao usar getSemanaAtual global, usando fallback",
-        erro
-      );
+      appLogWarn("Falha ao usar getSemanaAtual global, usando fallback", erro);
     }
   }
 
@@ -228,9 +231,7 @@ function gerarIniciaisUsuario(usuario = {}) {
   const nome = normalizarTextoApp(usuario.nome);
   const sobrenome = normalizarTextoApp(usuario.sobrenome);
 
-  let iniciais = (
-    (nome?.[0] || "") + (sobrenome?.[0] || "")
-  ).toUpperCase();
+  let iniciais = ((nome?.[0] || "") + (sobrenome?.[0] || "")).toUpperCase();
 
   if (!iniciais) {
     const nomeCompleto = montarNomeCompletoUsuario(usuario);
@@ -278,7 +279,7 @@ function montarUsuarioLocalAPartirDoPerfil(data) {
     subregional_vinculada: data.subregional_vinculada || null,
 
     regionais_vinculadas: normalizarListaRegionaisApp(
-      data.regionais_vinculadas
+      data.regionais_vinculadas,
     ),
   };
 
@@ -327,7 +328,7 @@ function montarPerfilFallbackApp(authUser) {
 
   appLogWarn(
     "Perfil não encontrado em usuarios. Usando fallback local",
-    perfilFallback
+    perfilFallback,
   );
 
   return perfilFallback;
@@ -566,7 +567,7 @@ async function garantirPerfilLocal(authUser) {
 
       if (!perfilPorEmail) {
         appLogWarn(
-          "Perfil não encontrado por auth_user_id nem por e-mail. Entrando com fallback local."
+          "Perfil não encontrado por auth_user_id nem por e-mail. Entrando com fallback local.",
         );
 
         const usuarioFallback = montarPerfilFallbackApp(authUser);
@@ -592,7 +593,7 @@ async function garantirPerfilLocal(authUser) {
               email: perfilPorEmail.email,
               auth_user_id_tabela: perfilPorEmail.auth_user_id,
               auth_user_id_auth: authUser.id,
-            }
+            },
           );
 
           limparSessaoLocal();
@@ -655,25 +656,88 @@ async function logout() {
 // 📊 CLASSES DE INDICADORES
 // ==========================
 const classesIndicadores = {
-  Auditoria: ["RUPTURA FINAL", "ETIQUETA"],
-
-  "Frente de Caixa": [
-  "SELF-CHECKOUT",
-  "DESCONTO",
-  "CANCELAMENTO",
-  "DEVOLUÇÃO",
-  "FAIXA HORAS"
-],
-
-  Operações: [
-    { nome: "Visita Prospecção", valor: "PSV" },
-    { nome: "NPS", valor: "NPS" },
-    { nome: "PART.TELEVENDAS", valor: "PART.TELEVENDAS" },
+  Auditoria: [
+    {
+      nome: "Ruptura Final",
+      valor: "RUPTURA FINAL",
+    },
+    {
+      nome: "Etiqueta",
+      valor: "ETIQUETA",
+    },
   ],
 
-  Prevenção: ["QUEBRA", "QUEBRA FLV", "QUEBRA AÇOUGUE", "PSV", "TROCA"],
+  "Frente de Caixa": [
+    {
+      nome: "Self Checkout",
+      valor: "SELF-CHECKOUT",
+    },
+    {
+      nome: "Desconto",
+      valor: "DESCONTO",
+    },
+    {
+      nome: "Cancelamento",
+      valor: "CANCELAMENTO",
+    },
+    {
+      nome: "Devolução",
+      valor: "DEVOLUÇÃO",
+    },
+    {
+      nome: "Faixa Horas",
+      valor: "FAIXA HORAS",
+    },
+  ],
 
-  "RH / Operacional": ["BANCOS DE HORAS", "TURNOVER"],
+  Operações: [
+    {
+      nome: "Visita Prospecção",
+      valor: "VISITA PROSPECÇÃO",
+    },
+    {
+      nome: "NPS",
+      valor: "NPS",
+    },
+    {
+      nome: "PART.TELEVENDAS",
+      valor: "PART.TELEVENDAS",
+    },
+  ],
+
+  Prevenção: [
+    {
+      nome: "Quebra",
+      valor: "QUEBRA",
+    },
+    {
+      nome: "Quebra FLV",
+      valor: "QUEBRA FLV",
+    },
+    {
+      nome: "Quebra Açougue",
+      valor: "QUEBRA AÇOUGUE",
+    },
+    {
+      nome: "PSV",
+      valor: "PSV",
+    },
+    {
+      nome: "Troca",
+      valor: "TROCA",
+    },
+  ],
+
+  "RH / Operacional": [
+    {
+      nome: "Banco de Horas",
+      valor: "BANCO DE HORAS",
+    },
+    {
+      nome: "Turnover",
+      valor: "TURNOVER",
+    },
+  ],
 };
 
 // ==========================
@@ -787,7 +851,7 @@ function getTokenSubclasseApp(classe, subclasse) {
   if (typeof window.getTokenSubclasse === "function") {
     try {
       return normalizarTextoAppUpper(
-        window.getTokenSubclasse(classe, subclasse)
+        window.getTokenSubclasse(classe, subclasse),
       );
     } catch (erro) {
       appLogWarn("Falha ao usar getTokenSubclasse", erro);
@@ -795,7 +859,7 @@ function getTokenSubclasseApp(classe, subclasse) {
   }
 
   return `${normalizarTextoAppUpper(classe)}___SUB___${normalizarTextoAppUpper(
-    subclasse || "GERAL"
+    subclasse || "GERAL",
   )}`;
 }
 
@@ -903,7 +967,7 @@ function aplicarPermissoesMenuPrincipal() {
     const permissoes = getPermissoesSistemaEfetivasApp(usuario);
 
     const candidatos = document.querySelectorAll(
-      "#sidebar button, #sidebar a, #sidebar li"
+      "#sidebar button, #sidebar a, #sidebar li",
     );
 
     candidatos.forEach((el) => {
@@ -1075,8 +1139,12 @@ function montarMenuIndicadores() {
   let totalClassesMontadas = 0;
   let totalIndicadoresMontados = 0;
 
-  for (const classe in classesIndicadores) {
-    const itensOriginais = classesIndicadores[classe] || [];
+  
+const classesMenuApp = window.classesIndicadores || classesIndicadores || {};
+
+for (const classe in classesMenuApp) {
+
+    const itensOriginais = classesMenuApp[classe] || [];
 
     const itensPermitidos = itensOriginais.filter((item) => {
       const valor = item?.valor || item;
@@ -1301,6 +1369,29 @@ function definirTelaAtiva(tela, extras = {}) {
 // 🔄 ABRIR TELA INTERNA
 // ✅ valida permissão de módulo
 // ==========================
+// ==========================
+// 📊 ABRIR DASHBOARD COM SEGURANÇA
+// ==========================
+async function abrirDashboardComSeguranca() {
+  try {
+    if (window.DashboardBI?.garantirPronto) {
+      await window.DashboardBI.garantirPronto();
+    }
+
+    if (typeof window.telaDashboard === "function") {
+      await window.telaDashboard();
+      return true;
+    }
+
+    appLogError("window.telaDashboard não encontrada");
+    mostrarErro("Dashboard não carregado corretamente.");
+    return false;
+  } catch (erro) {
+    appLogError("Falha ao abrir dashboard com segurança", erro);
+    mostrarErro("Falha ao carregar o Dashboard.");
+    return false;
+  }
+}
 async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
   try {
     if (!nomeTela) {
@@ -1364,11 +1455,7 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
 
       definirTelaAtiva("dashboard");
 
-      if (typeof window.telaDashboard === "function") {
-        await window.telaDashboard();
-      } else {
-        telaInicial();
-      }
+      await abrirDashboardComSeguranca();
 
       return;
     }
@@ -1568,7 +1655,7 @@ async function atualizarTelaSilenciosamente() {
 
   if (existeEdicaoAtivaNoConteudo()) {
     appLogInfo(
-      "Usuário está interagindo com um campo - refresh silencioso adiado"
+      "Usuário está interagindo com um campo - refresh silencioso adiado",
     );
     return;
   }
@@ -1586,19 +1673,19 @@ async function atualizarTelaSilenciosamente() {
     switch (APP_STATE.telaAtiva) {
       case "dashboard":
         appLogInfo(
-          "Dashboard ativo - atualização silenciosa desabilitada para não atrapalhar apresentação"
+          "Dashboard ativo - atualização silenciosa desabilitada para não atrapalhar apresentação",
         );
         break;
 
       case "analises":
         appLogInfo(
-          "Análises ativa - atualização silenciosa desabilitada para não atrapalhar uso e apresentação"
+          "Análises ativa - atualização silenciosa desabilitada para não atrapalhar uso e apresentação",
         );
         break;
 
       case "comparativos":
         appLogInfo(
-          "Comparativos ativo - atualização silenciosa desabilitada para não atrapalhar uso e apresentação"
+          "Comparativos ativo - atualização silenciosa desabilitada para não atrapalhar uso e apresentação",
         );
         break;
 
@@ -1636,7 +1723,7 @@ function iniciarAtualizacaoSilenciosa() {
     appLogInfo(
       `Iniciando atualização silenciosa automática a cada ${
         APP_STATE.silentRefreshMs / 1000
-      }s`
+      }s`,
     );
 
     APP_STATE.silentRefreshTimer = setInterval(async () => {
@@ -1764,6 +1851,11 @@ window.aplicarPermissoesMenuPrincipal = aplicarPermissoesMenuPrincipal;
 
 window.classesIndicadores = classesIndicadores;
 window.APP_STATE = APP_STATE;
+
+window.normalizarTextoApp = normalizarTextoApp;
+window.normalizarTextoAppUpper = normalizarTextoAppUpper;
+window.normalizarTextoAppLower = normalizarTextoAppLower;
+window.normalizarListaRegionaisApp = normalizarListaRegionaisApp;
 
 // ==========================
 // ✅ LOG FINAL DE BOOTSTRAP

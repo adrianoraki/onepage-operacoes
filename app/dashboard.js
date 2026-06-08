@@ -3,31 +3,58 @@ console.log("✅ dashboard.js bootstrap carregado");
 window.DashboardBI = window.DashboardBI || {};
 
 (function iniciarLoaderDashboard() {
+  const DASHBOARD_BASE_PATH = "app/dashboard/";
+
   const arquivosDashboard = [
-    "app/dashboard/dashboard-state.js",
-    "app/dashboard/dashboard-helpers.js",
-    "app/dashboard/dashboard-filters.js",
-    "app/dashboard/dashboard-aggregations.js",
-    "app/dashboard/dashboard-kpis.js",
-    "app/dashboard/dashboard-charts.js",
-    "app/dashboard/dashboard-data.js",
-    "app/dashboard/dashboard-views.js",
-    "app/dashboard/dashboard-fullscreen.js",
+    "dashboard-state.js",
+    "dashboard-helpers.js",
+    "dashboard-data.js",
+    "dashboard-aggregations.js",
+    "dashboard-filters.js",
+    "dashboard-kpis.js",
+    "dashboard-charts.js",
+    "dashboard-views.js",
+    "dashboard-fullscreen.js",
+    "dashboard-bootstrap.js",
   ];
 
   let promiseCarregamento = null;
 
+  function getSrcCompleto(arquivo) {
+    return `${DASHBOARD_BASE_PATH}${arquivo}`;
+  }
+
+  function normalizarSrc(src) {
+    return (src || "").toString().replace(/^\/+/, "");
+  }
+
   function scriptJaExiste(src) {
-    return [...document.querySelectorAll("script")].some(
-      (s) => s.src && s.src.includes(src)
-    );
+    const srcNormalizado = normalizarSrc(src);
+
+    return [...document.querySelectorAll("script")].some((script) => {
+      const atual = normalizarSrc(script.getAttribute("src") || script.src || "");
+      return atual.includes(srcNormalizado);
+    });
+  }
+
+  function marcarDashboardStatus(status, detalhes = {}) {
+    window.DashboardBI.statusCarregamento = {
+      status,
+      atualizadoEm: new Date().toISOString(),
+      ...detalhes,
+    };
+
+    console.log("📊 Status dashboard:", window.DashboardBI.statusCarregamento);
   }
 
   function carregarScript(src) {
     return new Promise((resolve, reject) => {
       if (scriptJaExiste(src)) {
-        console.log("ℹ️ Script do dashboard já carregado:", src);
-        resolve();
+        console.log("ℹ️ Script do dashboard já existe no DOM:", src);
+        resolve({
+          src,
+          ignorado: true,
+        });
         return;
       }
 
@@ -35,15 +62,19 @@ window.DashboardBI = window.DashboardBI || {};
       script.src = src;
       script.async = false;
       script.defer = false;
+      script.dataset.dashboardModulo = "true";
 
       script.onload = () => {
-        console.log("✅ Script carregado:", src);
-        resolve();
+        console.log("✅ Script do dashboard carregado:", src);
+        resolve({
+          src,
+          carregado: true,
+        });
       };
 
       script.onerror = () => {
-        console.error("❌ Erro ao carregar script:", src);
-        reject(new Error(`Falha ao carregar ${src}`));
+        console.error("❌ Erro ao carregar script do dashboard:", src);
+        reject(new Error(`Falha ao carregar módulo do dashboard: ${src}`));
       };
 
       document.head.appendChild(script);
@@ -52,15 +83,39 @@ window.DashboardBI = window.DashboardBI || {};
 
   async function carregarTodosArquivosDashboard() {
     if (promiseCarregamento) {
+      console.log("ℹ️ Reutilizando promessa de carregamento do dashboard");
       return promiseCarregamento;
     }
 
     promiseCarregamento = (async () => {
+      marcarDashboardStatus("carregando", {
+        totalModulos: arquivosDashboard.length,
+      });
+
       console.log("🚀 Iniciando carregamento dos módulos do dashboard...");
 
+      const carregados = [];
+
       for (const arquivo of arquivosDashboard) {
-        await carregarScript(arquivo);
+        const src = getSrcCompleto(arquivo);
+
+        try {
+          const resultado = await carregarScript(src);
+          carregados.push(resultado);
+        } catch (erro) {
+          marcarDashboardStatus("erro", {
+            arquivo,
+            erro: erro.message,
+          });
+
+          throw erro;
+        }
       }
+
+      marcarDashboardStatus("carregado", {
+        totalModulos: arquivosDashboard.length,
+        carregados,
+      });
 
       console.log("✅ Todos os módulos do dashboard foram carregados");
 
@@ -70,52 +125,78 @@ window.DashboardBI = window.DashboardBI || {};
     return promiseCarregamento;
   }
 
+  function validarDashboardBI() {
+    const validacoes = {
+      dashboardBI: !!window.DashboardBI,
+      views: !!window.DashboardBI?.views,
+      telaDashboard:
+        typeof window.DashboardBI?.views?.telaDashboard === "function",
+      fullscreen: !!window.DashboardBI?.fullscreen,
+    };
+
+    const ok = validacoes.dashboardBI && validacoes.views && validacoes.telaDashboard;
+
+    if (!ok) {
+      console.error("❌ Validação do DashboardBI falhou:", validacoes);
+    } else {
+      console.log("✅ DashboardBI validado:", validacoes);
+    }
+
+    return ok;
+  }
+
   async function garantirDashboardPronto() {
     await carregarTodosArquivosDashboard();
 
-    const okTela =
-      window.DashboardBI &&
-      DashboardBI.views &&
-      typeof DashboardBI.views.telaDashboard === "function";
+    const ok = validarDashboardBI();
 
-    if (!okTela) {
-      console.error(
-        "❌ DashboardBI.views.telaDashboard não encontrado após carregamento"
-      );
+    if (!ok) {
       throw new Error("Módulos do dashboard não inicializados corretamente.");
     }
 
     return true;
   }
 
-  window.DashboardBI.carregarModulos = carregarTodosArquivosDashboard;
-  window.DashboardBI.garantirPronto = garantirDashboardPronto;
+  function renderErroDashboard(erro) {
+    const mensagem = erro?.message || "Falha ao carregar módulos do dashboard.";
+
+    if (typeof window.mostrarErro === "function") {
+      window.mostrarErro(mensagem);
+      return;
+    }
+
+    const alvo = document.getElementById("conteudo");
+
+    if (alvo) {
+      alvo.innerHTML = `
+        <div class="pagina-container">
+          <div class="card-conteudo">
+            <h3>❌ Erro ao abrir Dashboard</h3>
+            <p>${mensagem}</p>
+          </div>
+        </div>
+      `;
+    }
+  }
 
   // ==========================
-  // 🌐 API GLOBAL COMPATÍVEL COM O SISTEMA
+  // API INTERNA
+  // ==========================
+  window.DashboardBI.carregarModulos = carregarTodosArquivosDashboard;
+  window.DashboardBI.garantirPronto = garantirDashboardPronto;
+  window.DashboardBI.validar = validarDashboardBI;
+
+  // ==========================
+  // API GLOBAL COMPATÍVEL COM O SISTEMA
   // ==========================
   window.telaDashboard = async function () {
     try {
       await garantirDashboardPronto();
-      return DashboardBI.views.telaDashboard();
+      return window.DashboardBI.views.telaDashboard();
     } catch (erro) {
       console.error("❌ Falha ao abrir dashboard:", erro);
-
-      if (typeof window.mostrarErro === "function") {
-        window.mostrarErro("Falha ao carregar módulos do dashboard.");
-      } else {
-        const alvo = document.getElementById("conteudo");
-        if (alvo) {
-          alvo.innerHTML = `
-            <div class="pagina-container">
-              <div class="card-conteudo">
-                <h3>❌ Erro ao abrir Dashboard</h3>
-                <p>${erro.message || "Falha ao carregar módulos do dashboard."}</p>
-              </div>
-            </div>
-          `;
-        }
-      }
+      renderErroDashboard(erro);
+      return false;
     }
   };
 
@@ -123,13 +204,15 @@ window.DashboardBI = window.DashboardBI || {};
     try {
       await garantirDashboardPronto();
 
-      if (DashboardBI.fullscreen?.abrirDashboardTelaCheia) {
-        return DashboardBI.fullscreen.abrirDashboardTelaCheia();
+      if (window.DashboardBI.fullscreen?.abrirDashboardTelaCheia) {
+        return window.DashboardBI.fullscreen.abrirDashboardTelaCheia();
       }
 
       console.warn("⚠️ Função de tela cheia do dashboard não encontrada");
+      return false;
     } catch (erro) {
       console.error("❌ Falha ao abrir dashboard em tela cheia:", erro);
+      return false;
     }
   };
 
@@ -137,13 +220,15 @@ window.DashboardBI = window.DashboardBI || {};
     try {
       await garantirDashboardPronto();
 
-      if (DashboardBI.fullscreen?.sairDashboardTelaCheia) {
-        return DashboardBI.fullscreen.sairDashboardTelaCheia();
+      if (window.DashboardBI.fullscreen?.sairDashboardTelaCheia) {
+        return window.DashboardBI.fullscreen.sairDashboardTelaCheia();
       }
 
       console.warn("⚠️ Função de saída da tela cheia não encontrada");
+      return false;
     } catch (erro) {
       console.error("❌ Falha ao sair do dashboard em tela cheia:", erro);
+      return false;
     }
   };
 
@@ -151,5 +236,7 @@ window.DashboardBI = window.DashboardBI || {};
     telaDashboard: typeof window.telaDashboard,
     abrirDashboardTelaCheia: typeof window.abrirDashboardTelaCheia,
     sairDashboardTelaCheia: typeof window.sairDashboardTelaCheia,
+    carregarModulos: typeof window.DashboardBI.carregarModulos,
+    garantirPronto: typeof window.DashboardBI.garantirPronto,
   });
 })();

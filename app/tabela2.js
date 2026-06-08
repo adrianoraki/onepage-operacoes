@@ -90,7 +90,10 @@ function escapeCssSelectorEspecial(valor) {
       return CSS.escape(texto);
     }
   } catch (erro) {
-    console.warn("⚠️ CSS.escape indisponível em especial, usando fallback:", erro);
+    console.warn(
+      "⚠️ CSS.escape indisponível em especial, usando fallback:",
+      erro,
+    );
   }
 
   return texto.replace(/([ !"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, "\\$1");
@@ -128,6 +131,18 @@ function tipoEhPercentualEspecial(tipo) {
   return t === "PERCENTUAL" || t === "%" || t === "PORCENTAGEM";
 }
 
+function tipoEhInteiroEspecial(tipo) {
+  const t = normalizarTextoEspecialUpper(tipo);
+
+  return (
+    t === "INTEIRO" ||
+    t === "INT" ||
+    t === "INTEGER" ||
+    t === "NUMERO-INTEIRO" ||
+    t === "NÚMERO-INTEIRO"
+  );
+}
+
 function getClasseLarguraCampoEspecial(tipo) {
   if (tipoEhMonetarioEspecial(tipo)) return "tipo-moeda";
   if (tipoEhPercentualEspecial(tipo)) return "tipo-percentual";
@@ -135,15 +150,32 @@ function getClasseLarguraCampoEspecial(tipo) {
 }
 
 function getSemanaCompactaEspecialAtual() {
-  const semana = (
-    semanaSelecionada ||
-    localStorage.getItem("semana") ||
-    getSemanaAtual().toString().padStart(2, "0")
-  )
-    .toString()
-    .padStart(2, "0");
+  let semana = null;
 
-  return semana;
+  try {
+    if (typeof semanaSelecionada !== "undefined" && semanaSelecionada) {
+      semana = semanaSelecionada;
+    }
+  } catch (erro) {
+    semana = null;
+  }
+
+  if (!semana) {
+    semana = localStorage.getItem("semana");
+  }
+
+  if (!semana && typeof getSemanaAtual === "function") {
+    semana = getSemanaAtual();
+  }
+
+  if (!semana) {
+    const hoje = new Date();
+    const inicioAno = new Date(hoje.getFullYear(), 0, 1);
+    const dias = Math.floor((hoje - inicioAno) / 86400000);
+    semana = Math.ceil((dias + inicioAno.getDay() + 1) / 7);
+  }
+
+  return semana.toString().padStart(2, "0");
 }
 
 function semanaEhCompactaEspecial(semana) {
@@ -155,6 +187,134 @@ function semanaEhCompactaEspecial(semana) {
   return semanaNorm === semanaCompacta;
 }
 
+// ==========================
+// 📅 REFERÊNCIA TEMPORAL ESPECIAL
+// Compatível com histórico por ano/mês/dia/semana
+// ==========================
+function getAnoReferenciaEspecialAtual() {
+  const anoStorage =
+    localStorage.getItem("anoReferencia") ||
+    localStorage.getItem("ano_referencia") ||
+    localStorage.getItem("ano");
+
+  const ano = Number(anoStorage);
+
+  if (Number.isFinite(ano) && ano >= 2020 && ano <= 2100) {
+    return ano;
+  }
+
+  return new Date().getFullYear();
+}
+
+function getMesReferenciaEspecialAtual() {
+  const mesStorage =
+    localStorage.getItem("mesReferencia") ||
+    localStorage.getItem("mes_referencia") ||
+    localStorage.getItem("mes");
+
+  const mes = Number(mesStorage);
+
+  if (Number.isFinite(mes) && mes >= 1 && mes <= 12) {
+    return mes;
+  }
+
+  return new Date().getMonth() + 1;
+}
+
+function getDataReferenciaEspecialAtual() {
+  const dataStorage =
+    localStorage.getItem("dataReferencia") ||
+    localStorage.getItem("data_referencia");
+
+  if (dataStorage && /^\d{4}-\d{2}-\d{2}$/.test(dataStorage)) {
+    return dataStorage;
+  }
+
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+  const dia = String(hoje.getDate()).padStart(2, "0");
+
+  return `${ano}-${mes}-${dia}`;
+}
+
+function getGranularidadeEspecialAtual() {
+  return (
+    localStorage.getItem("granularidade") ||
+    localStorage.getItem("granularidade_referencia") ||
+    "semanal"
+  );
+}
+
+function getOrigemModuloEspecial(classe) {
+  return classe || localStorage.getItem("classeSelecionada") || "Outros";
+}
+
+function getOrigemTabelaEspecial(indicadorBanco) {
+  return indicadorBanco || indicadorSelecionado || "Indicador";
+}
+
+// ==========================
+// ✅ Fallback mínimo e seguro
+// analise.js é a fonte oficial do formato
+// ==========================
+function limparValorEspecialParaSalvar(valorDigitado, tipo = "numero") {
+  const bruto = (valorDigitado || "").toString().trim();
+
+  if (!bruto) return null;
+
+  if (typeof limparValorParaSalvar === "function") {
+    const retorno = limparValorParaSalvar(bruto, tipo);
+
+    if (
+      retorno !== null &&
+      retorno !== undefined &&
+      !Number.isNaN(Number(retorno))
+    ) {
+      const numero = Number(retorno);
+
+      if (tipoEhInteiroEspecial(tipo)) {
+        return Math.trunc(numero);
+      }
+
+      return numero;
+    }
+  }
+
+  let texto = bruto.replace(/R\$/gi, "").replace(/%/g, "").replace(/\s/g, "");
+
+  texto = texto.replace(/\./g, "").replace(",", ".");
+
+  let numero = Number(texto);
+
+  if (!Number.isFinite(numero)) {
+    return null;
+  }
+
+  if (tipoEhInteiroEspecial(tipo)) {
+    numero = Math.trunc(numero);
+  }
+
+  return numero;
+}
+
+function formatarValorEspecialParaInput(valor, tipo = "numero") {
+  if (valor === null || valor === undefined || valor === "") return "";
+
+  const numero = Number(valor);
+  if (!Number.isFinite(numero)) return "";
+
+  if (tipoEhInteiroEspecial(tipo)) {
+    return String(Math.trunc(numero));
+  }
+
+  if (typeof formatarValorParaInput === "function") {
+    return formatarValorParaInput(numero, tipo);
+  }
+
+  return String(numero);
+}
+
 function getLarguraCampoEspecialPx(indicador, campo, tipo, semana = null) {
   const indicadorNorm = normalizarTextoEspecialUpper(indicador || "");
   const campoNorm = normalizarTextoEspecialUpper(campo || "");
@@ -163,8 +323,6 @@ function getLarguraCampoEspecialPx(indicador, campo, tipo, semana = null) {
 
   let base = 150;
 
-  // SELF-CHECKOUT
-  // Aqui estamos equilibrando para caber melhor dentro da tela
   if (indicadorNorm === "SELF-CHECKOUT") {
     if (campoNorm === "VALOR") {
       base = compacta ? 165 : 185;
@@ -173,9 +331,7 @@ function getLarguraCampoEspecialPx(indicador, campo, tipo, semana = null) {
     } else {
       base = compacta ? 135 : 150;
     }
-  }
-  // PART.TELEVENDAS
-  else if (indicadorNorm === "PART.TELEVENDAS") {
+  } else if (indicadorNorm === "PART.TELEVENDAS") {
     if (campoNorm === "VALOR") {
       base = compacta ? 155 : 175;
     } else if (campoNorm === "VALOR2") {
@@ -183,9 +339,7 @@ function getLarguraCampoEspecialPx(indicador, campo, tipo, semana = null) {
     } else {
       base = compacta ? 145 : 165;
     }
-  }
-  // fallback geral
-  else {
+  } else {
     if (
       tipoNorm === "MOEDA" ||
       tipoNorm === "R$" ||
@@ -336,7 +490,9 @@ function garantirEstilosTabelaEspecial() {
   document.head.appendChild(style);
   TABELA_ESPECIAL_UI.estilosInjetados = true;
 
-  console.log("🎨 Estilos da tabela especial injetados com largura/altura reforçadas");
+  console.log(
+    "🎨 Estilos da tabela especial injetados com largura/altura reforçadas",
+  );
 }
 
 function aplicarLayoutTabelaEspecial(container = null) {
@@ -423,7 +579,10 @@ function getColunaJustificativaEspecial(campo) {
 
 function getLabelCampoEspecial(campo) {
   const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
-  const config = getConfigTabelaEspecial(indicadorSelecionado, classeSelecionada);
+  const config = getConfigTabelaEspecial(
+    indicadorSelecionado,
+    classeSelecionada,
+  );
 
   if (campo === "valor") return config.col1 || "Campo 1";
   if (campo === "valor2") return config.col2 || "Campo 2";
@@ -437,7 +596,7 @@ function getInputEspecial(loja, semana, campo) {
   const campoEsc = escapeCssSelectorEspecial(campo);
 
   const el = document.querySelector(
-    `#tbody-especial input[data-loja="${lojaEsc}"][data-semana="${semanaEsc}"][data-campo="${campoEsc}"]`
+    `#tbody-especial input[data-loja="${lojaEsc}"][data-semana="${semanaEsc}"][data-campo="${campoEsc}"]`,
   );
 
   if (!el) {
@@ -460,7 +619,9 @@ function getInputDoBotaoEspecial() {
 }
 
 function prepararCliqueJustificativaEspecial(event = null) {
-  console.log("ℹ️ prepararCliqueJustificativaEspecial ignorado: justificativas removidas");
+  console.log(
+    "ℹ️ prepararCliqueJustificativaEspecial ignorado: justificativas removidas",
+  );
   if (event) {
     event.preventDefault();
     event.stopPropagation();
@@ -468,7 +629,9 @@ function prepararCliqueJustificativaEspecial(event = null) {
 }
 
 function finalizarCliqueJustificativaEspecial() {
-  console.log("ℹ️ finalizarCliqueJustificativaEspecial ignorado: justificativas removidas");
+  console.log(
+    "ℹ️ finalizarCliqueJustificativaEspecial ignorado: justificativas removidas",
+  );
 }
 
 function atualizarEstadoVisualBotaoEspecial() {
@@ -486,7 +649,9 @@ function atualizarVisibilidadeJustificativaEspecial(input) {
 }
 
 function sincronizarJustificativasComPermissoesTabelaEspecial() {
-  console.log("ℹ️ Justificativas da tabela especial desativadas definitivamente");
+  console.log(
+    "ℹ️ Justificativas da tabela especial desativadas definitivamente",
+  );
 }
 
 function garantirPainelJustificativaEspecial() {
@@ -512,7 +677,9 @@ function abrirPainelJustificativaEspecial(botao, event = null) {
 }
 
 function fecharPainelJustificativaEspecial() {
-  const painel = document.getElementById("painel-justificativa-especial-flutuante");
+  const painel = document.getElementById(
+    "painel-justificativa-especial-flutuante",
+  );
   if (painel) {
     painel.classList.remove("ativo");
   }
@@ -529,6 +696,8 @@ async function selecionarJustificativaPainelEspecial(motivo) {
 // ⚙️ CONFIG DA TABELA ESPECIAL
 // ==========================
 function getConfigTabelaEspecial(indicador, classeSelecionada = null) {
+  const indicadorNorm = (indicador || "").toString().trim().toUpperCase();
+
   if (typeof getIndicadorConfig === "function") {
     const cfg = getIndicadorConfig(indicador, classeSelecionada);
 
@@ -542,16 +711,56 @@ function getConfigTabelaEspecial(indicador, classeSelecionada = null) {
         ? getCampoConfig(indicador, "valor2", classeSelecionada)
         : { key: "valor2", label: "Coluna 2", tipo: "numero" };
 
+    let tipo1Final = campo1?.tipo || "numero";
+    let tipo2Final = campo2?.tipo || "numero";
+    let col1Final = campo1?.label || "Coluna 1";
+    let col2Final = campo2?.label || "Coluna 2";
+
+    // ✅ FORÇA QTD PASSANTES COMO INTEIRO
+    if (indicadorNorm === "SELF-CHECKOUT") {
+      col1Final = campo1?.label || "Participação de Vendas";
+      col2Final = campo2?.label || "Qtd Passantes";
+
+      if (!tipo1Final || tipo1Final === "numero") {
+        tipo1Final = "moeda";
+      }
+
+      // aqui está a correção principal
+      tipo2Final = "inteiro";
+    }
+
+    if (indicadorNorm === "PART.TELEVENDAS") {
+      col1Final = campo1?.label || "Part %";
+      col2Final = campo2?.label || "Margem";
+
+      if (!tipo1Final || tipo1Final === "numero") {
+        tipo1Final = "percentual";
+      }
+
+      if (!tipo2Final || tipo2Final === "numero") {
+        tipo2Final = "percentual";
+      }
+    }
+
+    console.log("⚙️ Config tabela especial resolvida via config global:", {
+      indicadorNorm,
+      classeSelecionada,
+      campo1,
+      campo2,
+      tipo1Final,
+      tipo2Final,
+      col1Final,
+      col2Final,
+    });
+
     return {
       titulo: cfg?.nomeExibicao || indicador,
-      col1: campo1.label || "Coluna 1",
-      col2: campo2.label || "Coluna 2",
-      tipo1: campo1.tipo || "numero",
-      tipo2: campo2.tipo || "numero",
+      col1: col1Final,
+      col2: col2Final,
+      tipo1: tipo1Final,
+      tipo2: tipo2Final,
     };
   }
-
-  const indicadorNorm = (indicador || "").toString().trim().toUpperCase();
 
   if (indicadorNorm === "PART.TELEVENDAS") {
     return {
@@ -564,15 +773,14 @@ function getConfigTabelaEspecial(indicador, classeSelecionada = null) {
   }
 
   if (indicadorNorm === "SELF-CHECKOUT") {
-  return {
-    titulo: "SELF-CHECKOUT",
-    col1: "Participação de Vendas",
-    col2: "Qtd Passantes",
-    tipo1: "moeda",
-    tipo2: "inteiro",
-  };
-}
-
+    return {
+      titulo: "SELF-CHECKOUT",
+      col1: "Participação de Vendas",
+      col2: "Qtd Passantes",
+      tipo1: "moeda",
+      tipo2: "inteiro",
+    };
+  }
 
   return {
     titulo: indicadorNorm,
@@ -590,7 +798,7 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
   const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
   const config = getConfigTabelaEspecial(
     indicadorSelecionado,
-    classeSelecionada
+    classeSelecionada,
   );
   const semanaAtualReal = getSemanaAtual().toString().padStart(2, "0");
   const semanaCompacta = getSemanaCompactaEspecialAtual();
@@ -656,7 +864,8 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
     const semanaNorm = (semana || "").toString().padStart(2, "0");
     const classesSemana = [];
     if (semanaNorm === semanaAtualReal) classesSemana.push("coluna-atual");
-    if (semanaNorm === semanaCompacta) classesSemana.push("coluna-semana-compacta");
+    if (semanaNorm === semanaCompacta)
+      classesSemana.push("coluna-semana-compacta");
 
     html += `<th colspan="2"${getClassAttrEspecial(classesSemana)}>Semana ${semanaNorm}</th>`;
   });
@@ -668,7 +877,8 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
 
     const classesSemana1 = [];
     if (semanaNorm === semanaAtualReal) classesSemana1.push("coluna-atual");
-    if (semanaNorm === semanaCompacta) classesSemana1.push("coluna-semana-compacta");
+    if (semanaNorm === semanaCompacta)
+      classesSemana1.push("coluna-semana-compacta");
 
     const classesSemana2 = [...classesSemana1];
 
@@ -713,7 +923,8 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
 
       const classesCelula = ["celula-especial-valor"];
       if (semanaNorm === semanaAtualReal) classesCelula.push("coluna-atual");
-      if (semanaNorm === semanaCompacta) classesCelula.push("coluna-semana-compacta");
+      if (semanaNorm === semanaCompacta)
+        classesCelula.push("coluna-semana-compacta");
 
       const valor = item.valor ?? "";
       const valor2 = item.valor2 ?? "";
@@ -723,10 +934,10 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
           ? formatarValorParaInput(valor, config.tipo1)
           : valor;
 
-      const valor2Formatado =
-        typeof formatarValorParaInput === "function"
-          ? formatarValorParaInput(valor2, config.tipo2)
-          : valor2;
+      const valor2Formatado = formatarValorEspecialParaInput(
+        valor2,
+        config.tipo2,
+      );
 
       const original1 =
         valor === null || valor === undefined || valor === ""
@@ -745,26 +956,26 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
         indicadorSelecionado,
         "valor",
         config.tipo1,
-        semanaNorm
+        semanaNorm,
       );
       const largura2 = getLarguraCampoEspecialPx(
         indicadorSelecionado,
         "valor2",
         config.tipo2,
-        semanaNorm
+        semanaNorm,
       );
 
       const altura1 = getAlturaCampoEspecialPx(
         indicadorSelecionado,
         "valor",
         config.tipo1,
-        semanaNorm
+        semanaNorm,
       );
       const altura2 = getAlturaCampoEspecialPx(
         indicadorSelecionado,
         "valor2",
         config.tipo2,
-        semanaNorm
+        semanaNorm,
       );
 
       const larguraInput1 = Math.max(largura1 - 18, 88);
@@ -813,7 +1024,7 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
           >
             <input
               type="text"
-              inputmode="decimal"
+              inputmode="${tipoEhInteiroEspecial(config.tipo2) ? "numeric" : "decimal"}"
               value="${escapeHtmlEspecial(valor2Formatado)}"
               class="input-tabela input-tabela-compacto"
               style="
@@ -859,18 +1070,31 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
 
 // ==========================
 // ✍️ PREPARAR INPUT ESPECIAL
-// remove máscara ao focar
 // ==========================
 function prepararInputEspecial(input) {
   const tipo = input.dataset.tipo || "numero";
 
   if (typeof prepararInputFormatado === "function") {
     prepararInputFormatado(input);
+
+    if (tipoEhInteiroEspecial(tipo)) {
+      const bruto = (input.value || "").toString();
+      const sinal = bruto.trim().startsWith("-") ? "-" : "";
+      const digitos = bruto.replace(/\D/g, "");
+      input.value = digitos ? `${sinal}${digitos}` : "";
+    }
+
     return;
   }
 
   let valor = (input.value || "").toString().trim();
   valor = valor.replace("R$", "").replace("%", "").replace(/\s/g, "").trim();
+
+  if (tipoEhInteiroEspecial(tipo)) {
+    const sinal = valor.startsWith("-") ? "-" : "";
+    valor = valor.replace(/\D/g, "");
+    valor = valor ? `${sinal}${valor}` : "";
+  }
 
   input.value = valor;
 
@@ -885,7 +1109,6 @@ function prepararInputEspecial(input) {
 
 // ==========================
 // 🔎 FILTRO TABELA ESPECIAL
-// ✅ usa dataset, sem depender da coluna visível
 // ==========================
 function ativarFiltroEspecial() {
   const input = document.getElementById("filtroEspecial");
@@ -904,7 +1127,11 @@ function ativarFiltroEspecial() {
     document.querySelectorAll("#tbody-especial tr").forEach((row) => {
       const dentroDoEscopo = row.dataset.escopoPermitido !== "false";
 
-      const codigo = (row.dataset.lojaCodigo || row.children[0]?.textContent || "")
+      const codigo = (
+        row.dataset.lojaCodigo ||
+        row.children[0]?.textContent ||
+        ""
+      )
         .toString()
         .toLowerCase();
 
@@ -912,9 +1139,7 @@ function ativarFiltroEspecial() {
         .toString()
         .toLowerCase();
 
-      const regional = (row.dataset.regional || "")
-        .toString()
-        .toLowerCase();
+      const regional = (row.dataset.regional || "").toString().toLowerCase();
 
       const matchBusca =
         !termo || codigo.includes(termo) || loja.includes(termo);
@@ -949,7 +1174,6 @@ function ativarFiltroEspecial() {
 
 // ==========================
 // 💾 PROCESSAR AUTOSAVE ESPECIAL
-// ✅ sem justificativa
 // ==========================
 async function processarAutoSalvarEspecialCampo(input) {
   if (!input) return false;
@@ -965,12 +1189,7 @@ async function processarAutoSalvarEspecialCampo(input) {
   let valorLimpo = null;
 
   if (!valorCampoEstaVazioEspecial(valorDigitado)) {
-    if (typeof limparValorParaSalvar === "function") {
-      valorLimpo = limparValorParaSalvar(valorDigitado, tipo);
-    } else {
-      const numero = Number(valorDigitado.replace(",", "."));
-      valorLimpo = isNaN(numero) ? null : numero;
-    }
+    valorLimpo = limparValorEspecialParaSalvar(valorDigitado, tipo);
 
     if (valorLimpo === null || Number.isNaN(valorLimpo)) {
       console.warn("⚠️ Valor especial inválido, salvamento ignorado", {
@@ -990,22 +1209,25 @@ async function processarAutoSalvarEspecialCampo(input) {
     valorLimpo === null || valorLimpo === undefined ? "" : String(valorLimpo);
 
   if (valorComparacao === valorOriginal) {
-    console.log("ℹ️ Nenhuma alteração especial detectada, salvamento ignorado", {
-      loja,
-      semana,
-      campo,
-      valor: valorComparacao,
-    });
+    console.log(
+      "ℹ️ Nenhuma alteração especial detectada, salvamento ignorado",
+      {
+        loja,
+        semana,
+        campo,
+        valor: valorComparacao,
+      },
+    );
 
-    if (valorLimpo !== null && typeof formatarValorParaInput === "function") {
-      input.value = formatarValorParaInput(valorLimpo, tipo);
+    if (valorLimpo !== null) {
+      input.value = formatarValorEspecialParaInput(valorLimpo, tipo);
     }
 
     return true;
   }
 
-  if (valorLimpo !== null && typeof formatarValorParaInput === "function") {
-    input.value = formatarValorParaInput(valorLimpo, tipo);
+  if (valorLimpo !== null) {
+    input.value = formatarValorEspecialParaInput(valorLimpo, tipo);
   }
 
   console.log("⚡ AutoSave Especial completo", {
@@ -1018,12 +1240,7 @@ async function processarAutoSalvarEspecialCampo(input) {
 
   aplicarStatusInputEspecial(input, "salvando");
 
-  const salvou = await salvarValorEspecial(
-    loja,
-    semana,
-    campo,
-    valorLimpo
-  );
+  const salvou = await salvarValorEspecial(loja, semana, campo, valorLimpo);
 
   if (salvou) {
     input.dataset.original = valorComparacao;
@@ -1047,7 +1264,7 @@ async function autoSalvarEspecial(input) {
 
 // ==========================
 // 💾 SALVAR VALOR ESPECIAL
-// ✅ sem justificativa
+// Compatível com ano_referencia / mes_referencia / data_referencia
 // ==========================
 async function salvarValorEspecial(loja, semana, campo, valor) {
   const numero =
@@ -1055,12 +1272,18 @@ async function salvarValorEspecial(loja, semana, campo, valor) {
       ? null
       : Number(valor);
 
-  if (valor !== null && valor !== undefined && valor !== "" && isNaN(numero)) {
+  if (
+    valor !== null &&
+    valor !== undefined &&
+    valor !== "" &&
+    Number.isNaN(numero)
+  ) {
     console.warn("⚠️ salvarValorEspecial ignorado por número inválido:", valor);
     return false;
   }
 
   const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
+
   const indicadorNormalizado = (indicadorSelecionado || "")
     .toString()
     .trim()
@@ -1075,14 +1298,24 @@ async function salvarValorEspecial(loja, semana, campo, valor) {
     typeof getClasseIndicador === "function"
       ? getClasseIndicador(indicadorNormalizado, classeSelecionada)
       : typeof obterClasse === "function"
-      ? obterClasse(indicadorNormalizado, classeSelecionada)
-      : classeSelecionada || "Outros";
+        ? obterClasse(indicadorNormalizado, classeSelecionada)
+        : classeSelecionada || "Outros";
+
+  const semanaNorm = (semana || "").toString().padStart(2, "0");
+
+  const anoReferencia = getAnoReferenciaEspecialAtual();
+  const mesReferencia = getMesReferenciaEspecialAtual();
+  const dataReferencia = getDataReferenciaEspecialAtual();
+  const granularidade = getGranularidadeEspecialAtual();
+
+  const origemModulo = getOrigemModuloEspecial(classe);
+  const origemTabela = getOrigemTabelaEspecial(indicadorBanco);
 
   const colunaJustificativa = getColunaJustificativaEspecial(campo);
 
   const chaveSalvar = getChaveRegistroEspecial(
     loja,
-    semana,
+    semanaNorm,
     indicadorBanco,
     classe,
     campo
@@ -1100,21 +1333,29 @@ async function salvarValorEspecial(loja, semana, campo, valor) {
     indicadorBanco,
     classe,
     loja,
-    semana,
+    semana: semanaNorm,
+    anoReferencia,
+    mesReferencia,
+    dataReferencia,
+    granularidade,
     campo,
     numero,
     justificativaDesativada: true,
   });
 
   try {
-    const { data: existentes, error: erroBusca } = await window.db
+    let query = window.db
       .from("resultados")
       .select("*")
       .eq("loja", loja)
-      .eq("semana", semana)
+      .eq("semana", semanaNorm)
       .eq("indicador", indicadorBanco)
       .eq("classe", classe)
+      .eq("ano_referencia", anoReferencia)
+      .eq("granularidade", granularidade)
       .order("id", { ascending: true });
+
+    const { data: existentes, error: erroBusca } = await query;
 
     if (erroBusca) throw erroBusca;
 
@@ -1123,7 +1364,9 @@ async function salvarValorEspecial(loja, semana, campo, valor) {
     if (registros.length > 1) {
       console.warn("⚠️ Registros especiais duplicados encontrados:", {
         loja,
-        semana,
+        semana: semanaNorm,
+        anoReferencia,
+        granularidade,
         indicadorBanco,
         classe,
         qtd: registros.length,
@@ -1131,7 +1374,16 @@ async function salvarValorEspecial(loja, semana, campo, valor) {
       });
     }
 
-    const updateData = {};
+    const updateData = {
+      updated_at: new Date().toISOString(),
+      ano_referencia: anoReferencia,
+      mes_referencia: mesReferencia,
+      data_referencia: dataReferencia,
+      granularidade,
+      origem_modulo: origemModulo,
+      origem_tabela: origemTabela,
+    };
+
     updateData[campo] = numero;
     updateData[colunaJustificativa] = null;
 
@@ -1148,7 +1400,8 @@ async function salvarValorEspecial(loja, semana, campo, valor) {
       console.log("✅ Especial atualizado com sucesso:", {
         id: idAlvo,
         loja,
-        semana,
+        semana: semanaNorm,
+        anoReferencia,
         campo,
         valor: numero,
         colunaJustificativa,
@@ -1160,11 +1413,20 @@ async function salvarValorEspecial(loja, semana, campo, valor) {
 
     const payload = {
       loja,
-      semana,
+      semana: semanaNorm,
       indicador: indicadorBanco,
       classe,
+
       valor: campo === "valor" ? numero : null,
       valor2: campo === "valor2" ? numero : null,
+
+      ano_referencia: anoReferencia,
+      mes_referencia: mesReferencia,
+      data_referencia: dataReferencia,
+      granularidade,
+
+      origem_modulo: origemModulo,
+      origem_tabela: origemTabela,
     };
 
     payload[colunaJustificativa] = null;
@@ -1180,7 +1442,8 @@ async function salvarValorEspecial(loja, semana, campo, valor) {
     console.log("✅ Especial inserido com sucesso:", {
       id: inserido?.id,
       loja,
-      semana,
+      semana: semanaNorm,
+      anoReferencia,
       campo,
       valor: numero,
       colunaJustificativa,

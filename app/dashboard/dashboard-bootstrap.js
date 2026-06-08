@@ -1,7 +1,7 @@
 console.log("✅ dashboard-bootstrap.js carregado");
 
 window.DashboardBI = window.DashboardBI || {};
-DashboardBI.bootstrap = DashboardBI.bootstrap || {};
+window.DashboardBI.bootstrap = window.DashboardBI.bootstrap || {};
 
 (function inicializarDashboardBootstrap() {
   const LOG_PREFIX = "🚀 DashboardBootstrap";
@@ -63,25 +63,27 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
   function verificarModulosEssenciais() {
     const faltando = [];
 
-    if (!DashboardBI.STATE) faltando.push("DashboardBI.STATE");
-    if (!DashboardBI.CONSTS) faltando.push("DashboardBI.CONSTS");
-    if (!DashboardBI.helpers) faltando.push("DashboardBI.helpers");
-    if (!DashboardBI.filters) faltando.push("DashboardBI.filters");
-    if (!DashboardBI.aggregations) faltando.push("DashboardBI.aggregations");
-    if (!DashboardBI.kpis) faltando.push("DashboardBI.kpis");
-    if (!DashboardBI.charts) faltando.push("DashboardBI.charts");
-    if (!DashboardBI.data) faltando.push("DashboardBI.data");
-    if (!DashboardBI.views) faltando.push("DashboardBI.views");
-    if (!DashboardBI.fullscreen) faltando.push("DashboardBI.fullscreen");
+    if (!window.DashboardBI) faltando.push("DashboardBI");
+    if (!window.DashboardBI?.STATE) faltando.push("DashboardBI.STATE");
+    if (!window.DashboardBI?.CONSTS) faltando.push("DashboardBI.CONSTS");
+    if (!window.DashboardBI?.helpers) faltando.push("DashboardBI.helpers");
+    if (!window.DashboardBI?.filters) faltando.push("DashboardBI.filters");
+    if (!window.DashboardBI?.aggregations) faltando.push("DashboardBI.aggregations");
+    if (!window.DashboardBI?.kpis) faltando.push("DashboardBI.kpis");
+    if (!window.DashboardBI?.charts) faltando.push("DashboardBI.charts");
+    if (!window.DashboardBI?.data) faltando.push("DashboardBI.data");
+    if (!window.DashboardBI?.views) faltando.push("DashboardBI.views");
+    if (!window.DashboardBI?.fullscreen) faltando.push("DashboardBI.fullscreen");
 
     if (faltando.length) {
       const resultado = {
         ok: false,
         faltando,
         invalidas: [],
+        atualizadoEm: new Date().toISOString(),
       };
 
-      DashboardBI.ultimaValidacao = resultado;
+      window.DashboardBI.ultimaValidacao = resultado;
       logError("Módulos essenciais do dashboard ausentes", resultado);
       return resultado;
     }
@@ -89,19 +91,23 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
     const funcoesCriticas = [
       {
         nome: "DashboardBI.views.telaDashboard",
-        ok: typeof DashboardBI.views.telaDashboard === "function",
+        ok: typeof window.DashboardBI.views.telaDashboard === "function",
       },
       {
         nome: "DashboardBI.data.carregarDadosDashboard",
-        ok: typeof DashboardBI.data.carregarDadosDashboard === "function",
+        ok: typeof window.DashboardBI.data.carregarDadosDashboard === "function",
       },
       {
         nome: "DashboardBI.fullscreen.abrirDashboardTelaCheia",
-        ok: typeof DashboardBI.fullscreen.abrirDashboardTelaCheia === "function",
+        ok:
+          typeof window.DashboardBI.fullscreen.abrirDashboardTelaCheia ===
+          "function",
       },
       {
         nome: "DashboardBI.fullscreen.sairDashboardTelaCheia",
-        ok: typeof DashboardBI.fullscreen.sairDashboardTelaCheia === "function",
+        ok:
+          typeof window.DashboardBI.fullscreen.sairDashboardTelaCheia ===
+          "function",
       },
     ];
 
@@ -114,9 +120,10 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
         ok: false,
         faltando: [],
         invalidas,
+        atualizadoEm: new Date().toISOString(),
       };
 
-      DashboardBI.ultimaValidacao = resultado;
+      window.DashboardBI.ultimaValidacao = resultado;
       logError("Funções críticas do dashboard ausentes", resultado);
       return resultado;
     }
@@ -125,10 +132,12 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
       ok: true,
       faltando: [],
       invalidas: [],
+      atualizadoEm: new Date().toISOString(),
     };
 
-    DashboardBI.ultimaValidacao = resultado;
+    window.DashboardBI.ultimaValidacao = resultado;
     logInfo("Todos os módulos essenciais do dashboard foram validados", resultado);
+
     return resultado;
   }
 
@@ -149,7 +158,11 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
     return true;
   }
 
-  async function executarAcaoDashboard(nomeAcao, acao, { mostrarFalhaVisual = false } = {}) {
+  async function executarAcaoDashboard(
+    nomeAcao,
+    acao,
+    { mostrarFalhaVisual = false } = {}
+  ) {
     try {
       garantirDashboardValido();
 
@@ -173,33 +186,47 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
 
   // ==========================
   // 🌐 EXPOR FUNÇÕES GLOBAIS
+  // Compatível com dashboard.js loader
+  // Só cria se ainda não existirem.
   // ==========================
   function exporFuncoesGlobaisDashboard() {
-    window.telaDashboard = async function () {
-      return executarAcaoDashboard(
-        "telaDashboard",
-        async () => DashboardBI.views.telaDashboard(),
-        { mostrarFalhaVisual: true }
-      );
-    };
+    if (typeof window.telaDashboard !== "function") {
+      window.telaDashboard = async function () {
+        return executarAcaoDashboard(
+          "telaDashboard",
+          async () => window.DashboardBI.views.telaDashboard(),
+          { mostrarFalhaVisual: true }
+        );
+      };
+    } else {
+      logInfo("window.telaDashboard já existe; mantendo função atual");
+    }
 
-    window.abrirDashboardTelaCheia = async function () {
-      return executarAcaoDashboard(
-        "abrirDashboardTelaCheia",
-        async () => DashboardBI.fullscreen.abrirDashboardTelaCheia(),
-        { mostrarFalhaVisual: false }
-      );
-    };
+    if (typeof window.abrirDashboardTelaCheia !== "function") {
+      window.abrirDashboardTelaCheia = async function () {
+        return executarAcaoDashboard(
+          "abrirDashboardTelaCheia",
+          async () => window.DashboardBI.fullscreen.abrirDashboardTelaCheia(),
+          { mostrarFalhaVisual: false }
+        );
+      };
+    } else {
+      logInfo("window.abrirDashboardTelaCheia já existe; mantendo função atual");
+    }
 
-    window.sairDashboardTelaCheia = async function () {
-      return executarAcaoDashboard(
-        "sairDashboardTelaCheia",
-        async () => DashboardBI.fullscreen.sairDashboardTelaCheia(),
-        { mostrarFalhaVisual: false }
-      );
-    };
+    if (typeof window.sairDashboardTelaCheia !== "function") {
+      window.sairDashboardTelaCheia = async function () {
+        return executarAcaoDashboard(
+          "sairDashboardTelaCheia",
+          async () => window.DashboardBI.fullscreen.sairDashboardTelaCheia(),
+          { mostrarFalhaVisual: false }
+        );
+      };
+    } else {
+      logInfo("window.sairDashboardTelaCheia já existe; mantendo função atual");
+    }
 
-    logInfo("Funções globais do dashboard expostas", {
+    logInfo("Funções globais do dashboard verificadas", {
       telaDashboard: typeof window.telaDashboard,
       abrirDashboardTelaCheia: typeof window.abrirDashboardTelaCheia,
       sairDashboardTelaCheia: typeof window.sairDashboardTelaCheia,
@@ -212,7 +239,7 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
   function recarregarDashboardAtual() {
     return executarAcaoDashboard(
       "recarregarDashboardAtual",
-      async () => DashboardBI.views.telaDashboard(),
+      async () => window.DashboardBI.views.telaDashboard(),
       { mostrarFalhaVisual: false }
     );
   }
@@ -221,31 +248,33 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
   // 🧠 STATUS DE PRONTIDÃO
   // ==========================
   function marcarDashboardPronto() {
-    DashboardBI.pronto = true;
-    DashboardBI.inicializadoEm = new Date().toISOString();
+    window.DashboardBI.pronto = true;
+    window.DashboardBI.inicializadoEm = new Date().toISOString();
 
     logInfo("DashboardBI marcado como pronto", {
-      pronto: DashboardBI.pronto,
-      inicializadoEm: DashboardBI.inicializadoEm,
-      ultimaValidacao: DashboardBI.ultimaValidacao || null,
+      pronto: window.DashboardBI.pronto,
+      inicializadoEm: window.DashboardBI.inicializadoEm,
+      ultimaValidacao: window.DashboardBI.ultimaValidacao || null,
     });
   }
 
   function marcarDashboardComFalha(validacao = null) {
-    DashboardBI.pronto = false;
-    DashboardBI.inicializadoEm = DashboardBI.inicializadoEm || null;
-    DashboardBI.ultimaValidacao = validacao || DashboardBI.ultimaValidacao || null;
+    window.DashboardBI.pronto = false;
+    window.DashboardBI.inicializadoEm =
+      window.DashboardBI.inicializadoEm || null;
+    window.DashboardBI.ultimaValidacao =
+      validacao || window.DashboardBI.ultimaValidacao || null;
 
     logWarn("DashboardBI marcado como não pronto", {
-      pronto: DashboardBI.pronto,
-      ultimaValidacao: DashboardBI.ultimaValidacao,
+      pronto: window.DashboardBI.pronto,
+      ultimaValidacao: window.DashboardBI.ultimaValidacao,
     });
   }
 
   // ==========================
   // 🚀 INIT
   // ==========================
-  DashboardBI.bootstrap.init = function () {
+  window.DashboardBI.bootstrap.init = function () {
     logInfo("Inicializando bootstrap do dashboard...");
 
     const validacao = verificarModulosEssenciais();
@@ -262,29 +291,40 @@ DashboardBI.bootstrap = DashboardBI.bootstrap || {};
     return true;
   };
 
-  DashboardBI.bootstrap.verificarModulosEssenciais = verificarModulosEssenciais;
-  DashboardBI.bootstrap.exporFuncoesGlobaisDashboard =
+  window.DashboardBI.bootstrap.verificarModulosEssenciais =
+    verificarModulosEssenciais;
+
+  window.DashboardBI.bootstrap.exporFuncoesGlobaisDashboard =
     exporFuncoesGlobaisDashboard;
-  DashboardBI.bootstrap.recarregarDashboardAtual = recarregarDashboardAtual;
-  DashboardBI.bootstrap.garantirDashboardValido = garantirDashboardValido;
+
+  window.DashboardBI.bootstrap.recarregarDashboardAtual =
+    recarregarDashboardAtual;
+
+  window.DashboardBI.bootstrap.garantirDashboardValido =
+    garantirDashboardValido;
+
+  window.DashboardBI.bootstrap.executarAcaoDashboard =
+    executarAcaoDashboard;
 
   // ==========================
   // ▶️ AUTO INIT
   // ==========================
-  const sucessoInit = DashboardBI.bootstrap.init();
+  const sucessoInit = window.DashboardBI.bootstrap.init();
 
   logInfo("dashboard-bootstrap.js pronto", {
-    init: typeof DashboardBI.bootstrap.init,
+    init: typeof window.DashboardBI.bootstrap.init,
     verificarModulosEssenciais:
-      typeof DashboardBI.bootstrap.verificarModulosEssenciais,
+      typeof window.DashboardBI.bootstrap.verificarModulosEssenciais,
     exporFuncoesGlobaisDashboard:
-      typeof DashboardBI.bootstrap.exporFuncoesGlobaisDashboard,
+      typeof window.DashboardBI.bootstrap.exporFuncoesGlobaisDashboard,
     recarregarDashboardAtual:
-      typeof DashboardBI.bootstrap.recarregarDashboardAtual,
+      typeof window.DashboardBI.bootstrap.recarregarDashboardAtual,
     garantirDashboardValido:
-      typeof DashboardBI.bootstrap.garantirDashboardValido,
-    pronto: DashboardBI.pronto === true,
+      typeof window.DashboardBI.bootstrap.garantirDashboardValido,
+    executarAcaoDashboard:
+      typeof window.DashboardBI.bootstrap.executarAcaoDashboard,
+    pronto: window.DashboardBI.pronto === true,
     sucessoInit,
-    ultimaValidacao: DashboardBI.ultimaValidacao || null,
+    ultimaValidacao: window.DashboardBI.ultimaValidacao || null,
   });
 })();

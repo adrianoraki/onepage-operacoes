@@ -79,6 +79,18 @@ function tipoMoedaAnalise(tipo) {
   );
 }
 
+// ✅ AJUSTE NECESSÁRIO
+function tipoInteiroAnalise(tipo) {
+  const t = normalizarTextoAnaliseLower(tipo);
+  return (
+    t === "inteiro" ||
+    t === "numero-inteiro" ||
+    t === "int" ||
+    t === "integer"
+  );
+}
+
+
 function extrairSinalAnalise(texto) {
   const bruto = (texto || "").toString().trim();
   return bruto.startsWith("-") ? -1 : 1;
@@ -199,9 +211,9 @@ function formatarValorExibicaoAnalise(valor, tipo = "numero", casas = 2) {
     return formatarMoedaBRAnalise(numero);
   }
 
-  function tipoInteiroAnalise(tipo) {
-    const t = normalizarTextoAnaliseLower(tipo);
-    return t === "inteiro" || t === "numero-inteiro" || t === "int";
+  // ✅ AJUSTE NECESSÁRIO
+  if (tipoInteiroAnalise(tipo)) {
+    return String(Math.trunc(numero));
   }
 
   if (tipoPercentualAnalise(tipo)) {
@@ -225,6 +237,11 @@ function formatarValorParaInputAnalise(valor, tipo = "numero") {
     return formatarPercentualBRAnalise(numero, 2);
   }
 
+  // ✅ AJUSTE NECESSÁRIO
+  if (tipoInteiroAnalise(tipo)) {
+    return String(Math.trunc(numero));
+  }
+
   return formatarNumeroAnalise(numero, 2);
 }
 
@@ -236,7 +253,12 @@ function prepararInputFormatadoAnalise(input) {
 
   if (!brutoAtual) return;
 
-  if (tipoMoedaAnalise(tipo) || tipoPercentualAnalise(tipo)) {
+  // ✅ AJUSTE NECESSÁRIO
+  if (tipoInteiroAnalise(tipo)) {
+    const sinal = brutoAtual.startsWith("-") ? "-" : "";
+    const digitos = extrairDigitosAnalise(brutoAtual);
+    input.value = digitos ? `${sinal}${digitos}` : "";
+  } else if (tipoMoedaAnalise(tipo) || tipoPercentualAnalise(tipo)) {
     const sinal = brutoAtual.startsWith("-") ? "-" : "";
     const digitos = extrairDigitosAnalise(brutoAtual);
     input.value = digitos ? `${sinal}${digitos}` : "";
@@ -320,6 +342,10 @@ function formatarKpiAnalise(
 
   if (tipoMoedaAnalise(tipo)) {
     return formatarMoedaBRAnalise(numero);
+  }
+
+  if (tipoInteiroAnalise(tipo)) {
+    return String(Math.trunc(numero));
   }
 
   return formatarNumeroAnalise(numero, casas);

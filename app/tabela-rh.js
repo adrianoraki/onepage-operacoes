@@ -360,6 +360,87 @@ function aplicarLayoutTabelaRH(container = null) {
 }
 
 // ==========================
+// 📅 REFERÊNCIA TEMPORAL RH
+// Compatível com histórico por ano/mês/dia/semana
+// ==========================
+function getIndicadorRHSeguro() {
+  try {
+    if (typeof indicadorSelecionado !== "undefined" && indicadorSelecionado) {
+      return indicadorSelecionado;
+    }
+  } catch (erro) {
+    return "";
+  }
+
+  return localStorage.getItem("indicador") || "";
+}
+
+function getAnoReferenciaRHAtual() {
+  const anoStorage =
+    localStorage.getItem("anoReferencia") ||
+    localStorage.getItem("ano_referencia") ||
+    localStorage.getItem("ano");
+
+  const ano = Number(anoStorage);
+
+  if (Number.isFinite(ano) && ano >= 2020 && ano <= 2100) {
+    return ano;
+  }
+
+  return new Date().getFullYear();
+}
+
+function getMesReferenciaRHAtual() {
+  const mesStorage =
+    localStorage.getItem("mesReferencia") ||
+    localStorage.getItem("mes_referencia") ||
+    localStorage.getItem("mes");
+
+  const mes = Number(mesStorage);
+
+  if (Number.isFinite(mes) && mes >= 1 && mes <= 12) {
+    return mes;
+  }
+
+  return new Date().getMonth() + 1;
+}
+
+function getDataReferenciaRHAtual() {
+  const dataStorage =
+    localStorage.getItem("dataReferencia") ||
+    localStorage.getItem("data_referencia");
+
+  if (dataStorage && /^\d{4}-\d{2}-\d{2}$/.test(dataStorage)) {
+    return dataStorage;
+  }
+
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+  const dia = String(hoje.getDate()).padStart(2, "0");
+
+  return `${ano}-${mes}-${dia}`;
+}
+
+function getGranularidadeRHAtual() {
+  return (
+    localStorage.getItem("granularidade") ||
+    localStorage.getItem("granularidade_referencia") ||
+    "semanal"
+  );
+}
+
+function getOrigemModuloRH(classe) {
+  return (
+    classe || localStorage.getItem("classeSelecionada") || "RH / Operacional"
+  );
+}
+
+function getOrigemTabelaRH(indicadorBanco) {
+  return indicadorBanco || getIndicadorRHSeguro() || "BANCO DE HORAS";
+}
+
+// ==========================
 // 🧹 JUSTIFICATIVAS DESATIVADAS
 // mantidas como compatibilidade / no-op
 // ==========================
@@ -368,25 +449,14 @@ function getListaJustificativasRH() {
 }
 
 function getIndicadorRHAtualNormalizado() {
-  return (indicadorSelecionado || "").toString().trim().toUpperCase();
+  return getIndicadorRHSeguro().toString().trim().toUpperCase();
 }
 
 function getColunaJustificativaRH(campo) {
-  const indicadorNorm = getIndicadorRHAtualNormalizado();
-
-  if (
-    indicadorNorm === "BANCOS DE HORAS" ||
-    indicadorNorm === "BANCO DE HORAS" ||
-    indicadorNorm === "RH / OPERACIONAL"
-  ) {
-    if (campo === "valor") return "justificativa_horas_mais";
-    if (campo === "valor2") return "justificativa_horas_menos";
-  }
-
   if (campo === "valor") return "justificativa_valor";
   if (campo === "valor2") return "justificativa_valor2";
 
-  return `justificativa_${campo}`;
+  return "justificativa";
 }
 
 function getLabelCampoRH(campo) {
@@ -405,7 +475,7 @@ function getInputRH(loja, semana, campo) {
   const campoEsc = escapeCssSelectorRH(campo);
 
   const el = document.querySelector(
-    `#tbody-rh input[data-loja="${lojaEsc}"][data-semana="${semanaEsc}"][data-campo="${campoEsc}"]`
+    `#tbody-rh input[data-loja="${lojaEsc}"][data-semana="${semanaEsc}"][data-campo="${campoEsc}"]`,
   );
 
   if (!el) {
@@ -431,7 +501,9 @@ function getInputDoBotaoRH() {
 // 🖱️ CONTROLE DE CLIQUE RH
 // ==========================
 function prepararCliqueJustificativaRH(event = null) {
-  console.log("ℹ️ prepararCliqueJustificativaRH ignorado: justificativas removidas");
+  console.log(
+    "ℹ️ prepararCliqueJustificativaRH ignorado: justificativas removidas",
+  );
   if (event) {
     event.preventDefault();
     event.stopPropagation();
@@ -439,7 +511,9 @@ function prepararCliqueJustificativaRH(event = null) {
 }
 
 function finalizarCliqueJustificativaRH() {
-  console.log("ℹ️ finalizarCliqueJustificativaRH ignorado: justificativas removidas");
+  console.log(
+    "ℹ️ finalizarCliqueJustificativaRH ignorado: justificativas removidas",
+  );
 }
 
 // ==========================
@@ -529,7 +603,7 @@ function getConfigTabelaRH(indicador, classeSelecionada = null) {
   }
 
   return {
-    titulo: indicador || "BANCOS DE HORAS",
+    titulo: indicador || "BANCO DE HORAS",
     col1: "Horas +",
     col2: "Horas -",
     tipo1: "numero",
@@ -688,28 +762,28 @@ function montarTabelaRH(lojas, mapa, semanas) {
         indicadorSelecionado,
         "valor",
         config.tipo1,
-        semanaNorm
+        semanaNorm,
       );
 
       const largura2 = getLarguraCampoRHPx(
         indicadorSelecionado,
         "valor2",
         config.tipo2,
-        semanaNorm
+        semanaNorm,
       );
 
       const altura1 = getAlturaCampoRHPx(
         indicadorSelecionado,
         "valor",
         config.tipo1,
-        semanaNorm
+        semanaNorm,
       );
 
       const altura2 = getAlturaCampoRHPx(
         indicadorSelecionado,
         "valor2",
         config.tipo2,
-        semanaNorm
+        semanaNorm,
       );
 
       const larguraInput1 = Math.max(largura1 - 18, 100);
@@ -847,7 +921,11 @@ function ativarFiltroRH() {
     document.querySelectorAll("#tbody-rh tr").forEach((row) => {
       const dentroDoEscopo = row.dataset.escopoPermitido !== "false";
 
-      const codigo = (row.dataset.lojaCodigo || row.children[0]?.textContent || "")
+      const codigo = (
+        row.dataset.lojaCodigo ||
+        row.children[0]?.textContent ||
+        ""
+      )
         .toString()
         .toLowerCase();
 
@@ -855,9 +933,7 @@ function ativarFiltroRH() {
         .toString()
         .toLowerCase();
 
-      const regional = (row.dataset.regional || "")
-        .toString()
-        .toLowerCase();
+      const regional = (row.dataset.regional || "").toString().toLowerCase();
 
       const matchBusca =
         !termo || codigo.includes(termo) || loja.includes(termo);
@@ -960,8 +1036,8 @@ async function processarAutoSalvarRHCampo(input) {
     typeof getClasseIndicador === "function"
       ? getClasseIndicador(indicadorNormalizado, classeSelecionada)
       : typeof obterClasse === "function"
-      ? obterClasse(indicadorNormalizado, classeSelecionada)
-      : classeSelecionada || "RH / Operacional";
+        ? obterClasse(indicadorNormalizado, classeSelecionada)
+        : classeSelecionada || "RH / Operacional";
 
   console.log("⚡ AUTOSAVE RH:", {
     loja,
@@ -982,7 +1058,7 @@ async function processarAutoSalvarRHCampo(input) {
     campo,
     valorLimpo,
     indicadorNormalizado,
-    classe
+    classe,
   );
 
   if (salvou) {
@@ -1009,40 +1085,71 @@ async function autoSalvarRH(input) {
 // 💾 SALVAR VALOR RH
 // ✅ sem justificativa
 // ==========================
+// ==========================
+// 💾 SALVAR VALOR RH
+// Compatível com ano_referencia / mes_referencia / data_referencia
+// ==========================
 async function salvarValorRH(
   loja,
   semana,
   campo,
   valor,
   indicadorNormalizado,
-  classe
+  classe,
 ) {
   const numero =
     valor === null || valor === undefined || valor === ""
       ? null
       : Number(valor);
 
-  if (valor !== null && valor !== undefined && valor !== "" && isNaN(numero)) {
+  if (
+    valor !== null &&
+    valor !== undefined &&
+    valor !== "" &&
+    Number.isNaN(numero)
+  ) {
     console.warn("⚠️ salvarValorRH ignorado por número inválido:", valor);
     return false;
   }
 
+  const classeSelecionada = localStorage.getItem("classeSelecionada") || "";
+
+  const indicadorBase = (indicadorNormalizado || getIndicadorRHSeguro() || "")
+    .toString()
+    .trim()
+    .toUpperCase();
+
   const indicadorBanco =
     typeof getIndicadorBanco === "function"
-      ? getIndicadorBanco(
-          indicadorNormalizado,
-          localStorage.getItem("classeSelecionada") || ""
-        )
-      : indicadorNormalizado;
+      ? getIndicadorBanco(indicadorBase, classeSelecionada)
+      : indicadorBase;
+
+  const classeFinal =
+    classe ||
+    (typeof getClasseIndicador === "function"
+      ? getClasseIndicador(indicadorBase, classeSelecionada)
+      : typeof obterClasse === "function"
+        ? obterClasse(indicadorBase, classeSelecionada)
+        : classeSelecionada || "RH / Operacional");
+
+  const semanaNorm = (semana || "").toString().padStart(2, "0");
+
+  const anoReferencia = getAnoReferenciaRHAtual();
+  const mesReferencia = getMesReferenciaRHAtual();
+  const dataReferencia = getDataReferenciaRHAtual();
+  const granularidade = getGranularidadeRHAtual();
+
+  const origemModulo = getOrigemModuloRH(classeFinal);
+  const origemTabela = getOrigemTabelaRH(indicadorBanco);
 
   const colunaJustificativa = getColunaJustificativaRH(campo);
 
   const chaveSalvar = getChaveRegistroRH(
     loja,
-    semana,
+    semanaNorm,
     indicadorBanco,
-    classe,
-    campo
+    classeFinal,
+    campo,
   );
 
   if (TABELA_RH_STATE.salvando.has(chaveSalvar)) {
@@ -1054,12 +1161,16 @@ async function salvarValorRH(
 
   console.log("💾 SALVAR RH:", {
     loja,
-    semana,
+    semana: semanaNorm,
     campo,
     valor: numero,
-    indicador: indicadorNormalizado,
+    indicador: indicadorBase,
     indicadorBanco,
-    classe,
+    classe: classeFinal,
+    anoReferencia,
+    mesReferencia,
+    dataReferencia,
+    granularidade,
     justificativaDesativada: true,
   });
 
@@ -1068,27 +1179,54 @@ async function salvarValorRH(
       .from("resultados")
       .select("*")
       .eq("loja", loja)
-      .eq("semana", semana)
+      .eq("semana", semanaNorm)
       .eq("indicador", indicadorBanco)
-      .eq("classe", classe)
+      .eq("classe", classeFinal)
+      .eq("ano_referencia", anoReferencia)
+      .eq("granularidade", granularidade)
       .order("id", { ascending: true });
 
     if (error) throw error;
 
     const registros = existentes || [];
 
+    // Evita criar registro vazio quando não existe linha no banco
+    // e o usuário saiu do campo sem digitar valor
+    if (registros.length === 0 && numero === null) {
+      console.log("ℹ️ RH vazio sem registro existente - insert ignorado", {
+        loja,
+        semana: semanaNorm,
+        indicadorBanco,
+        classe: classeFinal,
+        campo,
+      });
+
+      return true;
+    }
+
     if (registros.length > 1) {
       console.warn("⚠️ Registros RH duplicados encontrados:", {
         loja,
-        semana,
+        semana: semanaNorm,
+        anoReferencia,
+        granularidade,
         indicadorBanco,
-        classe,
+        classe: classeFinal,
         qtd: registros.length,
         ids: registros.map((r) => r.id),
       });
     }
 
-    const updateData = {};
+    const updateData = {
+      updated_at: new Date().toISOString(),
+      ano_referencia: anoReferencia,
+      mes_referencia: mesReferencia,
+      data_referencia: dataReferencia,
+      granularidade,
+      origem_modulo: origemModulo,
+      origem_tabela: origemTabela,
+    };
+
     updateData[campo] = numero;
     updateData[colunaJustificativa] = null;
 
@@ -1105,7 +1243,8 @@ async function salvarValorRH(
       console.log("✅ RH atualizado com sucesso:", {
         id: idAlvo,
         loja,
-        semana,
+        semana: semanaNorm,
+        anoReferencia,
         campo,
         valor: numero,
         colunaJustificativa,
@@ -1117,11 +1256,20 @@ async function salvarValorRH(
 
     const novoRegistro = {
       loja,
-      semana,
+      semana: semanaNorm,
       indicador: indicadorBanco,
-      classe,
+      classe: classeFinal,
+
       valor: campo === "valor" ? numero : null,
       valor2: campo === "valor2" ? numero : null,
+
+      ano_referencia: anoReferencia,
+      mes_referencia: mesReferencia,
+      data_referencia: dataReferencia,
+      granularidade,
+
+      origem_modulo: origemModulo,
+      origem_tabela: origemTabela,
     };
 
     novoRegistro[colunaJustificativa] = null;
@@ -1137,7 +1285,8 @@ async function salvarValorRH(
     console.log("✅ RH inserido com sucesso:", {
       id: inserido?.id,
       loja,
-      semana,
+      semana: semanaNorm,
+      anoReferencia,
       campo,
       valor: numero,
       colunaJustificativa,

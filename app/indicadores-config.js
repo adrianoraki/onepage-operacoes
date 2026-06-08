@@ -2,6 +2,8 @@ console.log("✅ indicadores-config.js carregado");
 
 // ==========================
 // 🧠 CONFIGURAÇÃO CENTRAL DOS INDICADORES
+// Alinhado ao catálogo oficial do Supabase:
+// 17 indicadores oficiais.
 // ==========================
 const indicadoresConfig = {
   // ======================
@@ -13,9 +15,10 @@ const indicadoresConfig = {
     classe: "Auditoria",
     subclasse: "GERAL",
     tipo: "percentual",
+    ordemRanking: "asc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
-    aliases: ["RUPTURA FINAL"],
+    aliases: ["RUPTURA FINAL", "RUPTURA", "Ruptura Final"],
     campos: [{ key: "valor", label: "Resultado", tipo: "percentual" }],
     metas: {},
   },
@@ -26,6 +29,7 @@ const indicadoresConfig = {
     classe: "Auditoria",
     subclasse: "GERAL",
     tipo: "percentual",
+    ordemRanking: "asc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
     aliases: ["ETIQUETA"],
@@ -42,12 +46,13 @@ const indicadoresConfig = {
     classe: "Frente de Caixa",
     subclasse: "GERAL",
     tipo: "especial",
+    ordemRanking: "desc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
-    aliases: ["SELF-CHECKOUT"],
+    aliases: ["SELF-CHECKOUT", "SELF CHECKOUT", "SELFCHECKOUT"],
     campos: [
-      { key: "valor", label: "Participação de vendas", tipo: "moeda" },
-      { key: "valor2", label: "Qtd passantes", tipo: "numero" },
+      { key: "valor", label: "Participação de Vendas", tipo: "moeda" },
+      { key: "valor2", label: "Qtd Passantes", tipo: "inteiro" },
     ],
     metas: {},
   },
@@ -58,9 +63,10 @@ const indicadoresConfig = {
     classe: "Frente de Caixa",
     subclasse: "GERAL",
     tipo: "moeda",
+    ordemRanking: "asc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
-    aliases: ["DESCONTO"],
+    aliases: ["DESCONTO", "DESCONTOS"],
     campos: [{ key: "valor", label: "Valor (R$)", tipo: "moeda" }],
     metas: {},
   },
@@ -71,41 +77,63 @@ const indicadoresConfig = {
     classe: "Frente de Caixa",
     subclasse: "GERAL",
     tipo: "moeda",
+    ordemRanking: "asc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
-    aliases: ["CANCELAMENTO"],
+    aliases: ["CANCELAMENTO", "CANCELAMENTOS"],
     campos: [{ key: "valor", label: "Valor (R$)", tipo: "moeda" }],
     metas: {},
   },
 
-  "DEVOLUÇÃO": {
+  DEVOLUÇÃO: {
     nomeExibicao: "DEVOLUÇÃO",
     indicadorBanco: "DEVOLUÇÃO",
     classe: "Frente de Caixa",
     subclasse: "GERAL",
     tipo: "moeda",
+    ordemRanking: "asc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
-    aliases: ["DEVOLUÇÃO", "DEVOLUCAO"],
+    aliases: ["DEVOLUÇÃO", "DEVOLUCAO", "DEVOLUÇÕES", "DEVOLUCOES"],
     campos: [{ key: "valor", label: "Valor (R$)", tipo: "moeda" }],
+    metas: {},
+  },
+
+  "FAIXA HORAS": {
+    nomeExibicao: "FAIXA HORAS",
+    indicadorBanco: "FAIXA HORAS",
+    classe: "Frente de Caixa",
+    subclasse: "GERAL",
+    tipo: "numero",
+    ordemRanking: "desc",
+    incluirEmPermissoes: true,
+    incluirNoMenu: true,
+    aliases: ["FAIXA HORAS", "FAIXA DE HORAS", "FAIXA HORA"],
+    campos: [{ key: "valor", label: "Resultado", tipo: "numero" }],
     metas: {},
   },
 
   // ======================
   // OPERAÇÕES
   // ======================
-  // ✅ usamos chave interna única para evitar conflito com PSV da Prevenção
-  PSV_OPERACOES: {
-    nomeExibicao: "PSV",
+  "VISITA PROSPECÇÃO": {
+    nomeExibicao: "VISITA PROSPECÇÃO",
     nomeMenu: "Visita Prospecção",
-    valorMenu: "PSV",
-    indicadorBanco: "PSV",
+    valorMenu: "VISITA PROSPECÇÃO",
+    indicadorBanco: "VISITA PROSPECÇÃO",
     classe: "Operações",
     subclasse: "GERAL",
     tipo: "percentual",
+    ordemRanking: "desc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
-    aliases: ["VISITA PROSPECÇÃO", "VISITA PROSPECCAO", "PSV"],
+    aliases: [
+      "VISITA PROSPECÇÃO",
+      "VISITA PROSPECCAO",
+      "VISITA PROSPEC",
+      "PROSPECÇÃO",
+      "PROSPECCAO",
+    ],
     campos: [{ key: "valor", label: "Resultado", tipo: "percentual" }],
     metas: {},
   },
@@ -116,6 +144,7 @@ const indicadoresConfig = {
     classe: "Operações",
     subclasse: "GERAL",
     tipo: "numero",
+    ordemRanking: "desc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
     aliases: ["NPS"],
@@ -129,9 +158,10 @@ const indicadoresConfig = {
     classe: "Operações",
     subclasse: "GERAL",
     tipo: "especial",
+    ordemRanking: "desc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
-    aliases: ["PART.TELEVENDAS"],
+    aliases: ["PART.TELEVENDAS", "PART TELEVENDAS", "PARTICIPAÇÃO TELEVENDAS"],
     campos: [
       { key: "valor", label: "Part %", tipo: "percentual" },
       { key: "valor2", label: "Margem", tipo: "percentual" },
@@ -142,26 +172,13 @@ const indicadoresConfig = {
   // ======================
   // PREVENÇÃO
   // ======================
-  // ✅ Mantido no sistema para uso contextual, mas fora da tela de permissões
-  PSV_PREVENCAO: {
-    nomeExibicao: "PSV",
-    indicadorBanco: "PSV",
-    classe: "Prevenção",
-    subclasse: "GERAL",
-    tipo: "percentual",
-    incluirEmPermissoes: false, // alinhado ao print desejado
-    incluirNoMenu: true,
-    aliases: ["PSV"],
-    campos: [{ key: "valor", label: "Resultado", tipo: "percentual" }],
-    metas: {},
-  },
-
   QUEBRA: {
     nomeExibicao: "QUEBRA",
     indicadorBanco: "QUEBRA",
     classe: "Prevenção",
     subclasse: "GERAL",
     tipo: "percentual",
+    ordemRanking: "asc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
     aliases: ["QUEBRA"],
@@ -175,6 +192,7 @@ const indicadoresConfig = {
     classe: "Prevenção",
     subclasse: "GERAL",
     tipo: "percentual",
+    ordemRanking: "asc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
     aliases: ["QUEBRA FLV"],
@@ -188,9 +206,24 @@ const indicadoresConfig = {
     classe: "Prevenção",
     subclasse: "GERAL",
     tipo: "percentual",
+    ordemRanking: "asc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
     aliases: ["QUEBRA AÇOUGUE", "QUEBRA ACOUGUE"],
+    campos: [{ key: "valor", label: "Resultado", tipo: "percentual" }],
+    metas: {},
+  },
+
+  PSV: {
+    nomeExibicao: "PSV",
+    indicadorBanco: "PSV",
+    classe: "Prevenção",
+    subclasse: "GERAL",
+    tipo: "percentual",
+    ordemRanking: "desc",
+    incluirEmPermissoes: true,
+    incluirNoMenu: true,
+    aliases: ["PSV"],
     campos: [{ key: "valor", label: "Resultado", tipo: "percentual" }],
     metas: {},
   },
@@ -201,9 +234,10 @@ const indicadoresConfig = {
     classe: "Prevenção",
     subclasse: "GERAL",
     tipo: "moeda",
+    ordemRanking: "asc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
-    aliases: ["TROCA"],
+    aliases: ["TROCA", "TROCAS"],
     campos: [{ key: "valor", label: "Valor (R$)", tipo: "moeda" }],
     metas: {},
   },
@@ -211,15 +245,16 @@ const indicadoresConfig = {
   // ======================
   // RH / OPERACIONAL
   // ======================
-  "BANCOS DE HORAS": {
-    nomeExibicao: "BANCOS DE HORAS",
-    indicadorBanco: "BANCOS DE HORAS",
+  "BANCO DE HORAS": {
+    nomeExibicao: "BANCO DE HORAS",
+    indicadorBanco: "BANCO DE HORAS",
     classe: "RH / Operacional",
     subclasse: "GERAL",
     tipo: "especial-rh",
+    ordemRanking: "asc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
-    aliases: ["BANCOS DE HORAS"],
+    aliases: ["BANCO DE HORAS", "BANCOS DE HORAS", "BANCO HORAS"],
     campos: [
       { key: "valor", label: "Horas +", tipo: "numero" },
       { key: "valor2", label: "Horas -", tipo: "numero" },
@@ -233,6 +268,7 @@ const indicadoresConfig = {
     classe: "RH / Operacional",
     subclasse: "GERAL",
     tipo: "percentual",
+    ordemRanking: "asc",
     incluirEmPermissoes: true,
     incluirNoMenu: true,
     aliases: ["TURNOVER"],
@@ -249,6 +285,16 @@ const indicadoresConfig = {
 // ==========================
 function normalizarTextoIndicador(valor) {
   return (valor || "").toString().trim().toUpperCase();
+}
+
+function removerAcentosIndicador(valor) {
+  return normalizarTextoIndicador(valor)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizarChaveIndicador(valor) {
+  return removerAcentosIndicador(valor);
 }
 
 // ==========================
@@ -285,25 +331,23 @@ function construirClassesIndicadoresMenu() {
     const nomeMenu = cfg.nomeMenu || cfg.nomeExibicao || cfg.indicadorBanco;
     const valorMenu = cfg.valorMenu || cfg.indicadorBanco || cfg.nomeExibicao;
 
-    // se nome == valor, pode entrar como string simples
-    if (nomeMenu === valorMenu) {
-      if (!agrupado[classe].includes(valorMenu)) {
-        agrupado[classe].push(valorMenu);
+    const jaExiste = agrupado[classe].some((item) => {
+      if (typeof item === "string") {
+        return item === valorMenu;
       }
-    } else {
-      const jaExiste = agrupado[classe].some(
-        (item) =>
-          typeof item === "object" &&
-          item?.nome === nomeMenu &&
-          item?.valor === valorMenu
-      );
 
-      if (!jaExiste) {
-        agrupado[classe].push({
-          nome: nomeMenu,
-          valor: valorMenu,
-        });
-      }
+      return item?.nome === nomeMenu && item?.valor === valorMenu;
+    });
+
+    if (jaExiste) return;
+
+    if (nomeMenu === valorMenu) {
+      agrupado[classe].push(valorMenu);
+    } else {
+      agrupado[classe].push({
+        nome: nomeMenu,
+        valor: valorMenu,
+      });
     }
   });
 
@@ -312,37 +356,37 @@ function construirClassesIndicadoresMenu() {
 
 // ==========================
 // 🎯 RESOLVER CONTEXTO DO INDICADOR
-// (importante para PSV / Visita Prospecção)
 // ==========================
 function resolverIndicadorContexto(indicador, classeSelecionada = null) {
   const indicadorNormalizado = normalizarTextoIndicador(indicador);
+  const indicadorSemAcento = normalizarChaveIndicador(indicador);
   const classeNormalizada = (classeSelecionada || "").toString().trim();
 
-  // ✅ caso especial: PSV em Operações = Visita Prospecção
-  if (indicadorNormalizado === "PSV" && classeNormalizada === "Operações") {
-    return indicadoresConfig.PSV_OPERACOES;
-  }
-
-  // ✅ caso especial: PSV em Prevenção = PSV da Prevenção
-  if (indicadorNormalizado === "PSV" && classeNormalizada === "Prevenção") {
-    return indicadoresConfig.PSV_PREVENCAO;
-  }
-
-  // ✅ busca direta pela chave interna
+  // Busca direta pela chave interna
   if (indicadoresConfig[indicadorNormalizado]) {
-    return indicadoresConfig[indicadorNormalizado];
+    const cfgDireto = indicadoresConfig[indicadorNormalizado];
+
+    if (!classeNormalizada || cfgDireto.classe === classeNormalizada) {
+      return cfgDireto;
+    }
   }
 
-  // ✅ busca por aliases
-  const encontradoPorAlias = Object.values(indicadoresConfig).find((cfg) => {
-    const aliases = Array.isArray(cfg.aliases) ? cfg.aliases : [];
-    const aliasOk = aliases.some(
-      (alias) => normalizarTextoIndicador(alias) === indicadorNormalizado
-    );
+  // Busca por indicadorBanco, nomeExibicao e aliases
+  const encontrado = Object.values(indicadoresConfig).find((cfg) => {
+    const candidatos = [
+      cfg.indicadorBanco,
+      cfg.nomeExibicao,
+      cfg.nomeMenu,
+      cfg.valorMenu,
+      ...(Array.isArray(cfg.aliases) ? cfg.aliases : []),
+    ]
+      .filter(Boolean)
+      .map((v) => normalizarChaveIndicador(v));
 
-    if (!aliasOk) return false;
+    const bateIndicador = candidatos.includes(indicadorSemAcento);
 
-    // se veio classe, tenta respeitar contexto
+    if (!bateIndicador) return false;
+
     if (classeNormalizada) {
       return (cfg.classe || "").trim() === classeNormalizada;
     }
@@ -350,17 +394,18 @@ function resolverIndicadorContexto(indicador, classeSelecionada = null) {
     return true;
   });
 
-  if (encontradoPorAlias) {
-    return encontradoPorAlias;
+  if (encontrado) {
+    return encontrado;
   }
 
-  // ✅ fallback seguro
+  // Fallback seguro
   return {
     nomeExibicao: indicador || "Indicador",
     indicadorBanco: indicadorNormalizado,
     classe: classeSelecionada || "Outros",
     subclasse: "GERAL",
     tipo: "numero",
+    ordemRanking: "desc",
     incluirEmPermissoes: false,
     incluirNoMenu: false,
     aliases: [],
@@ -405,6 +450,13 @@ function getSubclasseIndicador(indicador, classeSelecionada = null) {
 }
 
 // ==========================
+// 🏆 GET ORDEM RANKING
+// ==========================
+function getOrdemRankingIndicador(indicador, classeSelecionada = null) {
+  return getIndicadorConfig(indicador, classeSelecionada).ordemRanking || "desc";
+}
+
+// ==========================
 // 🔍 TIPO TABELA ESPECIAL
 // ==========================
 function isIndicadorEspecial(indicador, classeSelecionada = null) {
@@ -417,15 +469,28 @@ function isIndicadorEspecialRH(indicador, classeSelecionada = null) {
   return cfg.tipo === "especial-rh";
 }
 
+function tipoEhInteiroIndicador(tipo) {
+  const t = (tipo || "").toString().trim().toLowerCase();
+  return (
+    t === "inteiro" ||
+    t === "int" ||
+    t === "integer" ||
+    t === "numero-inteiro"
+  );
+}
+
 // ==========================
 // 🎨 FORMATAR EXIBIÇÃO
 // ==========================
-function formatarValorExibicao(valor, tipo) {
+function formatarValorExibicao(valor, tipo = "numero") {
   if (valor === null || valor === undefined || valor === "") return "";
 
   const numero = Number(valor);
-
   if (Number.isNaN(numero)) return "";
+
+  if (tipoEhInteiroIndicador(tipo)) {
+    return String(Math.trunc(numero));
+  }
 
   if (tipo === "percentual") {
     return `${numero.toFixed(2).replace(".", ",")}%`;
@@ -444,22 +509,38 @@ function formatarValorExibicao(valor, tipo) {
 // ==========================
 // 🧹 LIMPAR VALOR P/ SALVAR
 // ==========================
-function limparValorParaSalvar(valor, tipo) {
+function limparValorParaSalvar(valor, tipo = "numero") {
   if (valor === null || valor === undefined) return null;
 
   let texto = String(valor).trim();
-
   if (!texto) return null;
 
-  texto = texto
-    .replace(/\s/g, "")
-    .replace("R$", "")
-    .replace(/\./g, "")
-    .replace(",", ".");
+  texto = texto.replace(/\s/g, "").replace("R$", "");
 
   if (tipo === "percentual") {
     texto = texto.replace("%", "");
   }
+
+  if (tipoEhInteiroIndicador(tipo)) {
+    const sinal = texto.startsWith("-") ? -1 : 1;
+    const digitos = texto.replace(/\D/g, "");
+    if (!digitos) return null;
+
+    const numero = Number(digitos) * sinal;
+    return Number.isNaN(numero) ? null : numero;
+  }
+
+  if (tipo === "moeda" || tipo === "percentual") {
+    const sinal = texto.startsWith("-") ? -1 : 1;
+    const digitos = texto.replace(/\D/g, "");
+
+    if (!digitos) return null;
+
+    const numero = Number(digitos) / 100;
+    return Number.isNaN(numero) ? null : numero * sinal;
+  }
+
+  texto = texto.replace(/\.(?=.*\.)/g, "").replace(",", ".");
 
   const numero = Number(texto);
   return Number.isNaN(numero) ? null : numero;
@@ -484,11 +565,15 @@ function getCampoConfig(indicador, campoKey = "valor", classeSelecionada = null)
 // ==========================
 // ✍️ FORMATAR VALOR PARA INPUT
 // ==========================
-function formatarValorParaInput(valor, tipo) {
+function formatarValorParaInput(valor, tipo = "numero") {
   if (valor === null || valor === undefined || valor === "") return "";
 
   const numero = Number(valor);
   if (Number.isNaN(numero)) return "";
+
+  if (tipoEhInteiroIndicador(tipo)) {
+    return String(Math.trunc(numero));
+  }
 
   if (tipo === "percentual") {
     return `${numero.toFixed(2).replace(".", ",")}%`;
@@ -505,10 +590,34 @@ function formatarValorParaInput(valor, tipo) {
 // 🎯 PREPARAR INPUT PARA EDIÇÃO
 // ==========================
 function prepararInputFormatado(input) {
-  const tipo = input.dataset.tipo || "numero";
-  const valorLimpo = limparValorParaSalvar(input.value, tipo);
+  if (!input) return;
 
-  input.value = valorLimpo === null ? "" : String(valorLimpo).replace(".", ",");
+  const tipo = input.dataset?.tipo || "numero";
+  const valorAtual = (input.value || "").toString().trim();
+
+  if (!valorAtual) {
+    input.value = "";
+    return;
+  }
+
+  if (tipoEhInteiroIndicador(tipo)) {
+    const sinal = valorAtual.startsWith("-") ? "-" : "";
+    const digitos = valorAtual.replace(/\D/g, "");
+    input.value = digitos ? `${sinal}${digitos}` : "";
+    return;
+  }
+
+  if (tipo === "moeda" || tipo === "percentual") {
+    const sinal = valorAtual.startsWith("-") ? "-" : "";
+    const digitos = valorAtual.replace(/\D/g, "");
+    input.value = digitos ? `${sinal}${digitos}` : "";
+    return;
+  }
+
+  input.value = valorAtual
+    .replace(/\s/g, "")
+    .replace(/\.(?=.*\.)/g, "")
+    .replace(",", ".");
 }
 
 // ==========================
@@ -522,14 +631,20 @@ window.classesIndicadores = construirClassesIndicadoresMenu();
 // 🌐 EXPOR HELPERS NO WINDOW
 // ==========================
 window.normalizarTextoIndicador = normalizarTextoIndicador;
+window.removerAcentosIndicador = removerAcentosIndicador;
+window.normalizarChaveIndicador = normalizarChaveIndicador;
+
 window.resolverIndicadorContexto = resolverIndicadorContexto;
 window.getIndicadorConfig = getIndicadorConfig;
 window.getNomeIndicador = getNomeIndicador;
 window.getIndicadorBanco = getIndicadorBanco;
 window.getClasseIndicador = getClasseIndicador;
 window.getSubclasseIndicador = getSubclasseIndicador;
+window.getOrdemRankingIndicador = getOrdemRankingIndicador;
+
 window.isIndicadorEspecial = isIndicadorEspecial;
 window.isIndicadorEspecialRH = isIndicadorEspecialRH;
+
 window.formatarValorExibicao = formatarValorExibicao;
 window.limparValorParaSalvar = limparValorParaSalvar;
 window.getCampoConfig = getCampoConfig;
@@ -542,7 +657,9 @@ window.prepararInputFormatado = prepararInputFormatado;
 console.log("✅ indicadores-config.js pronto", {
   totalConfig: Object.keys(window.indicadoresConfig || {}).length,
   totalMapaClasse: Object.keys(window.mapaClasse || {}).length,
-  classesPermissoes: [...new Set(Object.values(window.mapaClasse || {}).map((v) => v.classe))],
+  classesPermissoes: [
+    ...new Set(Object.values(window.mapaClasse || {}).map((v) => v.classe)),
+  ],
   classesMenu: Object.keys(window.classesIndicadores || {}),
   indicadoresPermissoes: Object.keys(window.mapaClasse || {}),
 });
