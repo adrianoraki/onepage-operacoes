@@ -6,6 +6,16 @@ console.log("✅ comparativos.js carregado");
 // ==========================
 // 🧠 ESTADO GLOBAL
 // ==========================
+// ordem fixa de exibição das lojas na matriz (por regional, conforme definido)
+const ORDEM_LOJAS_COMPARATIVO = [
+  // NE1
+  "77", "83", "109", "114", "119", "120", "204",
+  "207", "238", "268", "298", "300", "305", "333",
+  // NE2
+  "44", "46", "76", "91", "107", "138", "152", "163",
+  "179", "250", "198", "262", "284", "289", "290",
+];
+
 const COMPARATIVO_STATE = {
   semana:
     (typeof getSemanaAtual === "function"
@@ -15,10 +25,10 @@ const COMPARATIVO_STATE = {
       .toString()
       .padStart(2, "0"),
 
-  modoPeriodo: "semanal", // "semanal" | "mensal"
-  indicador: "TODOS",
+  modoPeriodo: "mensal", // fixo em total do mês
+  indicador: "TODOS",    // fixo em todos os indicadores
   abaRegional: localStorage.getItem("comparativoAba") || "AMBAS", // "AMBAS" | "NE1" | "NE2"
-  loja: localStorage.getItem("comparativoLoja") || "TODAS",       // "TODAS" | "codigo - nome"
+  loja: "TODAS",         // fixo em todas as lojas
 };
 
 // ==========================
@@ -340,19 +350,6 @@ async function telaComparativos() {
         <div class="comparativo-filtros">
           <select id="comparativoSemana" onchange="comparativoAlterarSemana(this.value)">
             ${gerarOptionsSemanasComparativo()}
-          </select>
-
-          <select id="comparativoModoPeriodo" onchange="comparativoAlterarModoPeriodo(this.value)">
-            <option value="semanal" ${COMPARATIVO_STATE.modoPeriodo === "semanal" ? "selected" : ""}>Por semana</option>
-            <option value="mensal" ${COMPARATIVO_STATE.modoPeriodo === "mensal" ? "selected" : ""}>Total do mês</option>
-          </select>
-
-          <select id="comparativoIndicador" onchange="comparativoAlterarIndicador(this.value)">
-            ${gerarOptionsIndicadoresComparativo()}
-          </select>
-
-          <select id="comparativoLoja" onchange="comparativoAlterarLoja(this.value)">
-            <option value="TODAS">Todas as lojas</option>
           </select>
         </div>
 
@@ -925,16 +922,16 @@ function renderMatrizRegional(nomeRegional, resultadosNorm, indicadoresMeta) {
       return acc + (ind.menorMelhor ? v : -v);
     }, 0);
 
+  // ordem FIXA de exibição (não por ranking): segue ORDEM_LOJAS_COMPARATIVO.
+  // lojas fora da lista vão para o fim, em ordem alfabética.
   const nomesLojas = Object.keys(lojas).sort((a, b) => {
-    // 1º) MESTRE: indicadores em R$
-    const mA = scorePior(a, colunasMoeda);
-    const mB = scorePior(b, colunasMoeda);
-    if (mB !== mA) return mB - mA; // pior (maior R$) no topo
-    // 2º) SERVO: indicadores em %
-    const pA = scorePior(a, colunasPct);
-    const pB = scorePior(b, colunasPct);
-    if (pB !== pA) return pB - pA;
-    // 3º) desempate final: nome
+    const ca = String(quebrarLojaComparativo(a).codigo || "");
+    const cb = String(quebrarLojaComparativo(b).codigo || "");
+    let ia = ORDEM_LOJAS_COMPARATIVO.indexOf(ca);
+    let ib = ORDEM_LOJAS_COMPARATIVO.indexOf(cb);
+    if (ia === -1) ia = 9999;
+    if (ib === -1) ib = 9999;
+    if (ia !== ib) return ia - ib;
     return a.localeCompare(b, "pt-BR");
   });
 
@@ -1002,6 +999,28 @@ function renderMatrizRegional(nomeRegional, resultadosNorm, indicadoresMeta) {
     })
     .join("");
 
+  // ===== LINHA DE RESUMO DA REGIONAL =====
+  // % (e número que não soma) → MÉDIA das lojas
+  // R$ e banco de horas        → SOMA das lojas
+  const tdsResumo = colunas
+    .map((ind) => {
+      const vals = nomesLojas
+        .map((l) => valorCelula(l, ind))
+        .filter((v) => v != null && isFinite(v));
+      if (!vals.length) {
+        return `<th class="matriz-resumo-cel" style="background:#0d1622;color:#7f8da3;font-weight:600;">—</th>`;
+      }
+      const soma = vals.reduce((a, b) => a + b, 0);
+      // % → MÉDIA das lojas; R$ e números → SOMA
+      const ehPct = tipoPercentualComparativo(ind.tipo);
+      const valor = ehPct ? soma / vals.length : soma;
+      return `<th class="matriz-resumo-cel" style="background:#0d1622;color:#eaf2ff;font-weight:700;white-space:nowrap;">${formatarCelulaMatriz(
+        valor,
+        ind.tipo
+      )}</th>`;
+    })
+    .join("");
+
   return `
     <div class="matriz-card">
       <h3 class="regional-titulo">
@@ -1011,6 +1030,11 @@ function renderMatrizRegional(nomeRegional, resultadosNorm, indicadoresMeta) {
       <div class="matriz-scroll">
         <table class="matriz-tabela">
           <thead>
+            <tr class="matriz-linha-resumo">
+              <th class="matriz-th-rank" style="background:#0d1622;"></th>
+              <th class="matriz-th-loja" style="background:#0d1622;color:#9db4d6;font-weight:700;">📊 Média / Total</th>
+              ${tdsResumo}
+            </tr>
             <tr>
               <th class="matriz-th-rank">#</th>
               <th class="matriz-th-loja">Loja</th>

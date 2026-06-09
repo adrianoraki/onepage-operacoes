@@ -51,8 +51,8 @@ const indicadoresConfig = {
     incluirNoMenu: true,
     aliases: ["SELF-CHECKOUT", "SELF CHECKOUT", "SELFCHECKOUT"],
     campos: [
-      { key: "valor", label: "Participação de Vendas", tipo: "moeda" },
-      { key: "valor2", label: "Qtd Passantes", tipo: "inteiro" },
+      { key: "valor", label: "Valor R$", tipo: "moeda" },
+      { key: "valor2", label: "Quant. de passantes", tipo: "inteiro" },
     ],
     metas: {},
   },

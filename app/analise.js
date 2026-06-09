@@ -324,7 +324,7 @@ function ajustarAlturaChartAnalise(
 function getCasasDecimaisAnalise(indicador, classeSelecionada = null) {
   const indicadorNorm = normalizarTextoAnaliseUpper(indicador);
 
-  if (indicadorNorm === "NPS") return 0;
+  if (indicadorNorm === "NPS") return 2;
 
   return 2;
 }

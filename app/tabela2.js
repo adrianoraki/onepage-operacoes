@@ -715,8 +715,8 @@ function getConfigTabelaEspecial(indicador, classeSelecionada = null) {
 
     // ✅ FORÇA QTD PASSANTES COMO INTEIRO
     if (indicadorNorm === "SELF-CHECKOUT") {
-      col1Final = campo1?.label || "Participação de Vendas";
-      col2Final = campo2?.label || "Qtd Passantes";
+      col1Final = campo1?.label || "Valor R$";
+      col2Final = campo2?.label || "Quant. de passantes";
 
       if (!tipo1Final || tipo1Final === "numero") {
         tipo1Final = "moeda";
@@ -772,8 +772,8 @@ function getConfigTabelaEspecial(indicador, classeSelecionada = null) {
   if (indicadorNorm === "SELF-CHECKOUT") {
     return {
       titulo: "SELF-CHECKOUT",
-      col1: "Participação de Vendas",
-      col2: "Qtd Passantes",
+      col1: "Valor R$",
+      col2: "Quant. de passantes",
       tipo1: "moeda",
       tipo2: "inteiro",
     };
