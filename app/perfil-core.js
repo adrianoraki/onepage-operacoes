@@ -26,6 +26,42 @@ function normalizarTextoSemAcento(valor) {
     .trim();
 }
 
+// ==========================
+// 🗂️ PERMISSÃO POR TABELA (classe de indicadores)
+// Gera uma chave estável a partir do nome da classe.
+//  "Frente de Caixa"   -> "pode_ver_classe_frente_de_caixa"
+//  "RH / Operacional"  -> "pode_ver_classe_rh_operacional"
+// ==========================
+function chavePermissaoClasse(classe) {
+  return (
+    "pode_ver_classe_" +
+    String(classe || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+  );
+}
+
+// lista as classes (tabelas) disponíveis no sistema
+function listarClassesSistema() {
+  const classes =
+    (typeof window !== "undefined" && window.classesIndicadores) ||
+    (typeof classesIndicadores !== "undefined" ? classesIndicadores : {}) ||
+    {};
+  return Object.keys(classes);
+}
+
+// adiciona as permissões de classe ao objeto base conforme o perfil
+function aplicarPermissoesClassesBase(base, perfilNorm) {
+  const liberado = perfilNorm === "master" || perfilNorm === "admin";
+  listarClassesSistema().forEach((classe) => {
+    base[chavePermissaoClasse(classe)] = liberado;
+  });
+  return base;
+}
+
 function normalizarListaRegionais(valor) {
   if (!valor) return [];
 
@@ -100,7 +136,7 @@ function getPermissoesBasePorPerfil(perfil) {
     };
 
     console.log("👑 Permissões base do perfil master:", permissoesMaster);
-    return permissoesMaster;
+    return aplicarPermissoesClassesBase(permissoesMaster, "master");
   }
 
   if (perfilNorm === "admin") {
@@ -124,7 +160,7 @@ function getPermissoesBasePorPerfil(perfil) {
     };
 
     console.log("🛡️ Permissões base do perfil admin:", permissoesAdmin);
-    return permissoesAdmin;
+    return aplicarPermissoesClassesBase(permissoesAdmin, "admin");
   }
 
   // ✅ usuario nasce travado
@@ -148,7 +184,7 @@ function getPermissoesBasePorPerfil(perfil) {
   };
 
   console.log("👤 Permissões base do perfil usuario:", permissoesUsuario);
-  return permissoesUsuario;
+  return aplicarPermissoesClassesBase(permissoesUsuario, "usuario");
 }
 
 // ==========================
@@ -242,6 +278,12 @@ function getPermissoesSistemaUsuario(user = null) {
       base.permissao_visualizacao
     ),
   };
+
+  // permissões por tabela (classe) — base + overrides salvos
+  listarClassesSistema().forEach((classe) => {
+    const chave = chavePermissaoClasse(classe);
+    permissoesFinal[chave] = valorBooleanoPermissao(perms[chave], base[chave]);
+  });
 
   console.log("🔐 Permissões efetivas calculadas:", {
     usuario: usuario.nome || usuario.email || "(sem nome)",
@@ -396,6 +438,8 @@ window.listaRegionaisParaTexto = listaRegionaisParaTexto;
 
 window.getPermissoesBasePorPerfil = getPermissoesBasePorPerfil;
 window.getPermissoesSistemaUsuario = getPermissoesSistemaUsuario;
+window.chavePermissaoClasse = chavePermissaoClasse;
+window.listarClassesSistema = listarClassesSistema;
 window.getUsuarioLogado = getUsuarioLogado;
 
 // ==========================

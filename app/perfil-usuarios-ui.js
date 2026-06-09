@@ -1114,6 +1114,12 @@ function coletarPermissoesSistemaTela(base = {}) {
     out[mapa[id]] = el.checked;
   });
 
+  // checkboxes "Ver [tabela]" (um por classe) — lidos dinamicamente
+  document.querySelectorAll("[data-classe-perm]").forEach((el) => {
+    const chave = el.getAttribute("data-classe-perm");
+    if (chave) out[chave] = el.checked;
+  });
+
   const selectVisualizacao = document.getElementById("perm_visualizacao");
   out.permissao_visualizacao = normalizarPermissaoVisualizacao(
     selectVisualizacao?.value || out.permissao_visualizacao || "TODOS"
@@ -1291,6 +1297,46 @@ function ativarAutosaveEdicaoUsuario(id) {
       autoSalvarUsuarioAcao(id, campoId);
     });
   });
+
+  // ✅ checkboxes de PERMISSÃO de sistema + visualização:
+  //    ao marcar/desmarcar, salva na hora (autosave de permissões)
+  const idsPermissao = [
+    "perm_semana_atual",
+    "perm_semana_anterior",
+    "perm_qualquer_semana",
+    "perm_gerenciar_usuarios",
+    "perm_gerenciar_funcoes",
+    "perm_ver_dashboard",
+    "perm_ver_analises",
+    "perm_ver_comparativos",
+    "perm_ver_painel_ouro",
+    "perm_ver_justificativas",
+    "perm_aprovar_ajustes",
+    "perm_atribuir_escopo",
+    "perm_ignorar_loja_vinculada",
+    "perm_visualizacao",
+    "perm_indicadores_total",
+  ];
+
+  idsPermissao.forEach((cid) => {
+    const el = document.getElementById(cid);
+    if (!el) return;
+    el.addEventListener("change", () => autoSalvarPermissoesAcao(id));
+  });
+
+  // checkboxes "Ver [tabela]" (um por classe)
+  document.querySelectorAll("[data-classe-perm]").forEach((el) => {
+    el.addEventListener("change", () => autoSalvarPermissoesAcao(id));
+  });
+
+  // checkboxes de indicadores (classes / subclasses / indicadores individuais)
+  document
+    .querySelectorAll(
+      "#config-conteudo .check-classe-completa, #config-conteudo .check-subclasse-completa, #config-conteudo .check-indicador"
+    )
+    .forEach((el) => {
+      el.addEventListener("change", () => autoSalvarPermissoesAcao(id));
+    });
 }
 
 // ==========================
@@ -1637,6 +1683,24 @@ async function editarPermissoes(id) {
     `;
 
     if (isMaster) {
+      // checkboxes "Ver [tabela]" — um por classe de indicadores
+      const classesSistema =
+        typeof window.listarClassesSistema === "function"
+          ? window.listarClassesSistema()
+          : [];
+
+      const checkboxesClassesHtml = classesSistema
+        .map((classe) => {
+          const chave = window.chavePermissaoClasse(classe);
+          const marcado = permsSistema[chave] ? "checked" : "";
+          return `
+          <label class="check-item">
+            <input type="checkbox" id="perm_classe_${chave}" data-classe-perm="${chave}" ${marcado}>
+            Ver ${classe}
+          </label>`;
+        })
+        .join("");
+
       html += `
         <hr style="margin:18px 0; border:none; border-top:1px solid #eee;">
 
@@ -1760,6 +1824,15 @@ async function editarPermissoes(id) {
             </select>
           </div>
         </div>
+
+        <h4 style="margin-top:16px;">🗂️ Acesso às tabelas</h4>
+        <p style="font-size:12px; color:#888; margin:2px 0 8px;">
+          Libera a tabela inteira no menu. Para liberar só alguns indicadores
+          de uma tabela, use a seção de indicadores abaixo.
+        </p>
+        <div class="permissoes-grid">
+          ${checkboxesClassesHtml}
+        </div>
       `;
     }
 
@@ -1802,6 +1875,110 @@ async function editarPermissoes(id) {
       </div>
     `;
   }
+}
+
+// ==========================
+// 💾 AUTOSAVE DE PERMISSÕES (ao marcar/desmarcar checkbox)
+// Salva imediatamente sem fechar a tela nem dar alert.
+// ==========================
+async function autoSalvarPermissoesAcao(id) {
+  clearTimeout(window.autosavePermsTimer);
+
+  window.autosavePermsTimer = setTimeout(async () => {
+    try {
+      mostrarStatusAutosaveUsuario("🔄 Salvando permissões...", "info");
+
+      const db = getWindowDb();
+      const user = getUsuarioLogado();
+      const isMaster = user?.perfil === "master";
+
+      const dados = coletarCamposEdicaoUsuario();
+
+      if (!dados.nome || !dados.matricula || !dados.email || !dados.funcao) {
+        mostrarStatusAutosaveUsuario(
+          "⚠️ Complete nome, matrícula, e-mail e função antes.",
+          "erro"
+        );
+        return;
+      }
+
+      const perfilFinal =
+        isMaster && dados.perfil
+          ? dados.perfil
+          : window.usuarioPermissoesEditando?.perfil || "usuario";
+
+      let permissoesSistema = {
+        ...getPermissoesBasePorPerfil(perfilFinal),
+        ...(window.usuarioPermissoesEditando?.permissoes || {}),
+      };
+
+      if (isMaster) {
+        permissoesSistema = coletarPermissoesSistemaTela(permissoesSistema);
+      } else {
+        permissoesSistema.permissao_visualizacao =
+          normalizarPermissaoVisualizacao(
+            permissoesSistema.permissao_visualizacao || "TODOS"
+          );
+      }
+
+      const permissoesIndicadoresTela = coletarPermissoesIndicadoresTela();
+
+      const payload = {
+        permissoes: {
+          ...(window.usuarioPermissoesEditando?.permissoes || {}),
+          ...permissoesSistema,
+          indicadores: permissoesIndicadoresTela.indicadores,
+          classes: permissoesIndicadoresTela.classes,
+          subclasses: permissoesIndicadoresTela.subclasses,
+          acesso_total:
+            perfilFinal === "master"
+              ? true
+              : permissoesIndicadoresTela.acesso_total,
+        },
+      };
+
+      if (isMaster && dados.perfil) {
+        payload.perfil = dados.perfil;
+      }
+
+      const { data, error } = await db
+        .from("usuarios")
+        .update(payload)
+        .eq("id", id)
+        .select("id, nome, permissoes, perfil")
+        .single();
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error(
+          "Nenhuma linha atualizada (verifique a policy de RLS da tabela usuarios)."
+        );
+      }
+
+      // mantém o cache em memória sincronizado p/ próximos autosaves
+      if (window.usuarioPermissoesEditando) {
+        window.usuarioPermissoesEditando.permissoes = data.permissoes;
+        window.usuarioPermissoesEditando.perfil = data.perfil;
+      }
+
+      // se o master estiver editando a si mesmo, atualiza o localStorage
+      if (
+        String(id) === String(user?.id) &&
+        typeof window.sincronizarUsuarioLocalDoBanco === "function"
+      ) {
+        await window.sincronizarUsuarioLocalDoBanco();
+      }
+
+      mostrarStatusAutosaveUsuario("✅ Permissões salvas", "sucesso");
+      console.log("✅ Autosave de permissões concluído:", data.permissoes);
+    } catch (erro) {
+      console.error("❌ Erro no autosave de permissões:", erro);
+      mostrarStatusAutosaveUsuario(
+        `❌ ${erro.message || "Erro ao salvar permissões."}`,
+        "erro"
+      );
+    }
+  }, 350);
 }
 
 // ==========================
@@ -1975,6 +2152,7 @@ window.coletarPermissoesSistemaTela = coletarPermissoesSistemaTela;
 window.coletarPermissoesIndicadoresTela = coletarPermissoesIndicadoresTela;
 
 window.autoSalvarUsuarioAcao = autoSalvarUsuarioAcao;
+window.autoSalvarPermissoesAcao = autoSalvarPermissoesAcao;
 window.ativarAutosaveEdicaoUsuario = ativarAutosaveEdicaoUsuario;
 window.inicializarControlesPermissaoIndicador =
   inicializarControlesPermissaoIndicador;

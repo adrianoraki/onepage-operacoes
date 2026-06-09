@@ -34,6 +34,10 @@ let semanaSelecionada =
   localStorage.getItem("semana") ||
   getSemanaAtual().toString().padStart(2, "0");
 
+// estado dos filtros (persiste entre recargas silenciosas)
+let _filtroRegionalTabela = "TODAS";
+let _filtroTextoBuscaTabela = "";
+
 const TABELA_STATE = {
   salvando: new Set(),
 };
@@ -934,8 +938,8 @@ function getClassesConsulta(classeAtual) {
 // ==========================
 // 📊 CARREGAR TABELA
 // ==========================
-async function carregarTabela() {
-  tabelaLogInfo("carregarTabela iniciado");
+async function carregarTabela({ silencioso = false } = {}) {
+  tabelaLogInfo("carregarTabela iniciado", { silencioso });
 
   try {
     if (!window.db) {
@@ -971,10 +975,14 @@ async function carregarTabela() {
     // ✅ NOVO INDICADOR SEPARADO: FAIXA HORAS
     // usa arquivo próprio, mantendo estrutura separada da auditoria
     if (indicadorNormalizado === "FAIXA HORAS") {
-      tabelaLogInfo("Redirecionando para telaFaixaHoras()", {
-        indicadorSelecionado,
+      tabelaLogInfo("Redirecionando para faixa-horas", {
         indicadorNormalizado,
+        silencioso,
       });
+
+      if (silencioso && typeof window.carregarFaixaHoras === "function") {
+        return window.carregarFaixaHoras({ silencioso: true });
+      }
 
       if (typeof window.telaFaixaHoras === "function") {
         return window.telaFaixaHoras();
@@ -1052,6 +1060,24 @@ async function carregarTabela() {
       return;
     }
 
+    // modo silencioso: atualiza só o tbody, preserva filtros intactos
+    const tbody = container.querySelector("#tbody-tabela");
+    if (silencioso && tbody && !isEspecialRH && !isEspecial) {
+      tbody.innerHTML = lojas.map(
+        (loja) => montarLinha(loja, mapa, semanas, classeSelecionada)
+      ).join("");
+
+      if (typeof aplicarPermissoesTabela === "function") {
+        aplicarPermissoesTabela(indicadorNormalizado, classeAtual);
+      }
+      if (typeof window.aplicarEscopoVisualTabela === "function") {
+        window.aplicarEscopoVisualTabela();
+      }
+      reaplicarFiltrosTabela();
+      tabelaLogInfo("Atualização silenciosa concluída (tbody-only)");
+      return;
+    }
+
     if (isEspecialRH) {
       tabelaLogInfo("Usando tabela RH");
 
@@ -1126,9 +1152,13 @@ function montarHTMLTabela(lojas, mapa, semanas, classeSelecionada = null) {
       <div class="header-tabela">
         <h2>📊 ${titulo}</h2>
 
-        <select class="filtro-semana" onchange="alterarSemana(this.value)">
+        <select class="filtro-semana${semanaSelecionada === semanaAtualReal ? " semana-atual-ativa" : ""}" onchange="alterarSemana(this.value)">
           ${gerarOptionsSemanas()}
         </select>
+      </div>
+
+      <div class="info-semana">
+        ${getInfoSemana(semanaSelecionada || semanaAtualReal)}
       </div>
 
       <div class="filtros-tabela filtros-novos">
@@ -1318,6 +1348,8 @@ function alterarSemana(sem) {
 
   semanaSelecionada = sem;
   localStorage.setItem("semana", sem);
+  _filtroTextoBuscaTabela = "";
+  _filtroRegionalTabela = "TODAS";
 
   tabelaLogInfo("Semana alterada", { sem });
 
@@ -1340,10 +1372,15 @@ function ativarFiltros() {
     return;
   }
 
-  let regionalSelecionada = "TODAS";
+  // restaura estado salvo
+  busca.value = _filtroTextoBuscaTabela;
+  botoesRegional.forEach((b) => {
+    b.classList.toggle("ativo", b.dataset.regional === _filtroRegionalTabela);
+  });
 
   const aplicar = () => {
     const termo = busca.value.toLowerCase().trim();
+    _filtroTextoBuscaTabela = busca.value;
 
     document.querySelectorAll("#tbody-tabela tr").forEach((row) => {
       const tds = row.querySelectorAll("td");
@@ -1365,8 +1402,8 @@ function ativarFiltros() {
         !termo || codigo.includes(termo) || loja.includes(termo);
 
       const matchRegional =
-        regionalSelecionada === "TODAS" ||
-        regional === regionalSelecionada.toLowerCase();
+        _filtroRegionalTabela === "TODAS" ||
+        regional === _filtroRegionalTabela.toLowerCase();
 
       row.style.display =
         dentroDoEscopo && matchBusca && matchRegional ? "" : "none";
@@ -1379,9 +1416,8 @@ function ativarFiltros() {
     btn.addEventListener("click", () => {
       botoesRegional.forEach((b) => b.classList.remove("ativo"));
       btn.classList.add("ativo");
-
-      regionalSelecionada = btn.dataset.regional || "TODAS";
-      tabelaLogInfo("Filtro regional alterado", { regionalSelecionada });
+      _filtroRegionalTabela = btn.dataset.regional || "TODAS";
+      tabelaLogInfo("Filtro regional alterado", { _filtroRegionalTabela });
       aplicar();
     });
   });
@@ -1389,6 +1425,26 @@ function ativarFiltros() {
   aplicar();
 
   tabelaLogInfo("Filtros ativados com sucesso");
+}
+
+function reaplicarFiltrosTabela() {
+  document.querySelectorAll("#tbody-tabela tr").forEach((row) => {
+    const tds = row.querySelectorAll("td");
+    if (tds.length < 2) return;
+
+    const dentroDoEscopo = row.dataset.escopoPermitido !== "false";
+    const codigo = (row.dataset.lojaCodigo || tds[0]?.textContent || "").toLowerCase();
+    const loja = (row.dataset.lojaNome || tds[1]?.textContent || "").toLowerCase();
+    const regional = (row.dataset.regional || tds[2]?.textContent || "").toLowerCase();
+    const termo = _filtroTextoBuscaTabela.toLowerCase().trim();
+
+    const matchBusca = !termo || codigo.includes(termo) || loja.includes(termo);
+    const matchRegional =
+      _filtroRegionalTabela === "TODAS" ||
+      regional === _filtroRegionalTabela.toLowerCase();
+
+    row.style.display = dentroDoEscopo && matchBusca && matchRegional ? "" : "none";
+  });
 }
 
 // ==========================
@@ -1724,30 +1780,57 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
 function gerarOptionsSemanas() {
   let html = "";
 
-  const atual =
+  const selecionada =
     semanaSelecionada || getSemanaAtual().toString().padStart(2, "0");
+  const real = getSemanaAtual().toString().padStart(2, "0");
 
-  tabelaLogInfo("Gerando options - semana ativa", { atual });
+  tabelaLogInfo("Gerando options - semana ativa", { selecionada, real });
 
   for (let i = 1; i <= 53; i++) {
     const s = i.toString().padStart(2, "0");
-    const selected = s === atual ? "selected" : "";
-    const classe = s === atual ? "semana-ativa" : "";
-
-    html += `
-      <option value="${s}" class="${classe}" ${selected}>
-        Semana ${s}
-      </option>
-    `;
+    const selected = s === selecionada ? "selected" : "";
+    const label = s === real ? `Semana ${s} ★` : `Semana ${s}`;
+    html += `<option value="${s}" ${selected}>${label}</option>`;
   }
 
   return html;
 }
 
 // ==========================
+// 📅 DATAS DA SEMANA (ISO 8601)
+// ==========================
+function getDatasSemanaPorNumero(semNumero, ano) {
+  const semInt = parseInt(semNumero, 10);
+  const anoInt = ano || new Date().getFullYear();
+  const jan4 = new Date(Date.UTC(anoInt, 0, 4));
+  const dow = jan4.getUTCDay() || 7;
+  const monday1 = new Date(jan4);
+  monday1.setUTCDate(jan4.getUTCDate() - (dow - 1));
+  const monday = new Date(monday1);
+  monday.setUTCDate(monday1.getUTCDate() + (semInt - 1) * 7);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  return { monday, sunday };
+}
+
+function formatarDataPtBr(date) {
+  const dias = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+  const meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  return `${dias[date.getUTCDay()]} ${date.getUTCDate()} de ${meses[date.getUTCMonth()]} de ${date.getUTCFullYear()}`;
+}
+
+function getInfoSemana(semNumero) {
+  const { monday, sunday } = getDatasSemanaPorNumero(semNumero);
+  return `Semana ${semNumero} — de ${formatarDataPtBr(monday)} a ${formatarDataPtBr(sunday)}`;
+}
+
+// ==========================
 // 🌐 EXPOR FUNÇÕES GLOBAIS
 // ==========================
 window.getSemanaAtual = getSemanaAtual;
+window.getDatasSemanaPorNumero = getDatasSemanaPorNumero;
+window.formatarDataPtBr = formatarDataPtBr;
+window.getInfoSemana = getInfoSemana;
 window.normalizarTextoTabela = normalizarTextoTabela;
 window.normalizarTextoTabelaUpper = normalizarTextoTabelaUpper;
 window.escapeHtmlTabela = escapeHtmlTabela;

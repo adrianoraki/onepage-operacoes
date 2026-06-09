@@ -45,8 +45,24 @@
   width: 100%;
   overflow-x: auto;
   overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cor-borda) transparent;
   margin-top: 12px;
   border-radius: 12px;
+}
+
+.tabela-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tabela-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tabela-container::-webkit-scrollbar-thumb {
+  background: var(--cor-borda);
+  border-radius: 4px;
 }
 
 /* ==========================
@@ -54,7 +70,7 @@
 ========================== */
 .tabela {
   width: 100%;
-  min-width: 900px;
+  min-width: 620px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: auto;
@@ -80,7 +96,6 @@
   box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
 }
 
-/* cabeçalho com acabamento mais executivo */
 .tabela thead tr:first-child th {
   border-bottom: 1px solid rgba(255, 255, 255, 0.10);
 }
@@ -93,7 +108,7 @@
   border-top-right-radius: 12px;
 }
 
-/* grupos de semana com visual elegante */
+/* grupos de cabeçalho compacto/RH */
 .tabela-especial-compacta thead tr:first-child th[colspan],
 .tabela-rh-compacta thead tr:first-child th[colspan] {
   background: linear-gradient(180deg, #18496f 0%, #123d5d 100%) !important;
@@ -107,7 +122,6 @@
     inset 0 -1px 0 rgba(255, 255, 255, 0.08);
 }
 
-/* segunda linha do cabeçalho mais limpa e centralizada */
 .tabela-especial-compacta thead tr:nth-child(2) th,
 .tabela-rh-compacta thead tr:nth-child(2) th {
   background: linear-gradient(180deg, #1f5b87 0%, #17496e 100%) !important;
@@ -122,7 +136,9 @@
   text-align: center !important;
 }
 
-/* semana atual destacada com visual mais diretoria */
+/* ==========================
+   📅 COLUNA DA SEMANA ATUAL
+========================== */
 .coluna-atual {
   background-color: #edf8ef !important;
   border-left: 2px solid var(--cor-sucesso-2);
@@ -137,9 +153,35 @@ th.coluna-atual {
     inset 0 -1px 0 rgba(255, 255, 255, 0.06);
 }
 
+.coluna-atual input,
+.coluna-atual .input-tabela {
+  background: #e0f2e2 !important;
+  border-color: #a5d6a7 !important;
+}
+
+/* mantém tinte verde mesmo no hover da linha */
+.tabela tr:hover .coluna-atual {
+  background-color: #d6f0d9 !important;
+}
+
 /* semana compacta com ajuste fino */
 .coluna-semana-compacta {
   opacity: 0.98;
+}
+
+/* ==========================
+   📅 INFO SEMANA
+========================== */
+.info-semana {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #4a6741;
+  background: linear-gradient(to right, #f0faf1, #e8f5e9);
+  border-left: 3px solid var(--cor-sucesso-2);
+  border-radius: 0 8px 8px 0;
+  padding: 7px 14px;
+  margin: 0 0 10px 0;
+  line-height: 1.4;
 }
 
 /* ==========================
@@ -191,7 +233,8 @@ th.coluna-atual {
   text-align: center;
   font-size: 13px;
   font-weight: 600;
-  transition: 0.2s ease;
+  font-family: inherit;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
   background: #fff;
   padding: 0 8px;
   box-sizing: border-box;
@@ -234,10 +277,11 @@ th.coluna-atual {
   text-align: center;
   font-size: 12px;
   font-weight: 600;
+  font-family: inherit;
   background: #fff;
   padding: 0 6px;
   box-sizing: border-box;
-  transition: 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
   flex: 0 0 70px;
 }
 
@@ -291,7 +335,6 @@ th.coluna-atual {
     border-color 0.2s ease,
     transform 0.15s ease,
     box-shadow 0.2s ease,
-    color 0.2s ease,
     opacity 0.15s ease,
     visibility 0.15s ease;
   flex: 0 0 26px;
@@ -367,8 +410,8 @@ th.coluna-atual {
 }
 
 @keyframes pulseJustificativa {
-  0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.3); }
-  70% { box-shadow: 0 0 0 6px rgba(229, 57, 53, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.3); }
+  70%  { box-shadow: 0 0 0 6px rgba(229, 57, 53, 0); }
   100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); }
 }
 
@@ -380,7 +423,7 @@ th.coluna-atual {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 6px;
 }
 
@@ -390,10 +433,12 @@ th.coluna-atual {
   line-height: 1.2;
   font-weight: 800;
   letter-spacing: 0.2px;
+  flex: 1;
+  min-width: 0;
 }
 
 /* ==========================
-   🎯 FILTROS PADRÃO
+   🎯 FILTROS PADRÃO (legado)
 ========================== */
 .filtros-tabela {
   display: flex;
@@ -409,7 +454,8 @@ th.coluna-atual {
   border-radius: 10px;
   border: 1px solid #d2d9df;
   font-size: 13px;
-  transition: 0.2s;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
   background: #fff;
 }
 
@@ -426,7 +472,7 @@ th.coluna-atual {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   margin-bottom: 14px;
   padding: 10px 12px;
@@ -438,7 +484,7 @@ th.coluna-atual {
 
 .filtros-novos input {
   flex: 1;
-  min-width: 240px;
+  min-width: 0;
   max-width: 420px;
   height: 40px;
   padding: 0 12px;
@@ -446,7 +492,10 @@ th.coluna-atual {
   border: 1px solid #d2d9df;
   outline: none;
   font-size: 14px;
+  font-family: inherit;
   background: #fff;
+  color: var(--cor-texto);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .filtros-novos input:focus {
@@ -459,18 +508,21 @@ th.coluna-atual {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .btn-filtro-regional,
 .btn-filtro-regional-rh {
   height: 36px;
-  padding: 0 12px;
+  padding: 0 14px;
   border-radius: 10px;
   border: 1px solid #d3dde5;
   background: #fff;
-  color: #334155;
+  color: var(--cor-texto);
   font-size: 12px;
   font-weight: 700;
+  font-family: inherit;
+  white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
@@ -487,7 +539,7 @@ th.coluna-atual {
   background: linear-gradient(90deg, var(--cor-primaria-2), var(--cor-primaria));
   color: #fff;
   border-color: var(--cor-primaria);
-  box-shadow: 0 6px 14px rgba(10, 61, 98, 0.20);
+  box-shadow: 0 4px 12px rgba(10, 61, 98, 0.22);
 }
 
 /* ==========================
@@ -495,14 +547,17 @@ th.coluna-atual {
 ========================== */
 .filtro-semana {
   height: 40px;
-  padding: 6px 12px;
+  padding: 0 12px;
   border-radius: 12px;
   border: 1px solid #d3dbe1;
   font-size: 13px;
   font-weight: 700;
+  font-family: inherit;
   background: linear-gradient(to right, #ffffff, #f6fbf7);
-  transition: 0.2s;
   color: var(--cor-texto);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  flex-shrink: 0;
 }
 
 .filtro-semana:focus {
@@ -511,28 +566,22 @@ th.coluna-atual {
   outline: none;
 }
 
-.semana-ativa {
-  background-color: var(--cor-sucesso-2);
-  color: #fff;
-  font-weight: 700;
+.filtro-semana.semana-atual-ativa {
+  border-color: var(--cor-sucesso-2);
+  background: linear-gradient(to right, #f6fbf7, #edf8ef);
+  color: var(--cor-sucesso);
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.18);
 }
 
 /* ==========================
    🧭 SUBCLASSES DO SIDEBAR
-   ✅ AJUSTADO:
-   - texto sempre na frente do ponto
-   - texto verde
-   - hover verde
-   - sem sobreposição
 ========================== */
 .sidebar_menu .submenu {
   display: none;
-  margin: 4px 0 8px 0;
-  padding: 0;
+  margin: 4px 0 8px 12px;
+  padding: 0 0 0 6px;
   list-style: none;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
-  margin-left: 12px;
-  padding-left: 6px;
 }
 
 .sidebar_menu .submenu li,
@@ -552,8 +601,7 @@ th.coluna-atual {
   transition:
     background 0.2s ease,
     color 0.2s ease,
-    transform 0.16s ease,
-    box-shadow 0.2s ease;
+    transform 0.16s ease;
   text-align: left;
   z-index: 1;
 }
@@ -562,13 +610,11 @@ th.coluna-atual {
 .submenu-item::before {
   content: "";
   position: static;
-  transform: none;
   width: 8px;
   height: 8px;
   min-width: 8px;
   border-radius: 50%;
   background: #4CAF50;
-  opacity: 1;
   display: inline-block;
   flex: 0 0 8px;
   box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.08);
@@ -579,13 +625,11 @@ th.coluna-atual {
   background: rgba(76, 175, 80, 0.12);
   color: #81C784;
   transform: translateX(2px);
-  box-shadow: inset 0 0 0 1px rgba(76, 175, 80, 0.10);
 }
 
 .sidebar_menu .submenu li:hover::before,
 .submenu-item:hover::before {
   background: #81C784;
-  box-shadow: 0 0 0 2px rgba(129, 199, 132, 0.10);
 }
 
 .sidebar_menu .submenu.ativo {
@@ -601,8 +645,7 @@ th.coluna-atual {
 }
 
 /* ==========================
-   ✨ VISUAL MAIS "DIRETORIA"
-   para cards / dashboard genéricos
+   ✨ CARDS GENÉRICOS
 ========================== */
 :is(.dashboard-card, .card-kpi, .kpi-card, .metric-card, .card-indicador, .card-dashboard, .resumo-card, .painel-card) {
   background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,250,252,0.98));
@@ -633,6 +676,7 @@ th.coluna-atual {
   width: 100%;
   overflow-x: auto !important;
   overflow-y: visible !important;
+  -webkit-overflow-scrolling: touch;
 }
 
 .tabela-especial-compacta,
@@ -663,7 +707,7 @@ th.coluna-atual {
   text-align: center !important;
 }
 
-/* colunas especiais padrão */
+/* colunas padrão */
 .col-codigo {
   width: 54px !important;
   min-width: 54px !important;
@@ -709,16 +753,13 @@ th.coluna-atual {
   max-width: 56px !important;
 }
 
-/* não travar os inputs especiais/RH */
-.input-tabela-compacto {
-  min-height: 27px;
-  font-size: 10px !important;
-  text-align: center;
-  padding: 0 5px !important;
-  border-radius: 6px;
-  box-sizing: border-box;
+/* coluna regional oculta */
+.col-regional-oculta {
+  display: none !important;
 }
 
+/* inputs compactos */
+.input-tabela-compacto,
 .input-tabela-rh {
   min-height: 27px;
   font-size: 10px !important;
@@ -726,6 +767,7 @@ th.coluna-atual {
   padding: 0 5px !important;
   border-radius: 6px;
   box-sizing: border-box;
+  font-family: inherit;
 }
 
 .campo-tabela-especial,
@@ -743,7 +785,6 @@ th.coluna-atual {
   vertical-align: middle !important;
 }
 
-/* alinhamento adicional */
 #tbody-especial td:nth-child(2),
 #tbody-rh td:nth-child(2) {
   text-align: left;
@@ -816,6 +857,8 @@ th.coluna-atual {
   gap: 6px;
   max-height: 280px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cor-borda) transparent;
   padding: 10px;
   background: #fff;
 }
@@ -824,14 +867,15 @@ th.coluna-atual {
   width: 100%;
   border: 1px solid #d9e3ea;
   background: #fff;
-  color: #23313f;
+  color: var(--cor-texto);
   border-radius: 8px;
   padding: 8px 10px;
   text-align: left;
   font-size: 12px;
+  font-family: inherit;
   line-height: 1.25;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: background 0.18s ease, border-color 0.18s ease;
 }
 
 .item-justificativa-painel:hover {
@@ -848,15 +892,36 @@ th.coluna-atual {
 
 /* ==========================
    📱 RESPONSIVIDADE
+   Breakpoints:
+   ≤480   celular pequeno
+   ≤768   celular / tablet
+   ≤1024  tablet / notebook pequeno
+   ≤1366  notebook padrão
+   ≥1600  monitor grande
+   ≥2200  monitor 4K/ultra-wide
 ========================== */
+
+/* --- NOTEBOOK PADRÃO ≤1366px --- */
 @media (max-width: 1366px) {
+  .tabela th,
+  .tabela td {
+    font-size: 12.5px;
+    padding: 10px 8px;
+  }
+
+  .tabela input,
+  .input-tabela {
+    width: 82px;
+    font-size: 12.5px;
+  }
+
   .btn-justificativa-celula {
-    width: 21px;
-    min-width: 21px;
-    max-width: 21px;
-    height: 21px;
+    width: 22px;
+    min-width: 22px;
+    max-width: 22px;
+    height: 22px;
     font-size: 13px;
-    flex: 0 0 21px;
+    flex: 0 0 22px;
   }
 
   .col-loja {
@@ -897,9 +962,35 @@ th.coluna-atual {
   }
 }
 
+/* --- TABLET / NOTEBOOK PEQUENO ≤1024px --- */
 @media (max-width: 1024px) {
+  .card-conteudo {
+    padding: 12px;
+  }
+
   .tabela {
-    min-width: 750px;
+    min-width: 560px;
+  }
+
+  .tabela th,
+  .tabela td {
+    font-size: 12px;
+    padding: 8px 6px;
+  }
+
+  .tabela input,
+  .input-tabela {
+    width: 74px;
+    font-size: 12px;
+  }
+
+  .header-tabela h2 {
+    font-size: 16px;
+  }
+
+  .filtros-novos {
+    gap: 8px;
+    padding: 9px 10px;
   }
 
   .btn-justificativa-celula {
@@ -916,24 +1007,37 @@ th.coluna-atual {
   .tabela-rh-compacta {
     min-width: max-content !important;
   }
+
+  .info-semana {
+    font-size: 12px;
+  }
 }
 
+/* --- CELULAR / TABLET ≤768px --- */
 @media (max-width: 768px) {
   .card-conteudo {
     padding: 10px;
+    border-radius: 10px;
   }
 
   .header-tabela {
     flex-direction: column;
     align-items: flex-start;
+    gap: 8px;
   }
 
   .header-tabela h2 {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .filtro-semana {
     width: 100%;
+    max-width: 100%;
+  }
+
+  .info-semana {
+    font-size: 11.5px;
+    padding: 6px 10px;
   }
 
   .filtros-tabela {
@@ -948,12 +1052,12 @@ th.coluna-atual {
     flex-direction: column;
     align-items: stretch;
     padding: 10px;
+    gap: 8px;
   }
 
   .filtros-novos input {
     width: 100%;
     max-width: 100%;
-    min-width: 100%;
   }
 
   .grupo-filtro-regional {
@@ -964,7 +1068,33 @@ th.coluna-atual {
   .btn-filtro-regional,
   .btn-filtro-regional-rh {
     flex: 1;
-    min-width: 70px;
+    min-width: 60px;
+    justify-content: center;
+  }
+
+  .tabela {
+    min-width: 480px;
+  }
+
+  .tabela th,
+  .tabela td {
+    font-size: 12px;
+    padding: 6px 5px;
+  }
+
+  .tabela input,
+  .input-tabela {
+    width: 62px;
+    font-size: 12px;
+  }
+
+  .campo-tabela-com-justificativa .input-valor-tabela,
+  .campo-tabela-com-justificativa input[data-campo="valor"] {
+    width: 58px;
+    min-width: 58px;
+    max-width: 58px;
+    flex: 0 0 58px;
+    font-size: 11px;
   }
 
   .btn-justificativa-celula {
@@ -975,22 +1105,6 @@ th.coluna-atual {
     font-size: 11px;
     border-radius: 5px;
     flex: 0 0 19px;
-  }
-
-  .tabela {
-    min-width: 600px;
-  }
-
-  .tabela th,
-  .tabela td {
-    font-size: 12px;
-    padding: 6px;
-  }
-
-  .tabela input,
-  .input-tabela {
-    width: 62px;
-    font-size: 12px;
   }
 
   .col-loja {
@@ -1005,10 +1119,7 @@ th.coluna-atual {
     max-width: 88px !important;
   }
 
-  .input-tabela-compacto {
-    font-size: 9px !important;
-  }
-
+  .input-tabela-compacto,
   .input-tabela-rh {
     font-size: 9px !important;
   }
@@ -1034,37 +1145,152 @@ th.coluna-atual {
   }
 }
 
-@media (min-width: 1600px) {
+/* --- CELULAR PEQUENO ≤480px --- */
+@media (max-width: 480px) {
+  .card-conteudo {
+    padding: 8px;
+    border-radius: 8px;
+  }
+
+  .header-tabela h2 {
+    font-size: 14px;
+  }
+
+  .filtro-semana {
+    height: 38px;
+    font-size: 12px;
+  }
+
+  .info-semana {
+    font-size: 11px;
+    padding: 5px 8px;
+  }
+
+  .filtros-novos {
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .filtros-novos input {
+    height: 38px;
+    font-size: 13px;
+  }
+
+  .btn-filtro-regional,
+  .btn-filtro-regional-rh {
+    height: 34px;
+    font-size: 11px;
+    padding: 0 10px;
+  }
+
+  .tabela {
+    min-width: 400px;
+  }
+
   .tabela th,
   .tabela td {
-    font-size: 16px;
-    padding: 14px;
+    font-size: 11px;
+    padding: 5px 4px;
   }
 
   .tabela input,
   .input-tabela {
-    width: 108px;
-    font-size: 15px;
-    height: 38px;
+    width: 54px;
+    font-size: 11px;
+    height: 30px;
+  }
+
+  .campo-tabela-com-justificativa .input-valor-tabela,
+  .campo-tabela-com-justificativa input[data-campo="valor"] {
+    width: 50px;
+    min-width: 50px;
+    max-width: 50px;
+    flex: 0 0 50px;
+    font-size: 10px;
+    height: 26px;
   }
 
   .btn-justificativa-celula {
-    width: 24px;
-    min-width: 24px;
-    max-width: 24px;
-    height: 24px;
+    width: 18px;
+    min-width: 18px;
+    max-width: 18px;
+    height: 18px;
+    font-size: 10px;
+    border-radius: 5px;
+    flex: 0 0 18px;
+  }
+
+  .tabela-container {
+    margin-top: 8px;
+  }
+}
+
+/* --- MONITOR GRANDE ≥1600px --- */
+@media (min-width: 1600px) {
+  .card-conteudo {
+    padding: 20px;
+  }
+
+  .tabela th,
+  .tabela td {
+    font-size: 14px;
+    padding: 13px 11px;
+  }
+
+  .tabela input,
+  .input-tabela {
+    width: 100px;
+    font-size: 13px;
+    height: 36px;
+  }
+
+  .campo-tabela-com-justificativa .input-valor-tabela,
+  .campo-tabela-com-justificativa input[data-campo="valor"] {
+    width: 76px;
+    min-width: 76px;
+    max-width: 76px;
+    flex: 0 0 76px;
+    height: 32px;
+  }
+
+  .btn-justificativa-celula {
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    height: 28px;
     font-size: 15px;
     border-radius: 8px;
-    flex: 0 0 24px;
+    flex: 0 0 28px;
   }
 
   .header-tabela h2 {
-    font-size: 22px;
+    font-size: 20px;
   }
 
   .filtros-novos input,
   .filtro-semana {
     height: 42px;
+    font-size: 14px;
+  }
+
+  .btn-filtro-regional,
+  .btn-filtro-regional-rh {
+    height: 38px;
+    font-size: 13px;
+    padding: 0 16px;
+  }
+
+  .info-semana {
+    font-size: 13.5px;
+    padding: 8px 16px;
+  }
+
+  .tabela-especial-compacta th,
+  .tabela-especial-compacta td,
+  .tabela-rh-compacta th,
+  .tabela-rh-compacta td {
+    font-size: 11px;
+    padding: 6px 5px;
   }
 
   .tabela-especial-compacta thead tr:nth-child(2) th,
@@ -1078,29 +1304,48 @@ th.coluna-atual {
     padding: 8px 14px 8px 16px;
     font-size: 13px;
   }
-
-  .sidebar_menu .submenu li::before,
-  .submenu-item::before {
-    width: 8px;
-    height: 8px;
-    min-width: 8px;
-    flex: 0 0 8px;
-  }
 }
 
+/* --- ULTRA-WIDE / 4K ≥2200px --- */
 @media (min-width: 2200px) {
   .card-conteudo {
-    padding: 18px;
+    padding: 24px;
   }
 
   .tabela th,
   .tabela td {
-    font-size: 17px;
-    padding: 15px;
+    font-size: 15px;
+    padding: 14px 12px;
+  }
+
+  .tabela input,
+  .input-tabela {
+    width: 110px;
+    height: 38px;
+    font-size: 14px;
+  }
+
+  .campo-tabela-com-justificativa .input-valor-tabela,
+  .campo-tabela-com-justificativa input[data-campo="valor"] {
+    width: 82px;
+    min-width: 82px;
+    max-width: 82px;
+    flex: 0 0 82px;
+    height: 34px;
+    font-size: 13px;
+  }
+
+  .btn-justificativa-celula {
+    width: 30px;
+    min-width: 30px;
+    max-width: 30px;
+    height: 30px;
+    font-size: 16px;
+    flex: 0 0 30px;
   }
 
   .header-tabela h2 {
-    font-size: 24px;
+    font-size: 22px;
   }
 
   .filtros-novos input,
@@ -1109,15 +1354,30 @@ th.coluna-atual {
     font-size: 15px;
   }
 
-  .tabela input,
-  .input-tabela {
+  .btn-filtro-regional,
+  .btn-filtro-regional-rh {
     height: 40px;
+    font-size: 14px;
+    padding: 0 18px;
+  }
+
+  .info-semana {
+    font-size: 14px;
+    padding: 9px 18px;
+  }
+
+  .tabela-especial-compacta th,
+  .tabela-especial-compacta td,
+  .tabela-rh-compacta th,
+  .tabela-rh-compacta td {
+    font-size: 12px;
+    padding: 6px 5px;
   }
 
   .sidebar_menu .submenu li,
   .submenu-item {
     gap: 12px;
-    padding: 8px 15px 8px 18px;
+    padding: 9px 15px 9px 18px;
     font-size: 14px;
   }
 }

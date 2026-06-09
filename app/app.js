@@ -871,7 +871,20 @@ function usuarioTemAcessoIndicadorApp(indicador, classe = "", user = null) {
   const meta = getMetaIndicadorApp(indicadorNorm, classeNorm);
   const tokenSubclasse = getTokenSubclasseApp(meta.classe, meta.subclasse);
 
+  // permissão dedicada "Ver [tabela]" — libera a classe inteira
+  let liberadoPorClasse = false;
+  try {
+    if (typeof window.chavePermissaoClasse === "function") {
+      const permsSistema = getPermissoesSistemaEfetivasApp(user);
+      const chaveClasse = window.chavePermissaoClasse(meta.classe || classe);
+      liberadoPorClasse = permsSistema[chaveClasse] === true;
+    }
+  } catch (e) {
+    liberadoPorClasse = false;
+  }
+
   const acesso =
+    liberadoPorClasse ||
     permissoes.acesso_total === true ||
     permissoes.classes.includes(meta.classe) ||
     permissoes.subclasses.includes(tokenSubclasse) ||

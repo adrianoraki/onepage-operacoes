@@ -10,6 +10,10 @@ window.FaixaHoras = window.FaixaHoras || {};
     localStorage.getItem("semana") ||
     getSemanaAtualFaixaHoras().toString().padStart(2, "0");
 
+  // estado dos filtros (persiste entre recargas silenciosas)
+  let _filtroRegionalFH = "TODAS";
+  let _filtroTextoBuscaFH = "";
+
   const TABELA_STATE_FAIXA_HORAS = {
     salvando: new Set(),
   };
@@ -579,9 +583,16 @@ window.FaixaHoras = window.FaixaHoras || {};
     return html;
   }
 
+  function montarHTMLTbodyFaixaHoras(lojas, mapa, semanas) {
+    return lojas.map((loja) => montarLinhaFaixaHoras(loja, mapa, semanas)).join("");
+  }
+
   function montarHTMLTabelaFaixaHoras(lojas, mapa, semanas) {
     const titulo = getTituloFaixaHoras();
     const semanaAtualReal = getSemanaAtualFaixaHoras().toString().padStart(2, "0");
+    const getInfo = typeof window.getInfoSemana === "function"
+      ? window.getInfoSemana
+      : (s) => `Semana ${s}`;
 
     let html = `
       <div class="card-conteudo">
@@ -589,9 +600,13 @@ window.FaixaHoras = window.FaixaHoras || {};
         <div class="header-tabela">
           <h2>📊 ${titulo}</h2>
 
-          <select class="filtro-semana" onchange="window.alterarSemanaFaixaHoras(this.value)">
+          <select class="filtro-semana${semanaSelecionadaFaixaHoras === semanaAtualReal ? " semana-atual-ativa" : ""}" onchange="window.alterarSemanaFaixaHoras(this.value)">
             ${gerarOptionsSemanasFaixaHoras()}
           </select>
+        </div>
+
+        <div class="info-semana">
+          ${getInfo(semanaSelecionadaFaixaHoras || semanaAtualReal)}
         </div>
 
         <div class="filtros-tabela filtros-novos">
@@ -664,22 +679,18 @@ window.FaixaHoras = window.FaixaHoras || {};
   function gerarOptionsSemanasFaixaHoras() {
     let html = "";
 
-    const atual =
+    const selecionada =
       semanaSelecionadaFaixaHoras ||
       getSemanaAtualFaixaHoras().toString().padStart(2, "0");
+    const real = getSemanaAtualFaixaHoras().toString().padStart(2, "0");
 
-    logInfo("Gerando options - semana ativa", { atual });
+    logInfo("Gerando options - semana ativa", { selecionada, real });
 
     for (let i = 1; i <= 53; i++) {
       const s = i.toString().padStart(2, "0");
-      const selected = s === atual ? "selected" : "";
-      const classe = s === atual ? "semana-ativa" : "";
-
-      html += `
-        <option value="${s}" class="${classe}" ${selected}>
-          Semana ${s}
-        </option>
-      `;
+      const selected = s === selecionada ? "selected" : "";
+      const label = s === real ? `Semana ${s} ★` : `Semana ${s}`;
+      html += `<option value="${s}" ${selected}>${label}</option>`;
     }
 
     return html;
@@ -696,6 +707,8 @@ window.FaixaHoras = window.FaixaHoras || {};
 
     semanaSelecionadaFaixaHoras = sem;
     localStorage.setItem("semana", sem);
+    _filtroTextoBuscaFH = "";
+    _filtroRegionalFH = "TODAS";
 
     logInfo("Semana alterada", { sem });
 
@@ -716,10 +729,15 @@ window.FaixaHoras = window.FaixaHoras || {};
       return;
     }
 
-    let regionalSelecionada = "TODAS";
+    // restaura estado salvo
+    busca.value = _filtroTextoBuscaFH;
+    botoesRegional.forEach((b) => {
+      b.classList.toggle("ativo", b.dataset.regional === _filtroRegionalFH);
+    });
 
     const aplicar = () => {
       const termo = busca.value.toLowerCase().trim();
+      _filtroTextoBuscaFH = busca.value;
 
       document.querySelectorAll("#tbody-tabela tr").forEach((row) => {
         const tds = row.querySelectorAll("td");
@@ -739,8 +757,8 @@ window.FaixaHoras = window.FaixaHoras || {};
           !termo || codigo.includes(termo) || loja.includes(termo);
 
         const matchRegional =
-          regionalSelecionada === "TODAS" ||
-          regional === regionalSelecionada.toLowerCase();
+          _filtroRegionalFH === "TODAS" ||
+          regional === _filtroRegionalFH.toLowerCase();
 
         row.style.display = matchBusca && matchRegional ? "" : "none";
       });
@@ -752,9 +770,8 @@ window.FaixaHoras = window.FaixaHoras || {};
       btn.addEventListener("click", () => {
         botoesRegional.forEach((b) => b.classList.remove("ativo"));
         btn.classList.add("ativo");
-
-        regionalSelecionada = btn.dataset.regional || "TODAS";
-        logInfo("Filtro regional alterado", { regionalSelecionada });
+        _filtroRegionalFH = btn.dataset.regional || "TODAS";
+        logInfo("Filtro regional alterado", { _filtroRegionalFH });
         aplicar();
       });
     });
@@ -764,11 +781,30 @@ window.FaixaHoras = window.FaixaHoras || {};
     logInfo("Filtros Faixa Horas ativados com sucesso");
   }
 
+  function reaplicarFiltrosFaixaHoras() {
+    document.querySelectorAll("#tbody-tabela tr").forEach((row) => {
+      const tds = row.querySelectorAll("td");
+      if (tds.length < 2) return;
+
+      const codigo = (row.dataset.lojaCodigo || tds[0]?.textContent || "").toLowerCase();
+      const loja = (row.dataset.lojaNome || tds[1]?.textContent || "").toLowerCase();
+      const regional = (row.dataset.regional || tds[2]?.textContent || "").toLowerCase();
+      const termo = _filtroTextoBuscaFH.toLowerCase().trim();
+
+      const matchBusca = !termo || codigo.includes(termo) || loja.includes(termo);
+      const matchRegional =
+        _filtroRegionalFH === "TODAS" ||
+        regional === _filtroRegionalFH.toLowerCase();
+
+      row.style.display = matchBusca && matchRegional ? "" : "none";
+    });
+  }
+
   // ==========================
   // 📊 CARREGAR TABELA FAIXA HORAS
   // ==========================
-  async function carregarFaixaHoras() {
-    logInfo("carregarFaixaHoras iniciado");
+  async function carregarFaixaHoras({ silencioso = false } = {}) {
+    logInfo("carregarFaixaHoras iniciado", { silencioso });
 
     try {
       if (!window.db) {
@@ -820,6 +856,19 @@ window.FaixaHoras = window.FaixaHoras || {};
       const container = document.getElementById("conteudo");
       if (!container) {
         logError("#conteudo não encontrado");
+        return;
+      }
+
+      // modo silencioso: atualiza só o tbody, preserva filtros intactos
+      const tbody = container.querySelector("#tbody-tabela");
+      if (silencioso && tbody) {
+        tbody.innerHTML = montarHTMLTbodyFaixaHoras(lojas, mapa, semanas);
+
+        if (typeof aplicarPermissoesTabela === "function") {
+          aplicarPermissoesTabela(indicadorBanco, classeAtual);
+        }
+        reaplicarFiltrosFaixaHoras();
+        logInfo("Atualização silenciosa Faixa Horas concluída (tbody-only)");
         return;
       }
 
