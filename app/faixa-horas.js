@@ -820,10 +820,6 @@ window.FaixaHoras = window.FaixaHoras || {};
         return;
       }
 
-      semanaSelecionadaFaixaHoras =
-        localStorage.getItem("semana") ||
-        getSemanaAtualFaixaHoras().toString().padStart(2, "0");
-
       logInfo("Semana ativa Faixa Horas", {
         semanaSelecionadaFaixaHoras,
       });

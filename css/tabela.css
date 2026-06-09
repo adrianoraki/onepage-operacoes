@@ -44,7 +44,7 @@
 .tabela-container {
   width: 100%;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: clip;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
   scrollbar-width: thin;
@@ -135,6 +135,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: center !important;
+  position: sticky;
+  top: 33px;
 }
 
 /* ==========================
@@ -676,7 +678,7 @@ th.coluna-atual {
 .tabela-rh-ajustada {
   width: 100%;
   overflow-x: auto !important;
-  overflow-y: visible !important;
+  overflow-y: clip !important;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y;
 }
