@@ -464,73 +464,10 @@ body::after {
   animation: overlayPulse 1.8s ease-in-out infinite;
 }
 
-.atom-loader {
-  position: relative;
+#overlayRing {
   width: 120px;
   height: 120px;
   margin-bottom: 28px;
-}
-
-.atom-loader .nucleus {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 16px;
-  height: 16px;
-  background-color: #00f2fe;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 15px #00f2fe;
-}
-
-.atom-loader .electron-orbit {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border: 2px solid rgba(0, 242, 254, 0.2);
-  border-radius: 50%;
-}
-
-.atom-loader .electron {
-  position: absolute;
-  top: -5px;
-  left: 50%;
-  width: 10px;
-  height: 10px;
-  background-color: #4facfe;
-  border-radius: 50%;
-  transform: translateX(-50%);
-  box-shadow: 0 0 10px #4facfe;
-}
-
-.atom-loader .orbit-1 {
-  transform: rotateX(70deg) rotateY(20deg);
-  animation: orbit-spin-1 1.5s linear infinite;
-}
-
-.atom-loader .orbit-2 {
-  transform: rotateX(65deg) rotateY(140deg);
-  animation: orbit-spin-2 1.5s linear infinite;
-}
-
-.atom-loader .orbit-3 {
-  transform: rotateX(15deg) rotateY(80deg);
-  animation: orbit-spin-3 1.5s linear infinite;
-}
-
-@keyframes orbit-spin-1 {
-  0%   { transform: rotateX(70deg) rotateY(20deg)  rotateZ(0deg); }
-  100% { transform: rotateX(70deg) rotateY(20deg)  rotateZ(360deg); }
-}
-
-@keyframes orbit-spin-2 {
-  0%   { transform: rotateX(65deg) rotateY(140deg) rotateZ(0deg); }
-  100% { transform: rotateX(65deg) rotateY(140deg) rotateZ(360deg); }
-}
-
-@keyframes orbit-spin-3 {
-  0%   { transform: rotateX(15deg) rotateY(80deg)  rotateZ(0deg); }
-  100% { transform: rotateX(15deg) rotateY(80deg)  rotateZ(360deg); }
 }
 
 .overlay-checkmark {

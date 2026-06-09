@@ -454,13 +454,14 @@ async function fazerLogin() {
       }
     }
 
-    // 5) Redirecionar
+    // 5) Redirecionar — 2s lottie → checkmark → redirect em 3s total
     btn.innerHTML = '<span class="btn-login-texto">✅ Entrando...</span>';
-    mostrarOverlaySucesso();
+
+    setTimeout(() => mostrarOverlaySucesso(), 2000);
 
     setTimeout(() => {
       window.location.replace("index.html");
-    }, 1100);
+    }, 3000);
   } catch (err) {
     console.error("❌ Erro inesperado no login:", err);
     setErro("Erro ao conectar com o servidor");

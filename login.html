@@ -107,13 +107,15 @@
     <!-- Overlay de carregamento -->
     <div class="login-overlay" id="loginOverlay">
       <div class="overlay-content">
-        <img src="/assets/fave.png" alt="" class="overlay-logo" />
-        <div class="atom-loader" id="overlayRing">
-          <div class="nucleus"></div>
-          <div class="electron-orbit orbit-1"><div class="electron"></div></div>
-          <div class="electron-orbit orbit-2"><div class="electron"></div></div>
-          <div class="electron-orbit orbit-3"><div class="electron"></div></div>
-        </div>
+        <lottie-player
+          id="overlayRing"
+          src="/assets/loading.json"
+          background="transparent"
+          speed="1"
+          style="width:120px;height:120px;"
+          loop
+          autoplay
+        ></lottie-player>
         <svg class="overlay-checkmark" id="overlayCheck" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
           <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none" stroke="#6ee79a" stroke-width="2.5"/>
           <path   class="checkmark-tick"   fill="none" stroke="#6ee79a" stroke-width="3"
@@ -137,6 +139,9 @@
         icon.textContent = visivel ? "👁️" : "🙈";
       }
     </script>
+
+    <!-- Lottie Player -->
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
 
     <!-- Supabase -->
     <script
