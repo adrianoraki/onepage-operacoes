@@ -32,6 +32,32 @@
   min-height: 70vh;
 }
 
+/* ============================================================
+   📐 FULL-BLEED — comparativos ocupa toda a área útil
+   (cola entre o sidebar e as bordas, do topo até o rodapé)
+   ============================================================ */
+.comparativo-container {
+  /* "come" o padding do .conteudo para encostar nas bordas */
+  margin-left: calc(-1 * clamp(15px, 2vw, 25px));
+  margin-right: calc(-1 * clamp(15px, 2vw, 25px));
+  margin-top: calc(-1 * clamp(15px, 2vw, 25px));
+  /* padding interno enxuto, lados quase colados */
+  padding: clamp(10px, 1.3vw, 16px) 6px;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  /* preenche a altura toda (descontando o rodapé fixo) */
+  min-height: calc(100dvh - var(--footer-h));
+  gap: clamp(10px, 1.4vw, 18px);
+}
+
+/* as matrizes ocupam toda a largura e esticam para preencher a altura */
+.comparativo-container .comparativo-matrizes { flex: 1; }
+.comparativo-container .matriz-card { width: 100%; }
+.comparativo-container .matriz-scroll { width: 100%; }
+/* tabela preenche 100% e as colunas de indicador esticam */
+.comparativo-container .matriz-tabela { width: 100%; table-layout: auto; }
+
 /* ---------- Topo ---------- */
 .comparativo-topo {
   display: flex;
@@ -230,17 +256,17 @@
 
 /* cabeçalhos */
 .matriz-th-loja {
-  position: sticky; left: 49px; z-index: 4;
+  position: sticky; left: 0; z-index: 4;
   background: var(--hm-card-3); color: #fff;
-  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
-  text-align: left; padding: 12px 14px; border-radius: 8px;
-  min-width: clamp(120px, 16vw, 160px);
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+  text-align: left; padding: 12px 18px; border-radius: 8px;
+  width: 1%; white-space: nowrap;
 }
 .matriz-th-ind {
   background: var(--hm-head-ind); color: var(--hm-txt);
   font-size: clamp(9.5px, 1.1vw, 11px); font-weight: 600;
   padding: 10px 8px; text-align: center; border-radius: 8px;
-  min-width: var(--hm-cel-min); max-width: 130px; line-height: 1.25;
+  min-width: var(--hm-cel-min); width: auto; line-height: 1.25;
 }
 .matriz-th-nome { display: block; }
 .matriz-th-uni {
@@ -248,17 +274,31 @@
   opacity: 0.7; background: rgba(255,255,255,0.15); padding: 1px 6px; border-radius: 99px;
 }
 
-/* primeira coluna loja */
+/* primeira coluna loja — largura do MAIOR nome (sem cortar) */
 .matriz-loja {
-  position: sticky; left: 49px; z-index: 3;
+  position: sticky; left: 0; z-index: 3;
   background: var(--hm-card-2); border-radius: 8px;
-  padding: 10px 14px; min-width: clamp(120px, 16vw, 160px); text-align: left;
+  padding: 11px 18px; width: 1%; white-space: nowrap; text-align: left;
+}
+/* sombra à direita das colunas fixas (separa do conteúdo que rola atrás) */
+.matriz-th-loja, .matriz-loja {
+  box-shadow: 8px 0 10px -6px rgba(0, 0, 0, 0.55);
+}
+
+/* a coluna # e Loja da LINHA DE RESUMO também ficam fixas e por cima */
+.matriz-linha-resumo .matriz-th-rank { z-index: 6; }
+.matriz-linha-resumo .matriz-th-loja { z-index: 6; }
+/* células de resumo dos indicadores: opacas e atrás das colunas fixas */
+.matriz-resumo-cel {
+  position: relative; z-index: 1;
+  text-align: center; padding: 10px 8px; border-radius: 8px;
+  min-width: var(--hm-cel-min);
 }
 .matriz-loja-cod {
-  display: inline-block; font-size: 10px; font-weight: 700; color: #fff;
-  background: var(--hm-azul); padding: 1px 7px; border-radius: 99px; margin-right: 6px;
+  display: inline-block; font-size: 15px; font-weight: 800; color: #fff;
+  background: var(--hm-azul); padding: 3px 11px; border-radius: 99px; margin-right: 9px;
 }
-.matriz-loja-nome { font-size: clamp(11px, 1.3vw, 13px); font-weight: 600; color: var(--hm-txt); }
+.matriz-loja-nome { font-size: clamp(15px, 1.6vw, 19px); font-weight: 700; color: var(--hm-txt); white-space: nowrap; }
 
 /* células heatmap (cores vibrantes vêm inline) */
 .matriz-celula {
@@ -279,13 +319,14 @@
   --hm-cel-min: clamp(96px, 8vw, 150px);
   width: 100vw;
   max-width: 100vw;
-  min-height: 100vh;
-  height: auto;
+  height: 100vh;
+  max-height: 100vh;
   margin: 0;
   border-radius: 0;
   box-sizing: border-box;
   padding: clamp(14px, 1.4vw, 26px) clamp(18px, 1.8vw, 34px);
   overflow-y: auto;
+  overflow-x: hidden;
 }
 .comparativo-container:fullscreen { background: var(--hm-bg) !important; }
 .comparativo-container::backdrop { background: var(--hm-bg); }
@@ -317,7 +358,7 @@
   .comparativo-container { padding: 12px; --hm-cel-min: 78px; }
   .comparativo-titulo { font-size: 20px; }
   .matriz-th-loja, .matriz-loja { min-width: 110px; }
-  .matriz-th-loja { left: 44px; } .matriz-loja { left: 44px; }
+  .matriz-th-loja { left: 0; } .matriz-loja { left: 0; }
   .matriz-th-rank, .matriz-rank { min-width: 40px; }
 }
 

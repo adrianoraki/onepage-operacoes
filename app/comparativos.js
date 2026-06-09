@@ -73,16 +73,16 @@ function garantirEstilosComparativo() {
   style.textContent = `
     .matriz-tabela .matriz-th-loja,
     .matriz-tabela .matriz-loja {
-      min-width: 285px !important;
-      width: 285px !important;
-      max-width: 380px !important;
+      width: auto !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      white-space: nowrap !important;
     }
 
     .matriz-tabela .matriz-loja {
-      white-space: normal !important;
-      line-height: 1.18 !important;
-      padding-left: 12px !important;
-      padding-right: 12px !important;
+      line-height: 1.2 !important;
+      padding-left: 16px !important;
+      padding-right: 20px !important;
     }
 
     .matriz-tabela .matriz-loja-cod,
@@ -90,12 +90,12 @@ function garantirEstilosComparativo() {
       display: inline-flex !important;
       align-items: center;
       justify-content: center;
-      min-width: 38px;
-      height: 19px;
-      margin-right: 7px;
-      padding: 1px 7px;
+      min-width: 46px;
+      height: 24px;
+      margin-right: 9px;
+      padding: 2px 11px;
       border-radius: 999px;
-      font-size: 10px;
+      font-size: 15px;
       font-weight: 900;
       background: rgba(59, 130, 246, 0.24);
       color: #dbeafe;
@@ -104,8 +104,9 @@ function garantirEstilosComparativo() {
 
     .matriz-tabela .matriz-loja-nome,
     .comparativo-tabela .matriz-loja-nome {
-      font-size: 11.5px;
+      font-size: 17px;
       font-weight: 800;
+      white-space: nowrap;
       vertical-align: middle;
     }
 
@@ -152,8 +153,154 @@ function garantirEstilosComparativo() {
       min-width: 130px;
     }
 
+    /* ocupa toda a área útil, encostando na barra de rolagem */
+    #comparativoContainer.comparativo-container {
+      margin-left: calc(-1 * clamp(15px, 2vw, 25px)) !important;
+      margin-right: calc(-1 * clamp(15px, 2vw, 25px)) !important;
+      margin-top: calc(-1 * clamp(15px, 2vw, 25px)) !important;
+      padding: 12px 2px !important;
+      border-radius: 0 !important;
+      border-left: none !important;
+      border-right: none !important;
+      min-height: calc(100dvh - 34px) !important;
+    }
+
+    /* o wrapper .pagina-container NÃO pode limitar a largura do comparativo */
+    .pagina-container:has(#comparativoContainer) {
+      max-width: none !important;
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    /* botões de exportação (à direita dos filtros) */
+    .comparativo-export {
+      display: flex;
+      gap: 7px;
+      margin-left: auto;
+      align-items: center;
+    }
+    .cmp-exp {
+      display: inline-flex; align-items: center; gap: 6px;
+      border: none; cursor: pointer;
+      padding: 7px 12px; border-radius: 8px;
+      font-size: 12px; font-weight: 800; color: #fff;
+      transition: filter 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .cmp-exp:hover { filter: brightness(1.12); transform: translateY(-1px); }
+    .cmp-exp:active { transform: translateY(0); }
+    .cmp-exp i { font-size: 13px; }
+    .cmp-exp-print { background: #475569; }
+    .cmp-exp-pdf   { background: #dc2626; }
+    .cmp-exp-xlsx  { background: #15803d; }
+    @media (max-width: 640px) {
+      .cmp-exp span { display: none; }
+      .cmp-exp { padding: 8px 10px; }
+    }
+
+    /* matrizes/tabela preenchem 100% e as colunas de indicador esticam */
+    #comparativoContainer .comparativo-matrizes,
+    #comparativoContainer .matriz-card,
+    #comparativoContainer .matriz-scroll {
+      width: 100% !important;
+    }
+    .matriz-tabela {
+      width: 100% !important;
+      table-layout: auto !important;
+    }
+    .matriz-tabela .matriz-th-ind,
+    .matriz-tabela .matriz-celula,
+    .matriz-tabela .matriz-resumo-cel {
+      max-width: none !important;
+    }
+
+    /* rolagem funcionando no modo TELA CHEIA */
+    #comparativoContainer.comparativo-container:fullscreen,
+    #comparativoContainer.comparativo-container:-webkit-full-screen {
+      width: 100vw !important;
+      height: 100vh !important;
+      max-height: 100vh !important;
+      margin: 0 !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+
+    /* destaque da linha MÉDIA / TOTAL */
+    .matriz-linha-resumo .matriz-resumo-cel,
+    .matriz-linha-resumo .matriz-th-loja {
+      background: #16466b !important;
+      color: #ffffff !important;
+      border-bottom: 3px solid #f0b429 !important;
+      font-size: 14px !important;
+      font-weight: 800 !important;
+    }
+    .matriz-linha-resumo .matriz-th-loja {
+      color: #ffe2a8 !important;
+    }
+
+    /* melhora a legibilidade dos números sobre os fundos coloridos */
+    .matriz-tabela .matriz-celula {
+      font-weight: 800 !important;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      letter-spacing: 0 !important;
+    }
+
     .matriz-vazia {
       opacity: 0.72;
+    }
+
+    /* ===== IMPRESSÃO / PDF (cada regional em uma folha, tabela INTEIRA) ===== */
+    @media print {
+      @page { size: A4 landscape; margin: 6mm; }
+
+      /* esconde tudo que não é a matriz */
+      .sidebar, .rodape-fixo, footer,
+      .comparativo-topo, .comparativo-filtros, .comparativo-abas,
+      .comparativo-export, .comparativo-btn-tela,
+      .comparativo-info-periodo { display: none !important; }
+
+      /* containers fluem e PAGINAM naturalmente (sem position absolute!) */
+      html, body, .conteudo, .pagina-container,
+      #comparativoContainer, .comparativo-container,
+      #comparativoConteudo, .comparativo-matrizes, .comparativo-regionais {
+        height: auto !important; max-height: none !important; min-height: 0 !important;
+        overflow: visible !important; position: static !important;
+        margin: 0 !important; padding: 0 !important;
+        display: block !important; width: auto !important;
+      }
+
+      /* cada regional em uma folha, com a tabela COMPLETA */
+      .matriz-card {
+        break-inside: avoid; page-break-inside: avoid;
+        page-break-after: always; margin: 0 0 6px 0 !important;
+        box-shadow: none !important; border: none !important;
+      }
+      .matriz-card:last-child { page-break-after: auto; }
+      .matriz-scroll { overflow: visible !important; width: auto !important; max-width: none !important; }
+
+      /* table-layout fixed faz TODAS as colunas caberem na largura da página */
+      .matriz-tabela {
+        width: 100% !important; table-layout: fixed !important;
+        font-size: 7px !important; border-spacing: 1px !important;
+      }
+      .matriz-th-loja, .matriz-loja {
+        width: 92px !important; white-space: normal !important;
+        position: static !important; box-shadow: none !important;
+      }
+      .matriz-loja-cod { font-size: 8px !important; padding: 1px 4px !important; }
+      .matriz-loja-nome { font-size: 8px !important; }
+      .matriz-th-ind, .matriz-celula, .matriz-resumo-cel {
+        padding: 2px 1px !important; overflow: hidden;
+        font-size: 7.5px !important; text-shadow: none !important;
+      }
+      .matriz-celula, .matriz-resumo-cel, .matriz-th-ind,
+      .matriz-th-loja, .matriz-loja, .matriz-linha-resumo .matriz-resumo-cel {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
     }
   `;
 
@@ -254,9 +401,11 @@ function tipoSomaComparativo(tipo) {
 function agregarValoresComparativo(arr, tipo) {
   if (!arr || !arr.length) return null;
 
-  return tipoSomaComparativo(tipo)
-    ? somarComparativo(arr)
-    : calcularMediaComparativo(arr);
+  // % → MÉDIA das semanas do período (por loja)
+  // R$, número inteiro e banco de horas → SOMA (valor total)
+  return tipoPercentualComparativo(tipo)
+    ? calcularMediaComparativo(arr)
+    : somarComparativo(arr);
 }
 
 function formatarValorComparativo(valor, tipo) {
@@ -698,6 +847,18 @@ async function telaComparativos() {
             <select id="comparativoSemana" onchange="comparativoAlterarSemana(this.value)">
               ${gerarOptionsSemanasComparativo()}
             </select>
+          </div>
+
+          <div class="comparativo-export">
+            <button class="cmp-exp cmp-exp-print" onclick="comparativoImprimir()" title="Imprimir / compartilhar">
+              <i class="fas fa-print"></i><span>Print</span>
+            </button>
+            <button class="cmp-exp cmp-exp-pdf" onclick="comparativoExportarPDF()" title="Baixar PDF">
+              <i class="fas fa-file-pdf"></i><span>PDF</span>
+            </button>
+            <button class="cmp-exp cmp-exp-xlsx" onclick="comparativoExportarXLSX()" title="Baixar Excel">
+              <i class="fas fa-file-excel"></i><span>XLSX</span>
+            </button>
           </div>
         </div>
 
@@ -1781,8 +1942,9 @@ function renderMatrizRegional(
       }
 
       const soma = vals.reduce((a, b) => a + b, 0);
-      const ehSoma = tipoSomaComparativo(ind.tipo);
-      const valor = ehSoma ? soma : soma / vals.length;
+      // % → MÉDIA de todas as lojas; R$ e números → SOMA (total da regional)
+      const ehPct = tipoPercentualComparativo(ind.tipo);
+      const valor = ehPct ? soma / vals.length : soma;
 
       return `
         <th class="matriz-resumo-cel" style="background:#0d1622;color:#eaf2ff;font-weight:700;white-space:nowrap;">
@@ -1823,9 +1985,146 @@ function renderMatrizRegional(
 }
 
 // ==========================
+// 🖨️ EXPORTAÇÃO (Print / PDF / XLSX)
+// ==========================
+function carregarScriptCDNComparativo(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[data-cdn="${src}"]`)) return resolve();
+    const s = document.createElement("script");
+    s.src = src;
+    s.dataset.cdn = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Falha ao carregar " + src));
+    document.head.appendChild(s);
+  });
+}
+
+function comparativoFeedbackExport(msg) {
+  if (typeof mostrarErro === "function") {
+    mostrarErro(msg);
+  } else {
+    alert(msg);
+  }
+}
+
+// PRINT — gera uma IMAGEM (PNG) com a tabela INTEIRA (clona expandida fora da tela)
+async function comparativoImprimir() {
+  const alvo = document.getElementById("comparativoConteudo");
+  if (!alvo) return;
+
+  if (!alvo.querySelector(".matriz-card")) {
+    comparativoFeedbackExport("Nada para capturar ainda.");
+    return;
+  }
+
+  try {
+    await carregarScriptCDNComparativo(
+      "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+    );
+
+    // clona o conteúdo, expandido e fora da tela (sem scroll, sem sticky)
+    const clone = alvo.cloneNode(true);
+    clone.style.width = "max-content";
+    clone.style.maxWidth = "none";
+
+    clone.querySelectorAll(".matriz-scroll").forEach((s) => {
+      s.style.overflow = "visible";
+      s.style.width = "max-content";
+      s.style.maxWidth = "none";
+    });
+    // remove sticky (senão a coluna loja "vaza" na captura)
+    clone.querySelectorAll(".matriz-loja, .matriz-th-loja").forEach((s) => {
+      s.style.position = "static";
+      s.style.boxShadow = "none";
+    });
+
+    // wrapper COM a classe .comparativo-container para resolver as variáveis CSS
+    // (cores do tema), senão os textos saem pretos
+    const wrapper = document.createElement("div");
+    wrapper.className = "comparativo-container";
+    wrapper.style.position = "absolute";
+    wrapper.style.left = "-99999px";
+    wrapper.style.top = "0";
+    wrapper.style.width = "max-content";
+    wrapper.style.maxWidth = "none";
+    wrapper.style.minHeight = "0";
+    wrapper.style.margin = "0";
+    wrapper.style.padding = "16px";
+    wrapper.style.background = "#0a1622";
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+
+    const canvas = await window.html2canvas(wrapper, {
+      backgroundColor: "#0a1622",
+      scale: 2,
+      useCORS: true,
+      width: wrapper.scrollWidth,
+      windowWidth: wrapper.scrollWidth,
+    });
+
+    wrapper.remove();
+
+    const link = document.createElement("a");
+    link.download = "comparativos-regionais.png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  } catch (erro) {
+    console.error(erro);
+    comparativoFeedbackExport(
+      "Não foi possível gerar a imagem. Verifique sua conexão e tente de novo."
+    );
+  }
+}
+
+// PDF — abre o diálogo de impressão (lá você escolhe imprimir ou salvar como PDF)
+function comparativoExportarPDF() {
+  window.print();
+}
+
+// XLSX — gera um Excel com uma aba por regional, a partir das tabelas renderizadas
+async function comparativoExportarXLSX() {
+  const cards = document.querySelectorAll("#comparativoConteudo .matriz-card");
+  if (!cards.length) {
+    comparativoFeedbackExport("Nada para exportar ainda.");
+    return;
+  }
+
+  try {
+    await carregarScriptCDNComparativo(
+      "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
+    );
+    const XLSX = window.XLSX;
+    const wb = XLSX.utils.book_new();
+
+    cards.forEach((card, i) => {
+      const tabela = card.querySelector("table");
+      if (!tabela) return;
+
+      let nome =
+        card.querySelector(".regional-titulo")?.textContent.trim().split(/\s{2,}/)[0] ||
+        `Regional ${i + 1}`;
+      nome = nome.replace(/[\\/?*[\]:]/g, "").substring(0, 28) || `Regional ${i + 1}`;
+
+      const ws = XLSX.utils.table_to_sheet(tabela, { raw: false });
+      XLSX.utils.book_append_sheet(wb, ws, nome);
+    });
+
+    XLSX.writeFile(wb, "comparativos-regionais.xlsx");
+  } catch (erro) {
+    console.error(erro);
+    comparativoFeedbackExport(
+      "Não foi possível gerar o Excel. Verifique sua conexão e tente de novo."
+    );
+  }
+}
+
+// ==========================
 // 🌐 EXPOR
 // ==========================
 window.telaComparativos = telaComparativos;
+window.comparativoImprimir = comparativoImprimir;
+window.comparativoExportarPDF = comparativoExportarPDF;
+window.comparativoExportarXLSX = comparativoExportarXLSX;
 window.comparativoAlterarMes = comparativoAlterarMes;
 window.comparativoAlterarSemana = comparativoAlterarSemana;
 window.comparativoAlterarAba = comparativoAlterarAba;

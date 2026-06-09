@@ -479,7 +479,8 @@ function garantirEstilosTabelaEspecial() {
 
     .tabela-compacta-container {
       overflow-x: auto !important;
-      overflow-y: visible !important;
+      overflow-y: auto !important;
+      max-height: calc(100dvh - 220px) !important;
       width: 100%;
     }
   `;
