@@ -103,9 +103,12 @@
   flex: 1 1 140px;
   min-width: 130px;
 }
+/* select de loja tem nomes mais longos — dá mais espaço */
+#comparativoLoja { flex: 2 1 200px; min-width: 180px; }
 .comparativo-filtros select:hover { border-color: var(--hm-azul); }
 .comparativo-filtros select:focus { outline: none; border-color: var(--hm-azul); box-shadow: 0 0 0 3px rgba(30,96,145,.25); }
 .comparativo-filtros select option { background: var(--hm-card-2); color: var(--hm-txt); }
+.comparativo-filtros select optgroup { background: var(--hm-card-3); color: var(--hm-txt-2); font-size: 11px; }
 
 /* ---------- Abas NE1 / NE2 / Ambas ---------- */
 .comparativo-abas {
@@ -211,9 +214,23 @@
 .matriz-scroll::-webkit-scrollbar-thumb { background: #2a455f; border-radius: 99px; }
 .matriz-tabela { width: 100%; border-collapse: separate; border-spacing: 3px; padding: 6px; }
 
+/* ranking */
+.matriz-th-rank {
+  position: sticky; left: 0; z-index: 4;
+  background: var(--hm-card-3); color: #fff;
+  font-size: 11px; font-weight: 700; text-align: center;
+  padding: 12px 8px; border-radius: 8px; min-width: 46px;
+}
+.matriz-rank {
+  position: sticky; left: 0; z-index: 3;
+  background: var(--hm-card-2); color: #6fb3e8;
+  font-weight: 800; font-size: clamp(12px, 1.4vw, 15px);
+  text-align: center; padding: 10px 8px; border-radius: 8px; min-width: 46px;
+}
+
 /* cabeçalhos */
 .matriz-th-loja {
-  position: sticky; left: 0; z-index: 3;
+  position: sticky; left: 49px; z-index: 4;
   background: var(--hm-card-3); color: #fff;
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
   text-align: left; padding: 12px 14px; border-radius: 8px;
@@ -233,7 +250,7 @@
 
 /* primeira coluna loja */
 .matriz-loja {
-  position: sticky; left: 0; z-index: 2;
+  position: sticky; left: 49px; z-index: 3;
   background: var(--hm-card-2); border-radius: 8px;
   padding: 10px 14px; min-width: clamp(120px, 16vw, 160px); text-align: left;
 }
@@ -254,25 +271,57 @@
 .matriz-vazia { background: #1a2c3d !important; color: #5a7286 !important; font-weight: 500; }
 
 /* ============================================================
-   🎬 MODO APRESENTAÇÃO (DATA SHOW) — só aumenta tamanhos
+   🎬 MODO APRESENTAÇÃO (DATA SHOW) — preenche a tela TODA
    ============================================================ */
-.comparativo-container.modo-apresentacao {
-  --hm-cel-min: clamp(80px, 9vw, 130px);
-  padding: clamp(22px, 3vw, 44px);
-  overflow-y: auto;
+.comparativo-container.modo-apresentacao,
+.comparativo-container:fullscreen,
+.comparativo-container:-webkit-full-screen {
+  --hm-cel-min: clamp(96px, 8vw, 150px);
+  width: 100vw;
+  max-width: 100vw;
+  min-height: 100vh;
+  height: auto;
+  margin: 0;
   border-radius: 0;
+  box-sizing: border-box;
+  padding: clamp(14px, 1.4vw, 26px) clamp(18px, 1.8vw, 34px);
+  overflow-y: auto;
 }
-.comparativo-container.modo-apresentacao .comparativo-titulo { font-size: clamp(28px, 3.6vw, 42px); }
-.comparativo-container.modo-apresentacao .comparativo-subtitulo { font-size: clamp(14px, 1.6vw, 18px); }
-.comparativo-container.modo-apresentacao .regional-titulo { font-size: clamp(18px, 2.2vw, 26px); }
-.comparativo-container.modo-apresentacao .matriz-celula { font-size: clamp(15px,1.7vw,22px); padding: clamp(13px,1.7vw,20px) 10px; }
-.comparativo-container.modo-apresentacao .matriz-th-ind { font-size: clamp(11px,1.3vw,14px); padding: 15px 10px; }
-.comparativo-container.modo-apresentacao .comparativo-tabela { font-size: clamp(14px,1.6vw,18px); }
-.comparativo-container.modo-apresentacao .col-valor { font-size: clamp(16px,1.9vw,24px); }
+.comparativo-container:fullscreen { background: var(--hm-bg) !important; }
+.comparativo-container::backdrop { background: var(--hm-bg); }
+
+.comparativo-container.modo-apresentacao .comparativo-conteudo,
+.comparativo-container.modo-apresentacao .comparativo-regionais,
+.comparativo-container.modo-apresentacao .comparativo-matrizes,
+.comparativo-container.modo-apresentacao .regional-card,
+.comparativo-container.modo-apresentacao .matriz-card {
+  width: 100%;
+  max-width: none;
+}
+
+.comparativo-container.modo-apresentacao .comparativo-titulo { font-size: clamp(26px, 2.4vw, 40px); }
+.comparativo-container.modo-apresentacao .comparativo-subtitulo { font-size: clamp(13px, 1.2vw, 17px); }
+.comparativo-container.modo-apresentacao .regional-titulo { font-size: clamp(17px, 1.6vw, 24px); }
+.comparativo-container.modo-apresentacao .matriz-celula { font-size: clamp(13px,1.2vw,18px); padding: clamp(12px,1.3vw,18px) 10px; }
+.comparativo-container.modo-apresentacao .matriz-th-ind { font-size: clamp(10px,1vw,13px); padding: 14px 10px; }
+.comparativo-container.modo-apresentacao .matriz-rank { font-size: clamp(13px,1.3vw,18px); }
+.comparativo-container.modo-apresentacao .comparativo-tabela { font-size: clamp(13px,1.3vw,17px); }
+.comparativo-container.modo-apresentacao .col-valor { font-size: clamp(15px,1.5vw,22px); }
 
 /* ============================================================
    📱 RESPONSIVIDADE POR TELA
    ============================================================ */
+
+/* Celular pequeno (≤480px) */
+@media (max-width: 480px) {
+  .comparativo-container { padding: 12px; --hm-cel-min: 78px; }
+  .comparativo-titulo { font-size: 20px; }
+  .matriz-th-loja, .matriz-loja { min-width: 110px; }
+  .matriz-th-loja { left: 44px; } .matriz-loja { left: 44px; }
+  .matriz-th-rank, .matriz-rank { min-width: 40px; }
+}
+
+/* Celular (≤600px): empilha filtros, abas e regionais */
 @media (max-width: 600px) {
   .comparativo-topo { flex-direction: column; }
   .comparativo-btn-tela { width: 100%; justify-content: center; }
@@ -284,28 +333,36 @@
   .col-nome { max-width: 150px; }
   .comparativo-container { --hm-cel-min: 84px; }
 }
+
+/* Tablet (601–1024px): ranking em 1 coluna */
 @media (min-width: 601px) and (max-width: 1024px) {
   .comparativo-regionais { grid-template-columns: 1fr; }
 }
+
+/* Desktop (1025px+): ranking em 2 colunas quando "Ambas" */
 @media (min-width: 1025px) {
   .comparativo-regionais:not(.uma-regional) { grid-template-columns: 1fr 1fr; }
 }
-@media (min-width: 1601px) {
-  .comparativo-container { --hm-fonte-valor: 15px; --hm-cel-min: 100px; }
+
+/* Telas grandes / TV (1600px+): fontes e células maiores, ocupando tudo */
+@media (min-width: 1600px) {
+  .comparativo-container { --hm-fonte-valor: 15px; --hm-cel-min: 110px; }
   .matriz-celula { font-size: 15px; }
 }
-@media (min-width: 2200px) {
-  .comparativo-container.modo-apresentacao .comparativo-conteudo,
-  .comparativo-container.modo-apresentacao .comparativo-filtros,
-  .comparativo-container.modo-apresentacao .comparativo-abas,
-  .comparativo-container.modo-apresentacao .comparativo-topo {
-    max-width: 2000px; margin-left: auto; margin-right: auto; width: 100%;
-  }
+
+/* 4K / ultrawide (2000px+): segue preenchendo a tela toda (sem centralizar) */
+@media (min-width: 2000px) {
+  .comparativo-container { --hm-cel-min: 130px; }
+  .comparativo-container.modo-apresentacao .matriz-celula { font-size: clamp(18px, 1.1vw, 24px); }
+  .comparativo-container.modo-apresentacao .comparativo-titulo { font-size: clamp(36px, 2vw, 52px); }
 }
+
+/* Telas baixas (altura ≤720px) em apresentação: reduz altura das linhas */
 @media (max-height: 720px) {
-  .comparativo-container.modo-apresentacao { padding-top: 16px; padding-bottom: 16px; }
-  .comparativo-container.modo-apresentacao .matriz-celula { padding-top: 11px; padding-bottom: 11px; }
+  .comparativo-container.modo-apresentacao { padding-top: 14px; padding-bottom: 14px; }
+  .comparativo-container.modo-apresentacao .matriz-celula { padding-top: 10px; padding-bottom: 10px; }
 }
+
 @media (prefers-reduced-motion: reduce) {
   .matriz-celula, .comparativo-row, .regional-card, .comparativo-btn-tela, .comparativo-aba { transition: none; }
 }

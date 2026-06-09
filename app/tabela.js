@@ -1087,6 +1087,10 @@ async function carregarTabela() {
       aplicarPermissoesTabela(indicadorNormalizado, classeAtual);
     }
 
+    if (typeof window.aplicarEscopoVisualTabela === "function") {
+      window.aplicarEscopoVisualTabela();
+    }
+
     if (usaJustificativa) {
       garantirPainelJustificativa();
     } else {

@@ -1,6 +1,66 @@
 console.log("✅ perfil-usuarios-ui.js carregado");
 
 // ==========================
+// 🔐 SUPABASE ADMIN (service_role)
+// ⚠️ Substitua pelo valor em: Supabase → Settings → API → service_role (secret)
+// ==========================
+const SUPABASE_ADMIN_URL = "https://fnsplftfxvmyiqbigobh.supabase.co";
+const SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTg1NjI1NywiZXhwIjoyMDk1NDMyMjU3fQ.IZWbY4WPJ6DAsEhseatEeFj9UrYIWcv2Lc4BT_VWJqE";
+
+function getSupabaseAdmin() {
+  if (!window.supabase?.createClient) throw new Error("supabase.js não carregado");
+  return window.supabase.createClient(SUPABASE_ADMIN_URL, SUPABASE_SERVICE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+function gerarSenhaAleatoria(tamanho = 12) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$!";
+  const arr = new Uint8Array(tamanho);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map((b) => chars[b % chars.length]).join("");
+}
+
+async function criarAuthUser(email, senha) {
+  const { data, error } = await getSupabaseAdmin().auth.admin.createUser({
+    email,
+    password: senha,
+    email_confirm: true,
+  });
+  if (error) throw error;
+  return data.user;
+}
+
+async function deletarAuthUser(authUserId) {
+  try {
+    await getSupabaseAdmin().auth.admin.deleteUser(authUserId);
+    console.log("🗑️ Auth user removido no rollback:", authUserId);
+  } catch (e) {
+    console.warn("⚠️ Rollback do Auth falhou:", e);
+  }
+}
+
+function copiarSenhaGerada() {
+  const senha = window._senhaGeradaAtual || "";
+  if (!senha) return;
+  navigator.clipboard.writeText(senha).then(() => {
+    const btn = document.querySelector(".btn-copiar-senha");
+    if (btn) {
+      btn.textContent = "✅ Copiado!";
+      setTimeout(() => { btn.textContent = "📋 Copiar senha"; }, 2000);
+    }
+  }).catch(() => {
+    const el = document.getElementById("senhaGeradaValor");
+    if (el) {
+      const range = document.createRange();
+      range.selectNode(el);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+    }
+  });
+}
+
+// ==========================
 // 🧪 VALIDAÇÃO DE DEPENDÊNCIAS
 // ==========================
 (function validarDependenciasPerfilUsuariosUI() {
@@ -526,116 +586,73 @@ function novoUsuario() {
 }
 
 // ==========================
-// 💾 SALVAR NOVO USUÁRIO (MANUAL)
-// ✅ novo usuário nasce sem vínculo e usuario já nasce bloqueado por padrão
+// 💾 SALVAR NOVO USUÁRIO
+// Cria automaticamente no Supabase Auth e na tabela usuarios
 // ==========================
 async function salvarNovoUsuario() {
   const nome = document.getElementById("novo_nome")?.value.trim();
   const matricula = document.getElementById("novo_matricula")?.value.trim();
   const email = document.getElementById("novo_email")?.value.trim().toLowerCase();
   const funcao = document.getElementById("novo_funcao")?.value.trim();
-
-  const perfil =
-    document.getElementById("novo_perfil")?.value?.trim() || "usuario";
-
+  const perfil = document.getElementById("novo_perfil")?.value?.trim() || "usuario";
   const resultadoEl = document.getElementById("resultado-novo-usuario");
 
-  console.log("💾 Criando usuário no novo modelo...", {
-    nome,
-    matricula,
-    email,
-    funcao,
-    perfil,
-  });
+  console.log("💾 Criando usuário...", { nome, matricula, email, funcao, perfil });
 
   if (!nome || !matricula || !email || !funcao) {
-    if (resultadoEl) {
-      resultadoEl.innerHTML = `
-        <div class="msg-erro">
-          ⚠️ Nome, matrícula, e-mail e função são obrigatórios.
-        </div>
-      `;
-    }
+    if (resultadoEl) resultadoEl.innerHTML = `<div class="msg-erro">⚠️ Nome, matrícula, e-mail e função são obrigatórios.</div>`;
     return;
   }
 
   if (!email.includes("@") || !email.includes(".")) {
-    if (resultadoEl) {
-      resultadoEl.innerHTML = `
-        <div class="msg-erro">
-          ⚠️ Informe um e-mail válido. Ex.: usuario@empresa.com
-        </div>
-      `;
-    }
+    if (resultadoEl) resultadoEl.innerHTML = `<div class="msg-erro">⚠️ Informe um e-mail válido. Ex.: usuario@empresa.com</div>`;
     return;
   }
 
   try {
     const db = getWindowDb();
 
-    if (resultadoEl) {
-      resultadoEl.innerHTML = `
-        <div class="msg-sucesso">
-          🔄 Salvando usuário no sistema...
-        </div>
-      `;
-    }
+    if (resultadoEl) resultadoEl.innerHTML = `<div class="msg-sucesso">🔄 Verificando dados...</div>`;
 
     const { data: existenteEmail, error: erroEmail } = await db
-      .from("usuarios")
-      .select("id, email")
-      .ilike("email", email)
-      .maybeSingle();
-
+      .from("usuarios").select("id, email").ilike("email", email).maybeSingle();
     if (erroEmail) throw erroEmail;
-
     if (existenteEmail) {
-      if (resultadoEl) {
-        resultadoEl.innerHTML = `
-          <div class="msg-erro">
-            ❌ Já existe um usuário cadastrado com este e-mail.
-          </div>
-        `;
-      }
+      if (resultadoEl) resultadoEl.innerHTML = `<div class="msg-erro">❌ Já existe um usuário cadastrado com este e-mail.</div>`;
       return;
     }
 
     const { data: existenteMatricula, error: erroMatricula } = await db
-      .from("usuarios")
-      .select("id, matricula")
-      .eq("matricula", matricula)
-      .maybeSingle();
-
+      .from("usuarios").select("id, matricula").eq("matricula", matricula).maybeSingle();
     if (erroMatricula) throw erroMatricula;
-
     if (existenteMatricula) {
-      if (resultadoEl) {
-        resultadoEl.innerHTML = `
-          <div class="msg-erro">
-            ❌ Já existe um usuário cadastrado com esta matrícula.
-          </div>
-        `;
-      }
+      if (resultadoEl) resultadoEl.innerHTML = `<div class="msg-erro">❌ Já existe um usuário cadastrado com esta matrícula.</div>`;
       return;
     }
+
+    if (resultadoEl) resultadoEl.innerHTML = `<div class="msg-sucesso">🔄 Criando acesso no sistema de autenticação...</div>`;
+
+    // Gerar senha aleatória e criar usuário no Auth
+    const senhaGerada = gerarSenhaAleatoria();
+    const authUser = await criarAuthUser(email, senhaGerada);
+
+    if (resultadoEl) resultadoEl.innerHTML = `<div class="msg-sucesso">🔄 Registrando usuário no sistema...</div>`;
 
     const permissoesBase = getPermissoesBasePorPerfil(perfil);
 
     const payload = {
-      auth_user_id: null,
+      auth_user_id: authUser.id,
       nome,
       sobrenome: "",
       matricula,
       email,
       funcao,
       perfil,
-
       tipo_visao: "regional",
       loja_codigo: null,
       loja_vinculada: null,
       regional_vinculada: null,
       regionais_vinculadas: [],
-
       primeiro_acesso: true,
       permissoes: {
         indicadores: [],
@@ -643,79 +660,59 @@ async function salvarNovoUsuario() {
         subclasses: [],
         acesso_total: perfil === "master",
         ignorar_loja_vinculada: true,
-        permissao_visualizacao:
-          perfil === "usuario"
-            ? "NENHUMA"
-            : permissoesBase.permissao_visualizacao || "TODOS",
+        permissao_visualizacao: perfil === "usuario" ? "NENHUMA" : permissoesBase.permissao_visualizacao || "TODOS",
         ...permissoesBase,
       },
     };
 
-    console.log("📦 Payload final do novo usuário:", payload);
+    console.log("📦 Payload do novo usuário:", payload);
 
-    const { data, error } = await db
-      .from("usuarios")
-      .insert([payload])
-      .select("*")
-      .single();
+    const { data, error } = await db.from("usuarios").insert([payload]).select("*").single();
 
-    if (error) throw error;
+    if (error) {
+      // Rollback: remove o Auth user se a inserção na tabela falhou
+      await deletarAuthUser(authUser.id);
+      throw error;
+    }
 
-    console.log("✅ Usuário salvo com sucesso na tabela usuarios:", data);
+    console.log("✅ Usuário criado com sucesso:", data);
 
     if (typeof window.registrarEventoSistema === "function") {
       try {
         await window.registrarEventoSistema({
           tipo_evento: "usuario",
           modulo: "Configurações",
-          acao: "criou usuário manual",
+          acao: "criou usuário com auth automático",
           usuario_alvo: nome,
           perfil_alvo: perfil,
           autenticacao: "sessao_propria",
           status: "sucesso",
-          contexto: {
-            email,
-            matricula,
-            funcao,
-            tipo_visao: "regional",
-            loja_codigo: null,
-            loja_vinculada: null,
-            regional_vinculada: null,
-            regionais_vinculadas: [],
-            permissao_visualizacao:
-              perfil === "usuario"
-                ? "NENHUMA"
-                : permissoesBase.permissao_visualizacao || "TODOS",
-            ignorar_loja_vinculada: true,
-          },
+          contexto: { email, matricula, funcao },
         });
       } catch (erroLog) {
-        console.warn(
-          "⚠️ Não foi possível registrar log do novo usuário:",
-          erroLog
-        );
+        console.warn("⚠️ Log do novo usuário falhou:", erroLog);
       }
     }
+
+    // Guardar senha no window para o botão copiar
+    window._senhaGeradaAtual = senhaGerada;
 
     if (resultadoEl) {
       resultadoEl.innerHTML = `
         <div class="msg-sucesso">
-          <strong>✅ Usuário criado com sucesso no sistema!</strong><br><br>
-
+          <strong>✅ Usuário criado com sucesso!</strong><br><br>
           <div><b>Nome:</b> ${escapeHtml(data.nome)}</div>
           <div><b>E-mail:</b> ${escapeHtml(data.email)}</div>
           <div><b>Matrícula:</b> ${escapeHtml(data.matricula)}</div>
           <div><b>Função:</b> ${escapeHtml(data.funcao)}</div>
           <div><b>Perfil:</b> ${escapeHtml(data.perfil)}</div>
-          <div><b>Visualização inicial:</b> ${escapeHtml(
-            data?.permissoes?.permissao_visualizacao || "-"
-          )}</div>
+        </div>
 
-          <br>
-          <small>
-            ⚠️ Lembrete: o login deste usuário deve ser criado manualmente no Supabase Auth.
-            No primeiro login, o sistema fará o vínculo automático pelo e-mail.
-          </small>
+        <div class="senha-gerada-box">
+          <div class="senha-gerada-titulo">🔑 Senha gerada automaticamente</div>
+          <div class="senha-gerada-valor" id="senhaGeradaValor">${escapeHtml(senhaGerada)}</div>
+          <button class="btn-copiar-senha" onclick="copiarSenhaGerada()">📋 Copiar senha</button>
+          <div class="senha-gerada-aviso">⚠️ Salve esta senha agora — ela não será exibida novamente.</div>
         </div>
       `;
     }
@@ -724,18 +721,11 @@ async function salvarNovoUsuario() {
     document.getElementById("novo_matricula").value = "";
     document.getElementById("novo_email").value = "";
     document.getElementById("novo_funcao").value = "";
+
   } catch (erro) {
-    console.error("❌ Erro ao criar usuário manualmente:", erro);
-
+    console.error("❌ Erro ao criar usuário:", erro);
     const mensagem = erro?.message || "Erro ao criar usuário no sistema.";
-
-    if (resultadoEl) {
-      resultadoEl.innerHTML = `
-        <div class="msg-erro">
-          ❌ ${escapeHtml(mensagem)}
-        </div>
-      `;
-    }
+    if (resultadoEl) resultadoEl.innerHTML = `<div class="msg-erro">❌ ${escapeHtml(mensagem)}</div>`;
   }
 }
 
@@ -1092,6 +1082,7 @@ function coletarPermissoesSistemaTela(base = {}) {
     "perm_ver_dashboard",
     "perm_ver_analises",
     "perm_ver_comparativos",
+    "perm_ver_painel_ouro",
     "perm_ver_justificativas",
     "perm_aprovar_ajustes",
     "perm_atribuir_escopo",
@@ -1113,6 +1104,7 @@ function coletarPermissoesSistemaTela(base = {}) {
       perm_ver_dashboard: "pode_ver_dashboard",
       perm_ver_analises: "pode_ver_analises",
       perm_ver_comparativos: "pode_ver_comparativos",
+      perm_ver_painel_ouro: "pode_ver_painel_ouro",
       perm_ver_justificativas: "pode_ver_justificativas",
       perm_aprovar_ajustes: "pode_aprovar_ajustes",
       perm_atribuir_escopo: "pode_atribuir_escopo",
@@ -1708,6 +1700,13 @@ async function editarPermissoes(id) {
           </label>
 
           <label class="check-item">
+            <input type="checkbox" id="perm_ver_painel_ouro" ${
+              permsSistema.pode_ver_painel_ouro ? "checked" : ""
+            }>
+            Ver Painel de Ouro
+          </label>
+
+          <label class="check-item">
             <input type="checkbox" id="perm_ver_justificativas" ${
               permsSistema.pode_ver_justificativas ? "checked" : ""
             }>
@@ -1964,6 +1963,7 @@ window.salvarSenha = salvarSenha;
 
 window.novoUsuario = novoUsuario;
 window.salvarNovoUsuario = salvarNovoUsuario;
+window.copiarSenhaGerada = copiarSenhaGerada;
 
 window.abrirTelaPermissoes = abrirTelaPermissoes;
 window.resumoPermissoesUsuario = resumoPermissoesUsuario;

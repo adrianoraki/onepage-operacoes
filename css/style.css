@@ -171,11 +171,9 @@ body {
 .bottom-area {
   margin-top: auto;
   padding: 12px 14px 14px;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.28),
-    rgba(0, 0, 0, 0.14)
-  );
+  background: linear-gradient(to top,
+      rgba(0, 0, 0, 0.28),
+      rgba(0, 0, 0, 0.14));
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -401,6 +399,7 @@ body {
    sem esconder o menu por padrão
 ========================== */
 @media (max-width: 768px) {
+
   html,
   body {
     overflow: auto;
@@ -425,7 +424,7 @@ body {
   }
 
   /* mantém compatibilidade com seu checkbox sem depender dele */
-  #check:checked ~ .sidebar_menu {
+  #check:checked~.sidebar_menu {
     left: 0;
   }
 
@@ -495,6 +494,47 @@ body {
   .config-grid {
     grid-template-columns: 1fr;
   }
+}
+
+
+/* --- ESTILO DO RODAPÉ DO SITE --- */
+body {
+  padding-bottom: 60px !important;
+  /* Espaço para o rodapé não cobrir conteúdo */
+}
+
+.rodape-fixo {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  text-align: center;
+  padding: 12px 0;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+}
+
+.rodape-fixo p {
+  margin: 0;
+}
+
+/* Link do Autor */
+.link-autor {
+  color: #4da6ff;
+  text-decoration: none;
+  font-weight: bold;
+  transition: color 0.3s ease;
+}
+
+/* Efeito ao passar o mouse */
+.link-autor:hover {
+  color: #99ccff;
+  text-decoration: underline;
 }
 
 /* ==========================
@@ -598,4 +638,62 @@ body {
   .btn-logout {
     font-size: 15px;
   }
+}
+/* ==========================
+   🔑 SENHA GERADA (NOVO USUÁRIO)
+========================== */
+.senha-gerada-box {
+  margin-top: 16px;
+  background: #0f172a;
+  border: 2px solid #6ee79a;
+  border-radius: 12px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.senha-gerada-titulo {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6ee79a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.senha-gerada-valor {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.12em;
+  background: #1e293b;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  word-break: break-all;
+  user-select: all;
+}
+
+.btn-copiar-senha {
+  align-self: flex-start;
+  background: #6ee79a;
+  color: #0f172a;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-copiar-senha:hover {
+  background: #4ade80;
+}
+
+.senha-gerada-aviso {
+  font-size: 12px;
+  color: #f59e0b;
+  font-weight: 500;
 }

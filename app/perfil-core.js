@@ -90,6 +90,7 @@ function getPermissoesBasePorPerfil(perfil) {
       pode_ver_dashboard: true,
       pode_ver_analises: true,
       pode_ver_comparativos: true,
+      pode_ver_painel_ouro: true,
       pode_ver_justificativas: true,
       pode_aprovar_ajustes: true,
       pode_atribuir_escopo: true,
@@ -113,6 +114,7 @@ function getPermissoesBasePorPerfil(perfil) {
       pode_ver_dashboard: true,
       pode_ver_analises: true,
       pode_ver_comparativos: true,
+      pode_ver_painel_ouro: true,
       pode_ver_justificativas: true,
       pode_aprovar_ajustes: true,
       pode_atribuir_escopo: false,
@@ -136,6 +138,7 @@ function getPermissoesBasePorPerfil(perfil) {
     pode_ver_dashboard: false,
     pode_ver_analises: false,
     pode_ver_comparativos: false,
+    pode_ver_painel_ouro: false,
     pode_ver_justificativas: false,
     pode_aprovar_ajustes: false,
     pode_atribuir_escopo: false,
@@ -207,6 +210,11 @@ function getPermissoesSistemaUsuario(user = null) {
     pode_ver_comparativos: valorBooleanoPermissao(
       perms.pode_ver_comparativos,
       base.pode_ver_comparativos
+    ),
+
+    pode_ver_painel_ouro: valorBooleanoPermissao(
+      perms.pode_ver_painel_ouro,
+      base.pode_ver_painel_ouro
     ),
 
     pode_ver_justificativas: valorBooleanoPermissao(
@@ -284,6 +292,7 @@ function getUsuarioLogado() {
       pode_ver_dashboard: permissoesSistema.pode_ver_dashboard,
       pode_ver_analises: permissoesSistema.pode_ver_analises,
       pode_ver_comparativos: permissoesSistema.pode_ver_comparativos,
+      pode_ver_painel_ouro: permissoesSistema.pode_ver_painel_ouro,
       pode_ver_justificativas: permissoesSistema.pode_ver_justificativas,
       pode_aprovar_ajustes: permissoesSistema.pode_aprovar_ajustes,
       pode_atribuir_escopo: permissoesSistema.pode_atribuir_escopo,

@@ -803,6 +803,7 @@ function getPermissoesSistemaEfetivasApp(user = null) {
     pode_ver_dashboard: false,
     pode_ver_analises: false,
     pode_ver_comparativos: false,
+    pode_ver_painel_ouro: false,
     permissao_visualizacao: "NENHUMA",
   };
 }
@@ -905,6 +906,8 @@ function usuarioPodeAbrirTelaApp(tela, user = null) {
     permitido = permissoes.pode_ver_analises === true;
   } else if (telaNorm === "comparativos") {
     permitido = permissoes.pode_ver_comparativos === true;
+  } else if (telaNorm === "painel-ouro" || telaNorm === "painelouro") {
+    permitido = permissoes.pode_ver_painel_ouro === true;
   }
 
   appLogInfo("Checagem de acesso à tela", {
@@ -976,30 +979,45 @@ function aplicarPermissoesMenuPrincipal() {
         .toString()
         .trim()
         .toLowerCase();
+      const dataMenu = (el.dataset?.menu || "").toLowerCase();
 
+      // determina se este elemento tem uma regra de permissão aplicável
+      let permissaoAplicavel = false;
       let esconder = false;
 
-      if (texto.includes("dashboard") || onclickAttr.includes("dashboard")) {
-        esconder = permsFalse(permissoes.pode_ver_dashboard);
-      }
-
       if (
+        dataMenu === "dashboard" ||
+        texto.includes("dashboard") ||
+        onclickAttr.includes("dashboard")
+      ) {
+        permissaoAplicavel = true;
+        esconder = permsFalse(permissoes.pode_ver_dashboard);
+      } else if (
+        dataMenu === "analises" ||
         texto.includes("anális") ||
         texto.includes("analise") ||
         onclickAttr.includes("analises")
       ) {
+        permissaoAplicavel = true;
         esconder = permsFalse(permissoes.pode_ver_analises);
-      }
-
-      if (
+      } else if (
+        dataMenu === "comparativos" ||
         texto.includes("comparativo") ||
         onclickAttr.includes("comparativos")
       ) {
+        permissaoAplicavel = true;
         esconder = permsFalse(permissoes.pode_ver_comparativos);
+      } else if (
+        dataMenu === "painel-ouro" ||
+        texto.includes("painel de ouro") ||
+        onclickAttr.includes("painel-ouro")
+      ) {
+        permissaoAplicavel = true;
+        esconder = permsFalse(permissoes.pode_ver_painel_ouro);
       }
 
-      if (esconder) {
-        el.style.display = "none";
+      if (permissaoAplicavel) {
+        el.style.display = esconder ? "none" : "";
       }
     });
 
@@ -1507,6 +1525,33 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
           <div class="card-conteudo">
             <h2>🔀 Comparativos</h2>
             <p>Módulo de comparativos não carregado.</p>
+          </div>
+        `;
+      }
+
+      return;
+    }
+
+    // ======================
+    // 👑 PAINEL DE OURO
+    // ======================
+    if (telaNormalizada === "painel-ouro") {
+      if (!usuarioPodeAbrirTelaApp("painel-ouro", usuario)) {
+        appLogWarn("Acesso negado ao Painel de Ouro");
+        definirTelaAtiva("painel-ouro");
+        renderAcessoNegadoTela("Painel de Ouro");
+        return;
+      }
+
+      definirTelaAtiva("painel-ouro");
+
+      if (typeof window.telaPainelOuro === "function") {
+        await window.telaPainelOuro();
+      } else {
+        container.innerHTML = `
+          <div class="card-conteudo">
+            <h2>👑 Painel de Ouro</h2>
+            <p>Módulo do Painel de Ouro não carregado.</p>
           </div>
         `;
       }

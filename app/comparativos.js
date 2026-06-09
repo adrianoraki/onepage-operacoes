@@ -18,6 +18,7 @@ const COMPARATIVO_STATE = {
   modoPeriodo: "semanal", // "semanal" | "mensal"
   indicador: "TODOS",
   abaRegional: localStorage.getItem("comparativoAba") || "AMBAS", // "AMBAS" | "NE1" | "NE2"
+  loja: localStorage.getItem("comparativoLoja") || "TODAS",       // "TODAS" | "codigo - nome"
 };
 
 // ==========================
@@ -290,6 +291,20 @@ function heatmapCorTexto(intensidade) {
   return intensidade > 0.3 && intensidade < 0.72 ? "#1a2733" : "#ffffff";
 }
 
+/**
+ * Cor de PERCENTUAL por FAIXA FIXA (não relativa):
+ *  - |valor| até 2,49%  → verde
+ *  - |valor| 2,50–2,99% → amarelo
+ *  - |valor| 3,00%+     → vermelho
+ * Usa o valor absoluto (quebras costumam ser negativas).
+ */
+function corPercentualFaixa(valorPct) {
+  const v = Math.abs(Number(valorPct) || 0);
+  if (v <= 2.49) return { fundo: "rgb(51,221,68)", texto: "#0d3d16" };   // verde
+  if (v <= 2.99) return { fundo: "rgb(245,205,50)", texto: "#4a3c05" };  // amarelo
+  return { fundo: "rgb(255,51,51)", texto: "#ffffff" };                   // vermelho
+}
+
 // ==========================
 // 📋 TELA PRINCIPAL
 // ==========================
@@ -334,6 +349,10 @@ async function telaComparativos() {
 
           <select id="comparativoIndicador" onchange="comparativoAlterarIndicador(this.value)">
             ${gerarOptionsIndicadoresComparativo()}
+          </select>
+
+          <select id="comparativoLoja" onchange="comparativoAlterarLoja(this.value)">
+            <option value="TODAS">Todas as lojas</option>
           </select>
         </div>
 
@@ -411,6 +430,49 @@ async function comparativoAlterarIndicador(indicador) {
   await carregarDadosComparativos();
 }
 
+async function comparativoAlterarLoja(loja) {
+  COMPARATIVO_STATE.loja = loja || "TODAS";
+  localStorage.setItem("comparativoLoja", COMPARATIVO_STATE.loja);
+  await carregarDadosComparativos();
+}
+
+/**
+ * Preenche o select de lojas com optgroups por regional (NE1 / NE2).
+ * Preserva a seleção atual se a loja ainda existir na lista.
+ */
+function preencherSelectLojas(lojas = []) {
+  const sel = document.getElementById("comparativoLoja");
+  if (!sel) return;
+
+  const selecionada = COMPARATIVO_STATE.loja;
+
+  // agrupa por regional
+  const grupos = {};
+  (lojas || []).forEach((l) => {
+    const reg = normalizarTextoComparativoUpper(l.regional || "Outros");
+    if (!grupos[reg]) grupos[reg] = [];
+    grupos[reg].push(l);
+  });
+
+  // reconstrói as opções
+  let html = `<option value="TODAS" ${selecionada === "TODAS" ? "selected" : ""}>Todas as lojas</option>`;
+
+  Object.keys(grupos)
+    .sort()
+    .forEach((reg) => {
+      html += `<optgroup label="${reg}">`;
+      grupos[reg]
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+        .forEach((l) => {
+          const chave = getChaveLojaComparativo(l);
+          html += `<option value="${chave}" ${selecionada === chave ? "selected" : ""}>${l.codigo} — ${l.nome}</option>`;
+        });
+      html += `</optgroup>`;
+    });
+
+  sel.innerHTML = html;
+}
+
 async function comparativoAlterarAba(aba) {
   COMPARATIVO_STATE.abaRegional = aba || "AMBAS";
   localStorage.setItem("comparativoAba", COMPARATIVO_STATE.abaRegional);
@@ -454,6 +516,9 @@ async function carregarDadosComparativos() {
 
     const mapaLojaRegional = montarMapaLojaRegionalComparativo(lojasData || []);
 
+    // popula o select de lojas com optgroups NE1/NE2
+    preencherSelectLojas(lojasData || []);
+
     // 2) Semanas a buscar (semanal x mensal)
     const semanaSel = normalizarSemanaComparativo(COMPARATIVO_STATE.semana);
     const semanasABuscar =
@@ -472,42 +537,48 @@ async function carregarDadosComparativos() {
       query = query.eq("indicador", indicadorBanco);
     }
 
+    // filtra por loja específica direto na query (mais eficiente)
+    if (COMPARATIVO_STATE.loja !== "TODAS") {
+      query = query.eq("loja", COMPARATIVO_STATE.loja);
+    }
+
     const { data: resultados, error: resultadosError } = await query;
     if (resultadosError) throw resultadosError;
 
-    // normaliza a semana de cada resultado (para garantir match)
+    // normaliza e anota regional em cada resultado
     const resultadosNorm = (resultados || []).map((r) => ({
       ...r,
       _semana: normalizarSemanaComparativo(r.semana),
       _regional: mapaLojaRegional[r.loja] || "",
     }));
 
-    // diagnóstico: lojas dos resultados que não casaram com nenhuma regional
-    const semRegional = [
-      ...new Set(
-        resultadosNorm.filter((r) => !r._regional).map((r) => r.loja)
-      ),
-    ];
+    // diagnóstico
+    const semRegional = [...new Set(resultadosNorm.filter((r) => !r._regional).map((r) => r.loja))];
     if (semRegional.length) {
-      console.warn(
-        "⚠️ Comparativos: lojas sem regional (verifique se 'loja' em resultados bate com 'codigo - nome' da tabela lojas):",
-        semRegional
-      );
+      console.warn("⚠️ Comparativos: lojas sem regional:", semRegional);
     }
     console.log(
       `📊 Comparativos: ${resultadosNorm.length} registros | semanas: ${semanasABuscar.join(", ")} | ` +
         `NE1: ${resultadosNorm.filter((r) => r._regional === "NE1").length} | ` +
-        `NE2: ${resultadosNorm.filter((r) => r._regional === "NE2").length}`
+        `NE2: ${resultadosNorm.filter((r) => r._regional === "NE2").length}` +
+        (COMPARATIVO_STATE.loja !== "TODAS" ? ` | loja: ${COMPARATIVO_STATE.loja}` : "")
     );
 
-    // 4) Tipo do indicador (moeda / percentual / número)
+    // 4) Tipo e direção
     const tipoIndicador =
       COMPARATIVO_STATE.indicador !== "TODOS"
         ? getTipoCampoComparativo(COMPARATIVO_STATE.indicador)
         : "numero";
 
-    // 5) Renderiza (respeitando a aba: AMBAS | NE1 | NE2)
-    const regionais = comparativoRegionaisVisiveis();
+    // 5) Regionais visíveis
+    //    Se uma loja específica está selecionada, mostra só a regional dela
+    let regionais;
+    if (COMPARATIVO_STATE.loja !== "TODAS") {
+      const regDaLoja = mapaLojaRegional[COMPARATIVO_STATE.loja];
+      regionais = regDaLoja ? [regDaLoja] : comparativoRegionaisVisiveis();
+    } else {
+      regionais = comparativoRegionaisVisiveis();
+    }
     const umaRegional = regionais.length === 1;
 
     if (COMPARATIVO_STATE.indicador === "TODOS") {
@@ -543,6 +614,7 @@ async function carregarDadosComparativos() {
 function renderComparativoRegional(nomeRegional, resultadosNorm, tipoIndicador, menorMelhor) {
   const regionalUpper = normalizarTextoComparativoUpper(nomeRegional);
   const isMoeda = tipoMoedaComparativo(tipoIndicador);
+  const isPercentual = tipoPercentualComparativo(tipoIndicador);
 
   // filtra resultados desta regional
   const resultadosRegional = resultadosNorm.filter(
@@ -596,9 +668,18 @@ function renderComparativoRegional(nomeRegional, resultadosNorm, tipoIndicador, 
 
   const linhas = listaLojas
     .map((loja, idx) => {
-      const intens = calcularIntensidadeHeatmap(loja.valor, minVal, maxVal, menorMelhor);
-      const corFundo = heatmapCorVibrante(intens);
-      const corTexto = heatmapCorTexto(intens);
+      let corFundo, corTexto;
+      if (isPercentual) {
+        // % → faixa fixa (verde ≤2,49 · amarelo 2,5–2,99 · vermelho ≥3)
+        const c = corPercentualFaixa(loja.valor);
+        corFundo = c.fundo;
+        corTexto = c.texto;
+      } else {
+        // R$ / número → heatmap relativo
+        const intens = calcularIntensidadeHeatmap(loja.valor, minVal, maxVal, menorMelhor);
+        corFundo = heatmapCorVibrante(intens);
+        corTexto = heatmapCorTexto(intens);
+      }
 
       return `
         <tr class="comparativo-row" style="background-color:${corFundo}; color:${corTexto};">
@@ -886,10 +967,19 @@ function renderMatrizRegional(nomeRegional, resultadosNorm, indicadoresMeta) {
           if (v == null) {
             return `<td class="matriz-celula matriz-vazia">—</td>`;
           }
-          const { min, max } = faixaColuna[ind.banco];
-          const intens = calcularIntensidadeHeatmap(v, min, max, ind.menorMelhor);
-          const fundo = heatmapCorVibrante(intens);
-          const texto = heatmapCorTexto(intens);
+          let fundo, texto;
+          if (tipoPercentualComparativo(ind.tipo)) {
+            // % → faixa fixa (verde ≤2,49 · amarelo 2,5–2,99 · vermelho ≥3)
+            const c = corPercentualFaixa(v);
+            fundo = c.fundo;
+            texto = c.texto;
+          } else {
+            // R$ / número → heatmap relativo por coluna
+            const { min, max } = faixaColuna[ind.banco];
+            const intens = calcularIntensidadeHeatmap(v, min, max, ind.menorMelhor);
+            fundo = heatmapCorVibrante(intens);
+            texto = heatmapCorTexto(intens);
+          }
           return `<td class="matriz-celula" style="background:${fundo}; color:${texto};">
             ${formatarCelulaMatriz(v, ind.tipo)}
           </td>`;
@@ -898,6 +988,7 @@ function renderMatrizRegional(nomeRegional, resultadosNorm, indicadoresMeta) {
 
       return `
         <tr>
+          <td class="matriz-rank">${idx + 1}º</td>
           <td class="matriz-loja" title="${loja}">
             <span class="matriz-loja-cod">${partes.codigo}</span>
             <span class="matriz-loja-nome">${partes.nome}</span>
@@ -917,6 +1008,7 @@ function renderMatrizRegional(nomeRegional, resultadosNorm, indicadoresMeta) {
         <table class="matriz-tabela">
           <thead>
             <tr>
+              <th class="matriz-th-rank">#</th>
               <th class="matriz-th-loja">Loja</th>
               ${thIndicadores}
             </tr>
