@@ -6,9 +6,14 @@ window.FaixaHoras = window.FaixaHoras || {};
   const LOG_PREFIX = "⏱️ FaixaHoras";
 
   let indicadorSelecionadoFaixaHoras = "FAIXA HORAS";
-  let semanaSelecionadaFaixaHoras =
-    localStorage.getItem("semana") ||
-    getSemanaAtualFaixaHoras().toString().padStart(2, "0");
+  // ✅ usa a SEMANA ATUAL sempre que ela vira (descarta semana antiga salva)
+  let semanaSelecionadaFaixaHoras = (function () {
+    const atual = getSemanaAtualFaixaHoras().toString().padStart(2, "0");
+    const salva = localStorage.getItem("semana");
+    if (salva === atual) return salva;
+    localStorage.setItem("semana", atual);
+    return atual;
+  })();
 
   // estado dos filtros (persiste entre recargas silenciosas)
   let _filtroRegionalFH = "TODAS";

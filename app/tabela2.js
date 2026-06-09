@@ -160,10 +160,7 @@ function getSemanaCompactaEspecialAtual() {
     semana = null;
   }
 
-  if (!semana) {
-    semana = localStorage.getItem("semana");
-  }
-
+  // ✅ sem seleção ativa → usa a SEMANA ATUAL real (não o localStorage antigo)
   if (!semana && typeof getSemanaAtual === "function") {
     semana = getSemanaAtual();
   }

@@ -1983,12 +1983,10 @@ async function autoSalvarPermissoesAcao(id) {
             // sem restrição de loja
             payload.loja_codigo = null;
             payload.loja_vinculada = null;
-            payload.tipo_visao = "regional";
           } else {
             const txt = selLoja.options[selLoja.selectedIndex]?.text || cod;
             payload.loja_codigo = cod;
             payload.loja_vinculada = txt;
-            payload.tipo_visao = "loja";
           }
         }
       }
@@ -1997,7 +1995,7 @@ async function autoSalvarPermissoesAcao(id) {
         .from("usuarios")
         .update(payload)
         .eq("id", id)
-        .select("id, nome, permissoes, perfil, loja_codigo, loja_vinculada, tipo_visao")
+        .select("id, nome, permissoes, perfil, loja_codigo, loja_vinculada")
         .single();
 
       if (error) throw error;

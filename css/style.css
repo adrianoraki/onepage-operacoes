@@ -354,6 +354,8 @@ body {
   height: 100dvh;
   overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   position: relative;
   z-index: 2;
 }

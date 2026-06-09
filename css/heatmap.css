@@ -209,7 +209,7 @@
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0,0,0,0.35);
 }
-.matriz-scroll { overflow-x: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.matriz-scroll { overflow-x: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
 .matriz-scroll::-webkit-scrollbar { height: 8px; }
 .matriz-scroll::-webkit-scrollbar-thumb { background: #2a455f; border-radius: 99px; }
 .matriz-tabela { width: 100%; border-collapse: separate; border-spacing: 3px; padding: 6px; }

@@ -46,6 +46,7 @@
   overflow-x: auto;
   overflow-y: visible;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
   scrollbar-width: thin;
   scrollbar-color: var(--cor-borda) transparent;
   margin-top: 12px;
@@ -677,6 +678,7 @@ th.coluna-atual {
   overflow-x: auto !important;
   overflow-y: visible !important;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
 }
 
 .tabela-especial-compacta,

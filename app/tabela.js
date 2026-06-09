@@ -29,10 +29,16 @@ function tabelaLogError(mensagem, payload = null) {
 
 let indicadorSelecionado = null;
 
-// ✅ garante semana correta SEMPRE
-let semanaSelecionada =
-  localStorage.getItem("semana") ||
-  getSemanaAtual().toString().padStart(2, "0");
+// ✅ garante a SEMANA ATUAL sempre que ela vira:
+//   - mantém a semana salva só se ela for a semana atual
+//   - se a semana mudou (virou), descarta a antiga e usa a atual
+let semanaSelecionada = (function () {
+  const atual = getSemanaAtual().toString().padStart(2, "0");
+  const salva = localStorage.getItem("semana");
+  if (salva === atual) return salva;
+  localStorage.setItem("semana", atual);
+  return atual;
+})();
 
 // estado dos filtros (persiste entre recargas silenciosas)
 let _filtroRegionalTabela = "TODAS";
