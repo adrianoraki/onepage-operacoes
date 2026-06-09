@@ -656,8 +656,12 @@ function renderComparativoRegional(nomeRegional, resultadosNorm, tipoIndicador, 
     };
   });
 
-  // ordena do MAIOR para o MENOR valor (visualmente, sempre)
-  listaLojas.sort((a, b) => b.valor - a.valor);
+  // ordena do MELHOR para o PIOR (1º = melhor, último = pior):
+  //  menorMelhor=true  (ruptura, quebra, R$ etc.) → menor valor primeiro
+  //  menorMelhor=false (PSV, NPS etc.)            → maior valor primeiro
+  listaLojas.sort((a, b) =>
+    menorMelhor ? a.valor - b.valor : b.valor - a.valor
+  );
 
   // heatmap conforme a semântica do indicador:
   //  menorMelhor=true  → menor valor = verde, maior = vermelho
