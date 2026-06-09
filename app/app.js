@@ -1227,6 +1227,7 @@ for (const classe in classesMenuApp) {
           indicador: valor,
           classe,
         });
+        if (isMobile()) fecharSidebarMobile();
         localStorage.setItem(STORAGE_KEYS.classeSelecionada, classe);
         selecionarIndicador(valor);
       };
@@ -1636,9 +1637,27 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
 }
 
 // ==========================
+// 📱 SIDEBAR MOBILE
+// ==========================
+function isMobile() {
+  return window.innerWidth <= 768;
+}
+
+function abrirSidebarMobile() {
+  document.getElementById('sidebar')?.classList.add('sidebar-aberta');
+  document.getElementById('sidebar-overlay')?.classList.add('ativa');
+}
+
+function fecharSidebarMobile() {
+  document.getElementById('sidebar')?.classList.remove('sidebar-aberta');
+  document.getElementById('sidebar-overlay')?.classList.remove('ativa');
+}
+
+// ==========================
 // 🧭 CONTROLE DE TELAS
 // ==========================
 function mostrar(tela) {
+  if (isMobile()) fecharSidebarMobile();
   abrirTelaInterna(tela, { silent: false });
 }
 
@@ -1856,6 +1875,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 6) carrega sidebar
   await carregarSidebar();
 
+  // hambúrguer mobile
+  document.getElementById('btn-hamburger')?.addEventListener('click', abrirSidebarMobile);
+  document.getElementById('sidebar-overlay')?.addEventListener('click', fecharSidebarMobile);
+
   // 7) testa conexão
   await testarConexao();
 
@@ -1929,6 +1952,8 @@ window.garantirPerfilLocal = garantirPerfilLocal;
 window.logout = logout;
 
 window.mostrar = mostrar;
+window.abrirSidebarMobile = abrirSidebarMobile;
+window.fecharSidebarMobile = fecharSidebarMobile;
 window.abrirTelaInterna = abrirTelaInterna;
 window.abrirConfiguracoesMenu = abrirConfiguracoesMenu;
 window.selecionarIndicador = selecionarIndicador;

@@ -1329,6 +1329,12 @@ function ativarAutosaveEdicaoUsuario(id) {
     el.addEventListener("change", () => autoSalvarPermissoesAcao(id));
   });
 
+  // 🏬 select de loja vinculada
+  const selLojaVinc = document.getElementById("perm_loja_vinculada");
+  if (selLojaVinc) {
+    selLojaVinc.addEventListener("change", () => autoSalvarPermissoesAcao(id));
+  }
+
   // checkboxes de indicadores (classes / subclasses / indicadores individuais)
   document
     .querySelectorAll(
@@ -1626,6 +1632,21 @@ async function editarPermissoes(id) {
       permsSistema.permissao_visualizacao
     );
 
+    // lista de lojas para o campo "Loja vinculada"
+    const lojasVinculo = await buscarLojasParaVinculo();
+    const lojaVinculadaAtual =
+      data.loja_codigo != null && data.loja_codigo !== ""
+        ? String(data.loja_codigo)
+        : "";
+    const optionsLojasVinculo = (lojasVinculo || [])
+      .map((l) => {
+        const cod = String(l.codigo);
+        const sel = cod === lojaVinculadaAtual ? "selected" : "";
+        const reg = l.regional ? ` · ${escapeHtml(l.regional)}` : "";
+        return `<option value="${cod}" ${sel}>${cod} — ${escapeHtml(l.nome || "")}${reg}</option>`;
+      })
+      .join("");
+
     let html = `
       <div class="card-conteudo">
         <h3>⚙️ Permissões / Ação - ${escapeHtml(data.nome)}</h3>
@@ -1823,6 +1844,18 @@ async function editarPermissoes(id) {
               }>NE1 e NE2</option>
             </select>
           </div>
+
+          <div class="campo" style="margin-top:6px;">
+            <label>🏬 Loja vinculada (visualização restrita)</label>
+            <select id="perm_loja_vinculada">
+              <option value="">Nenhuma (sem restrição de loja)</option>
+              ${optionsLojasVinculo}
+            </select>
+            <p style="font-size:12px; color:#888; margin:4px 0 0;">
+              Se escolher uma loja, este usuário verá apenas os dados dela.
+              Pode ser alterado a qualquer momento.
+            </p>
+          </div>
         </div>
 
         <h4 style="margin-top:16px;">🗂️ Acesso às tabelas</h4>
@@ -1941,11 +1974,30 @@ async function autoSalvarPermissoesAcao(id) {
         payload.perfil = dados.perfil;
       }
 
+      // 🏬 Loja vinculada (visualização restrita) — só o master define
+      if (isMaster) {
+        const selLoja = document.getElementById("perm_loja_vinculada");
+        if (selLoja) {
+          const cod = (selLoja.value || "").trim();
+          if (cod === "") {
+            // sem restrição de loja
+            payload.loja_codigo = null;
+            payload.loja_vinculada = null;
+            payload.tipo_visao = "regional";
+          } else {
+            const txt = selLoja.options[selLoja.selectedIndex]?.text || cod;
+            payload.loja_codigo = cod;
+            payload.loja_vinculada = txt;
+            payload.tipo_visao = "loja";
+          }
+        }
+      }
+
       const { data, error } = await db
         .from("usuarios")
         .update(payload)
         .eq("id", id)
-        .select("id, nome, permissoes, perfil")
+        .select("id, nome, permissoes, perfil, loja_codigo, loja_vinculada, tipo_visao")
         .single();
 
       if (error) throw error;
