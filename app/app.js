@@ -1093,41 +1093,146 @@ function preencherUsuario() {
       return;
     }
 
-    const nomeEl = document.getElementById("nomeUsuario");
-    const emailEl = document.getElementById("emailUsuario");
-    const matriculaEl = document.getElementById("matriculaUsuario");
-    const funcaoEl = document.getElementById("funcaoUsuario");
-    const avatarEl = document.getElementById("avatar");
-
+    const nome = normalizarTextoApp(usuario.nome) || "";
+    const sobrenome = normalizarTextoApp(usuario.sobrenome) || "";
     const nomeCompleto = montarNomeCompletoUsuario(usuario);
     const funcao = normalizarTextoApp(usuario.funcao) || "-";
     const email = normalizarTextoApp(usuario.email) || "-";
     const matricula = normalizarTextoApp(usuario.matricula) || "-";
     const iniciais = gerarIniciaisUsuario(usuario);
 
-    if (nomeEl) nomeEl.textContent = nomeCompleto;
-    if (emailEl) emailEl.textContent = email;
-    if (matriculaEl) matriculaEl.textContent = matricula;
-    if (funcaoEl) funcaoEl.textContent = funcao;
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    };
 
-    if (avatarEl) {
-      avatarEl.textContent = iniciais;
-      avatarEl.setAttribute("title", nomeCompleto);
-      avatarEl.setAttribute("aria-label", `Avatar de ${nomeCompleto}`);
-    }
+    // card compacto: só nome completo + função
+    set("nomeUsuario", nomeCompleto);
+    set("funcaoUsuario", funcao);
 
-    appLogInfo("Usuário preenchido na sidebar", {
-      nomeCompleto,
-      matricula,
-      funcao,
-      email,
-      iniciais,
-      temCampoFuncao: !!funcaoEl,
-    });
+    // popover: todos os dados
+    set("popNome", nome || "-");
+    set("popSobrenome", sobrenome || "-");
+    set("popMatricula", matricula);
+    set("popFuncao", funcao);
+    set("popEmail", email);
+
+    // avatar: foto salva ou iniciais
+    window._iniciaisUsuario = iniciais;
+    aplicarFotoAvatar(lerFotoPerfil());
+
+    appLogInfo("Usuário preenchido na sidebar", { nomeCompleto, funcao });
   } catch (erro) {
     appLogError("Erro ao preencher usuário na sidebar", erro);
   }
 }
+
+// ==========================
+// 🖼️ AVATAR / FOTO DE PERFIL
+// ==========================
+function getChaveFotoPerfil() {
+  const u = getUsuarioLocal() || {};
+  const id = u.matricula || u.id || u.email || "anon";
+  return `fotoPerfil_${id}`;
+}
+
+function lerFotoPerfil() {
+  try {
+    return localStorage.getItem(getChaveFotoPerfil());
+  } catch (e) {
+    return null;
+  }
+}
+
+function aplicarFotoAvatar(dataUrl) {
+  const iniciais = window._iniciaisUsuario || "U";
+  ["avatar", "avatarPop"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (dataUrl) {
+      el.style.backgroundImage = `url("${dataUrl}")`;
+      el.classList.add("tem-foto");
+      el.textContent = "";
+    } else {
+      el.style.backgroundImage = "";
+      el.classList.remove("tem-foto");
+      el.textContent = iniciais;
+    }
+  });
+  const btnRem = document.getElementById("btnRemoverFoto");
+  if (btnRem) btnRem.hidden = !dataUrl;
+}
+
+function trocarFotoPerfil(event) {
+  const file = event?.target?.files?.[0];
+  if (!file || !file.type.startsWith("image/")) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      // recorta quadrado central e reduz para 200x200 (leve para o localStorage)
+      const size = 200;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      const min = Math.min(img.width, img.height);
+      const sx = (img.width - min) / 2;
+      const sy = (img.height - min) / 2;
+      ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+      try {
+        localStorage.setItem(getChaveFotoPerfil(), dataUrl);
+      } catch (e) {
+        appLogWarn("Não foi possível salvar a foto (muito grande)", e);
+      }
+      aplicarFotoAvatar(dataUrl);
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+
+  // limpa o input para permitir reescolher a mesma imagem depois
+  if (event.target) event.target.value = "";
+}
+
+function removerFotoPerfil() {
+  try {
+    localStorage.removeItem(getChaveFotoPerfil());
+  } catch (e) {}
+  aplicarFotoAvatar(null);
+}
+
+// ==========================
+// 🪟 POPOVER DE PERFIL
+// ==========================
+function abrirPerfilPopover(event) {
+  if (event) event.stopPropagation();
+  const pop = document.getElementById("perfilPopover");
+  if (!pop) return;
+  pop.hidden = !pop.hidden;
+}
+
+function fecharPerfilPopover() {
+  const pop = document.getElementById("perfilPopover");
+  if (pop) pop.hidden = true;
+}
+
+// fecha o popover ao clicar fora dele
+document.addEventListener("click", (e) => {
+  const pop = document.getElementById("perfilPopover");
+  if (!pop || pop.hidden) return;
+  const avatar = document.getElementById("avatar");
+  if (pop.contains(e.target) || (avatar && avatar.contains(e.target))) return;
+  pop.hidden = true;
+});
+
+window.abrirPerfilPopover = abrirPerfilPopover;
+window.fecharPerfilPopover = fecharPerfilPopover;
+window.trocarFotoPerfil = trocarFotoPerfil;
+window.removerFotoPerfil = removerFotoPerfil;
 
 // ==========================
 // 🧹 LIMPAR ITENS DINÂMICOS DO MENU

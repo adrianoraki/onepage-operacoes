@@ -282,10 +282,15 @@ window.FaixaHoras = window.FaixaHoras || {};
   }
 
   function gerarSemanasFaixaHoras() {
-    const atual = parseInt(
+    let atual = parseInt(
       semanaSelecionadaFaixaHoras || getSemanaAtualFaixaHoras(),
       10
     );
+    // blindagem: se a semana selecionada estiver corrompida (ex: "TODAS"),
+    // volta para a semana atual em vez de gerar colunas inválidas (NaN)
+    if (!Number.isFinite(atual) || atual < 1 || atual > 53) {
+      atual = parseInt(getSemanaAtualFaixaHoras(), 10);
+    }
 
     const lista = [atual - 3, atual - 2, atual - 1, atual].map((s) =>
       s <= 0 ? 52 + s : s
@@ -362,6 +367,10 @@ window.FaixaHoras = window.FaixaHoras || {};
   // 💾 SALVAR
   // ==========================
   async function salvarValorFaixaHoras(loja, semana, valor) {
+    // normaliza a semana para "NN" (evita salvar "5" e buscar "05")
+    const semanaNorm = String(semana).padStart(2, "0");
+    const semanaSemZero = String(parseInt(semanaNorm, 10));
+
     const numero =
       valor === null || valor === undefined || valor === ""
         ? null
@@ -408,7 +417,7 @@ window.FaixaHoras = window.FaixaHoras || {};
         .from("resultados")
         .select("id, valor")
         .eq("loja", loja)
-        .eq("semana", semana)
+        .in("semana", [semanaNorm, semanaSemZero])
         .eq("indicador", indicadorBanco)
         .eq("classe", classe)
         .order("id", { ascending: true });
@@ -460,7 +469,7 @@ window.FaixaHoras = window.FaixaHoras || {};
         .insert([
           {
             loja,
-            semana,
+            semana: semanaNorm,
             indicador: indicadorBanco,
             classe,
             valor: numero,
@@ -616,6 +625,7 @@ window.FaixaHoras = window.FaixaHoras || {};
               onfocus="window.fhPrepararEdicaoFaixaHoras(this)"
               onblur="window.autoSalvarFaixaHoras(this)"
               class="input-valor-faixa-horas"
+              ${typeof window.attrsBloqueioEdicaoApp === "function" ? window.attrsBloqueioEdicaoApp(semana) : ""}
             >
           </div>
         </td>
@@ -903,6 +913,12 @@ window.FaixaHoras = window.FaixaHoras || {};
       const indicadorBanco = obterIndicadorBancoFaixaHoras();
       const classeAtual = obterClasseFaixaHoras();
       const semanas = gerarSemanasFaixaHoras();
+      // busca padded ("05") e sem zero ("5") para não perder valores por formato
+      const semanasBusca = [
+        ...new Set(
+          semanas.flatMap((s) => [s, String(parseInt(s, 10))])
+        ),
+      ];
 
       const [lojasResp, resultadosResp] = await Promise.all([
         window.db.from("lojas").select("*").order("codigo"),
@@ -911,7 +927,7 @@ window.FaixaHoras = window.FaixaHoras || {};
           .select("*")
           .eq("indicador", indicadorBanco)
           .in("classe", getClassesConsultaFaixaHoras())
-          .in("semana", semanas),
+          .in("semana", semanasBusca),
       ]);
 
       if (lojasResp.error) throw lojasResp.error;
@@ -927,7 +943,9 @@ window.FaixaHoras = window.FaixaHoras || {};
 
       const mapa = {};
       resultados.forEach((r) => {
-        mapa[`${r.loja}-${r.semana}`] = r;
+        // normaliza a semana para "NN" na chave, casando com as colunas
+        const semNorm = String(r.semana).padStart(2, "0");
+        mapa[`${r.loja}-${semNorm}`] = r;
       });
 
       const container = document.getElementById("conteudo");

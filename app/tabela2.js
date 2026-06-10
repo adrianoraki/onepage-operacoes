@@ -1013,6 +1013,7 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
               data-original-justificativa=""
               onfocus="prepararInputEspecial(this)"
               onblur="autoSalvarEspecial(this)"
+              ${typeof window.attrsBloqueioEdicaoApp === "function" ? window.attrsBloqueioEdicaoApp(semanaNorm) : ""}
             >
           </div>
         </td>
@@ -1045,6 +1046,7 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
               data-original-justificativa=""
               onfocus="prepararInputEspecial(this)"
               onblur="autoSalvarEspecial(this)"
+              ${typeof window.attrsBloqueioEdicaoApp === "function" ? window.attrsBloqueioEdicaoApp(semanaNorm) : ""}
             >
           </div>
         </td>

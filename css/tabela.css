@@ -1438,3 +1438,19 @@ th.coluna-atual {
     font-size: 14px;
   }
 }
+
+/* ==========================
+   🔒 INPUT BLOQUEADO (sem permissão de editar a semana)
+========================== */
+input[data-bloqueado="true"] {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  background: rgba(148, 163, 184, 0.12) !important;
+  color: #94a3b8 !important;
+  pointer-events: auto;
+}
+input[data-bloqueado="true"]:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: var(--cor-borda-suave) !important;
+}

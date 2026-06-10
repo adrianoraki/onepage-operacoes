@@ -287,19 +287,20 @@
   }
 
   /* ==========================
-     👤 USUÁRIO
+     👤 USUÁRIO (card compacto)
   ========================== */
   .user-footer {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
+    position: relative;
   }
 
-  .user-info {
+  .user-card {
     display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 14px;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
     border-radius: 14px;
     background: linear-gradient(
       180deg,
@@ -313,61 +314,154 @@
   }
 
   .avatar {
-    width: 58px;
-    height: 58px;
-    min-width: 58px;
-    border-radius: 16px;
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    border-radius: 14px;
+    border: none;
+    padding: 0;
     background: linear-gradient(180deg, #1e6091 0%, #0a3d62 100%);
+    background-size: cover;
+    background-position: center;
     color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 800;
+    cursor: pointer;
     box-shadow: 0 8px 18px rgba(10, 61, 98, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+    overflow: hidden;
   }
+  .avatar:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(10, 61, 98, 0.4);
+  }
+  .avatar.tem-foto { color: transparent; }
 
-  .dados {
+  .user-main {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    min-width: 0;
+    gap: 2px;
   }
-
-  .dado-linha {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    font-size: 12px;
-    line-height: 1.35;
-    min-width: 0;
-  }
-
-  .dado-label {
-    min-width: 64px;
-    color: #c7d2de;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-
-  .dado-valor {
+  .user-nome {
     color: #ffffff;
-    font-weight: 600;
-    word-break: break-word;
-    min-width: 0;
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-
-  .dado-valor.email {
+  .user-funcao {
     color: #b8c5d3;
     font-weight: 500;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* ==========================
-     🚪 LOGOUT
+     🪟 POPOVER DE PERFIL (transparente)
+  ========================== */
+  .perfil-popover {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    margin-bottom: 10px;
+    z-index: 50;
+    padding: 14px;
+    border-radius: 16px;
+    background: rgba(18, 29, 51, 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    animation: popIn 0.16s ease;
+  }
+  .perfil-popover[hidden] { display: none; }
+  @keyframes popIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .perfil-pop-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .avatar-pop {
+    width: 56px; height: 56px; min-width: 56px;
+    cursor: default;
+    font-size: 19px;
+  }
+  .avatar-pop:hover { transform: none; }
+  .perfil-pop-acoes { display: flex; flex-direction: column; gap: 6px; }
+  .pop-btn {
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.08);
+    color: #eaf1f8;
+    border-radius: 9px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .pop-btn:hover { background: rgba(255, 255, 255, 0.16); }
+  .pop-btn-ghost { background: transparent; color: #fb7185; border-color: rgba(251,113,133,0.3); }
+  .perfil-pop-dados { display: flex; flex-direction: column; gap: 7px; }
+  .pop-linha {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12.5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 6px;
+  }
+  .pop-linha:last-child { border-bottom: none; padding-bottom: 0; }
+  .pop-linha span { color: #9fb0c2; font-weight: 600; }
+  .pop-linha b { color: #ffffff; font-weight: 700; text-align: right; word-break: break-word; }
+
+  /* ==========================
+     ⚙️🚪 AÇÕES (engrenagem + sair)
+  ========================== */
+  .footer-acoes {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .btn-config-icon {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: #cdd8e4;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  }
+  .btn-config-icon:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    transform: translateY(-1px);
+  }
+
+  /* ==========================
+     🚪 LOGOUT (menor)
   ========================== */
   .btn-logout {
-    width: 100%;
+    flex: 1;
     min-height: 44px;
     border: none;
     border-radius: 12px;
@@ -376,7 +470,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
@@ -384,7 +478,7 @@
       transform 0.16s ease,
       box-shadow 0.2s ease,
       filter 0.2s ease;
-    box-shadow: 0 10px 18px rgba(220, 38, 38, 0.18);
+    box-shadow: 0 8px 16px rgba(220, 38, 38, 0.18);
   }
 
   .btn-logout:hover {
@@ -626,61 +720,83 @@
          🔻 RODAPÉ
     =========================== -->
     <div class="bottom-area">
-      <!-- CONFIGURAÇÕES -->
-      <div
-        class="config-btn"
-        onclick="
-          logMenu('configuracoes');
-          abrirConfiguracoesMenu();
-        "
-      >
-        <div class="config-btn-content">
-          <i class="fas fa-gear icon-config"></i>
-          <span>Configurações</span>
-        </div>
-      </div>
-
       <!-- ==========================
            👤 USUÁRIO
       =========================== -->
       <div class="user-footer">
-        <div class="user-info">
-          <div class="avatar" id="avatar"></div>
-
-          <div class="dados">
-            <div class="dado-linha">
-              <span class="dado-label">Nome:</span>
-              <span class="dado-valor" id="nomeUsuario"></span>
-            </div>
-
-            <div class="dado-linha">
-              <span class="dado-label">Matrícula:</span>
-              <span class="dado-valor" id="matriculaUsuario"></span>
-            </div>
-
-            <div class="dado-linha">
-              <span class="dado-label">Função:</span>
-              <span class="dado-valor" id="funcaoUsuario"></span>
-            </div>
-
-            <div class="dado-linha">
-              <span class="dado-label">E-mail:</span>
-              <span class="dado-valor email" id="emailUsuario"></span>
-            </div>
+        <!-- card compacto: avatar + nome/sobrenome + função -->
+        <div class="user-card">
+          <button
+            type="button"
+            class="avatar"
+            id="avatar"
+            onclick="abrirPerfilPopover(event)"
+            title="Ver dados e trocar foto"
+          ></button>
+          <div class="user-main">
+            <div class="user-nome" id="nomeUsuario"></div>
+            <div class="user-funcao" id="funcaoUsuario"></div>
           </div>
         </div>
 
-        <button
-          type="button"
-          class="btn-logout"
-          onclick="
-            logMenu('logout');
-            logout();
-          "
-        >
-          <i class="fas fa-right-from-bracket"></i>
-          <span>Sair</span>
-        </button>
+        <!-- popover transparente com todos os dados -->
+        <div class="perfil-popover" id="perfilPopover" hidden>
+          <div class="perfil-pop-top">
+            <div class="avatar avatar-pop" id="avatarPop"></div>
+            <div class="perfil-pop-acoes">
+              <button
+                type="button"
+                class="pop-btn"
+                onclick="document.getElementById('inputFotoPerfil').click()"
+              >
+                <i class="fas fa-camera"></i> Trocar foto
+              </button>
+              <button
+                type="button"
+                class="pop-btn pop-btn-ghost"
+                id="btnRemoverFoto"
+                onclick="removerFotoPerfil()"
+                hidden
+              >
+                Remover
+              </button>
+              <input
+                type="file"
+                id="inputFotoPerfil"
+                accept="image/*"
+                hidden
+                onchange="trocarFotoPerfil(event)"
+              >
+            </div>
+          </div>
+          <div class="perfil-pop-dados">
+            <div class="pop-linha"><span>Nome</span><b id="popNome"></b></div>
+            <div class="pop-linha"><span>Sobrenome</span><b id="popSobrenome"></b></div>
+            <div class="pop-linha"><span>Matrícula</span><b id="popMatricula"></b></div>
+            <div class="pop-linha"><span>Função</span><b id="popFuncao"></b></div>
+            <div class="pop-linha"><span>E-mail</span><b id="popEmail"></b></div>
+          </div>
+        </div>
+
+        <!-- ações: engrenagem + sair (compactos) -->
+        <div class="footer-acoes">
+          <button
+            type="button"
+            class="btn-config-icon"
+            title="Configurações"
+            onclick="logMenu('configuracoes'); abrirConfiguracoesMenu();"
+          >
+            <i class="fas fa-gear"></i>
+          </button>
+          <button
+            type="button"
+            class="btn-logout"
+            onclick="logMenu('logout'); logout();"
+          >
+            <i class="fas fa-right-from-bracket"></i>
+            <span>Sair</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>

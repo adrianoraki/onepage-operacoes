@@ -824,6 +824,7 @@ function montarTabelaRH(lojas, mapa, semanas) {
               "
               onfocus="prepararInputRH(this)"
               onblur="autoSalvarRH(this)"
+              ${typeof window.attrsBloqueioEdicaoApp === "function" ? window.attrsBloqueioEdicaoApp(semanaNorm) : ""}
             >
           </div>
         </td>
@@ -856,6 +857,7 @@ function montarTabelaRH(lojas, mapa, semanas) {
               "
               onfocus="prepararInputRH(this)"
               onblur="autoSalvarRH(this)"
+              ${typeof window.attrsBloqueioEdicaoApp === "function" ? window.attrsBloqueioEdicaoApp(semanaNorm) : ""}
             >
           </div>
         </td>

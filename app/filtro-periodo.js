@@ -104,3 +104,46 @@
     },
   };
 })();
+
+// ==========================================================
+// 🔒 PERMISSÃO DE EDIÇÃO POR SEMANA (compartilhado pelas tabelas)
+// Respeita: editar semana atual / anteriores / qualquer semana
+// ==========================================================
+window.podeEditarSemanaApp = function (semana) {
+  let u = {};
+  try {
+    if (typeof getUsuarioLogado === "function") u = getUsuarioLogado() || {};
+  } catch (e) {}
+
+  const perms = u.permissoes || {};
+  const ler = (k) => u[k] === true || perms[k] === true;
+
+  const qualquer = ler("pode_editar_qualquer_semana");
+  const anterior = ler("pode_editar_semana_anterior");
+  const atual = ler("pode_editar_semana_atual");
+
+  // master/admin sempre podem
+  const perfil = (u.perfil || "").toString().toLowerCase();
+  if (perfil === "master" || perfil === "admin") return true;
+  if (qualquer) return true;
+
+  let semReal = NaN;
+  try {
+    if (typeof getSemanaAtual === "function") semReal = parseInt(getSemanaAtual(), 10);
+  } catch (e) {}
+  const semSel = parseInt(semana, 10);
+
+  if (!Number.isFinite(semSel) || !Number.isFinite(semReal)) {
+    return atual || anterior;
+  }
+  if (semSel === semReal) return atual || anterior; // semana atual
+  if (semSel < semReal) return anterior;            // semana passada
+  return false;                                     // semana futura → só "qualquer"
+};
+
+// atributos prontos para o <input> quando a semana NÃO é editável
+window.attrsBloqueioEdicaoApp = function (semana) {
+  return window.podeEditarSemanaApp(semana)
+    ? ""
+    : 'readonly data-bloqueado="true" title="Sem permissão para editar esta semana"';
+};

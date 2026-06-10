@@ -1313,6 +1313,7 @@ function montarLinha(loja, mapa, semanas, classeSelecionada = null) {
             oninput="atualizarVisibilidadeJustificativa(this)"
             onblur="autoSalvar(this)"
             class="input-valor-tabela"
+            ${typeof window.attrsBloqueioEdicaoApp === "function" ? window.attrsBloqueioEdicaoApp(semana) : ""}
           >
           ${
             usaJustificativa

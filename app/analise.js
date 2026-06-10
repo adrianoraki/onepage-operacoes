@@ -7,12 +7,15 @@ console.log("✅ analise.js carregado");
 // 🧠 ESTADO GLOBAL DAS ANALISES
 // ==========================
 const ANALISE_STATE = {
+  ano: new Date().getFullYear(),
+
   semana:
     localStorage.getItem("semana") ||
     getSemanaAtual().toString().padStart(2, "0"),
 
   mes: new Date().getMonth(), // índice 0-11 do mês selecionado
   aba: "evolucao",
+  modoComparativo: "mes", // "mes" (mês a mês) | "semana" (semana a semana)
   visao: "regional",
   classe: "TODAS",
   indicador: "TODOS",
@@ -863,6 +866,12 @@ async function telaAnalises() {
         </div>
 
         <div class="dashboard-filtros analise-filtros">
+          <span id="analiseAnoWrap" style="display:none;">
+            <select id="analiseAno" onchange="analiseAlterarAno(this.value)">
+              ${gerarOptionsAnoAnalise([ANALISE_STATE.ano])}
+            </select>
+          </span>
+
           <select id="analiseMes" onchange="analiseAlterarMes(this.value)">
             ${gerarOptionsMesesAnalise()}
           </select>
@@ -914,6 +923,9 @@ async function telaAnalises() {
 
   destruirGraficosAnalise();
   await carregarDadosAnalise(contexto);
+
+  // mostra o filtro de ano só se houver dados de mais de um ano
+  analiseAtualizarVisibilidadeAno();
 }
 
 // ==========================
@@ -1009,8 +1021,7 @@ function gerarOptionsMesesAnalise() {
 }
 
 // semanas de um mês (índice 0-11) do ano vigente
-function analiseSemanasDoMes(indiceMes) {
-  const ano = new Date().getFullYear();
+function analiseSemanasDoMes(indiceMes, ano = ANALISE_STATE.ano) {
   const primeiroDia = new Date(ano, indiceMes, 1);
   const ultimoDia = new Date(ano, indiceMes + 1, 0);
   const set = new Set();
@@ -1018,6 +1029,73 @@ function analiseSemanasDoMes(indiceMes) {
     set.add(getNumeroSemanaPorDataAnalise(d).toString().padStart(2, "0"));
   }
   return [...set];
+}
+
+// ===== ANO (filtro oculto até existir dado de mais de um ano) =====
+// usa created_at como referência de ano (os registros não gravam ano)
+function analiseAplicarFiltroAno(query) {
+  const ano = Number(ANALISE_STATE.ano) || new Date().getFullYear();
+  const inicio = `${ano}-01-01T00:00:00`;
+  const fim = `${ano + 1}-01-01T00:00:00`;
+  return query.gte("created_at", inicio).lt("created_at", fim);
+}
+
+async function analiseDetectarAnos() {
+  const anoAtual = new Date().getFullYear();
+  try {
+    const [minR, maxR] = await Promise.all([
+      window.db.from("resultados").select("created_at").order("created_at", { ascending: true }).limit(1),
+      window.db.from("resultados").select("created_at").order("created_at", { ascending: false }).limit(1),
+    ]);
+    const anoMin = minR?.data?.[0]?.created_at
+      ? new Date(minR.data[0].created_at).getFullYear()
+      : anoAtual;
+    const anoMax = maxR?.data?.[0]?.created_at
+      ? new Date(maxR.data[0].created_at).getFullYear()
+      : anoAtual;
+    const anos = [];
+    for (let a = Math.max(anoMax, anoAtual); a >= Math.min(anoMin, anoAtual); a--) {
+      anos.push(a);
+    }
+    return anos.length ? anos : [anoAtual];
+  } catch (e) {
+    return [anoAtual];
+  }
+}
+
+function gerarOptionsAnoAnalise(anos) {
+  return (anos || [ANALISE_STATE.ano])
+    .map(
+      (a) =>
+        `<option value="${a}" ${Number(ANALISE_STATE.ano) === Number(a) ? "selected" : ""}>${a}</option>`,
+    )
+    .join("");
+}
+
+async function analiseAlterarAno(ano) {
+  ANALISE_STATE.ano = Number(ano) || new Date().getFullYear();
+  // repopula as semanas do mês para o novo ano e reseta para "Mês inteiro"
+  ANALISE_STATE.semana = "TODAS";
+  const selSemana = document.getElementById("analiseSemana");
+  if (selSemana) {
+    selSemana.innerHTML = gerarOptionsSemanasAnalise();
+    selSemana.value = "TODAS";
+  }
+  await carregarDadosAnalise();
+}
+
+// mostra o seletor de ano só quando há dados de mais de um ano
+async function analiseAtualizarVisibilidadeAno() {
+  const wrap = document.getElementById("analiseAnoWrap");
+  const sel = document.getElementById("analiseAno");
+  if (!wrap || !sel) return;
+  const anos = await analiseDetectarAnos();
+  if (anos.length > 1) {
+    sel.innerHTML = gerarOptionsAnoAnalise(anos);
+    wrap.style.display = "";
+  } else {
+    wrap.style.display = "none";
+  }
 }
 
 function gerarOptionsSemanasAnalise() {
@@ -1454,10 +1532,20 @@ async function renderAbaEvolucao({ lojasVisuaisSet }) {
   const alvo = document.getElementById("analiseConteudo");
   if (!alvo) return;
 
-  const semanas = analiseSemanasDoMes(ANALISE_STATE.mes);
   const todosIndicadores = ANALISE_STATE.indicador === "TODOS";
+  const semanaEspecifica =
+    ANALISE_STATE.semana && ANALISE_STATE.semana !== "TODAS";
+
+  // 📌 semana específica → mostra o VALOR daquela semana
+  if (semanaEspecifica) {
+    await renderEvolucaoSemanaEspecifica({ lojasVisuaisSet, alvo, todosIndicadores });
+    return;
+  }
+
+  const semanas = analiseSemanasDoMes(ANALISE_STATE.mes);
 
   let query = window.db.from("resultados").select("*").in("semana", semanas);
+  query = analiseAplicarFiltroAno(query);
   query = analiseFiltrarPorIndicadorClasse(query);
   const { data, error } = await query;
   if (error) throw error;
@@ -1572,6 +1660,222 @@ async function renderAbaEvolucao({ lojasVisuaisSet }) {
   });
 }
 
+// ===== SEMANA ESPECÍFICA: mostra o valor da semana selecionada =====
+async function renderEvolucaoSemanaEspecifica({ lojasVisuaisSet, alvo, todosIndicadores }) {
+  const semana = ANALISE_STATE.semana;
+
+  let query = window.db.from("resultados").select("*").eq("semana", semana);
+  query = analiseAplicarFiltroAno(query);
+  query = analiseFiltrarPorIndicadorClasse(query);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const registros = (data || []).filter((r) => lojasVisuaisSet.has(r.loja));
+
+  if (!registros.length) {
+    renderPodioAnalise([], `Semana ${semana}`);
+    analiseAvisoSelecioneIndicador(
+      alvo,
+      `Sem dados lançados para a semana ${semana}.`,
+    );
+    return;
+  }
+
+  // ----- 1 indicador: tabela com o VALOR de cada loja na semana -----
+  if (!todosIndicadores) {
+    const tipo = analiseTipoIndicadorAtual();
+    const menorMelhor = analiseMenorMelhor();
+
+    const porLoja = {};
+    registros.forEach((r) => {
+      const v = Number(r.valor);
+      if (!isFinite(v)) return;
+      (porLoja[r.loja] = porLoja[r.loja] || []).push(v);
+    });
+
+    const linhas = Object.entries(porLoja)
+      .map(([loja, vals]) => {
+        const val = analiseAgregar(vals, tipo);
+        const partes = String(loja).split(" - ");
+        const codigo = partes.shift() || loja;
+        const nome = partes.join(" - ") || loja;
+        return { codigo, nome, valor: val };
+      })
+      .filter((x) => x.valor !== null && isFinite(x.valor))
+      .sort((a, b) => (menorMelhor ? a.valor - b.valor : b.valor - a.valor));
+
+    renderPodioAnalise(
+      linhas.slice(0, 3).map((l) => ({
+        codigo: l.codigo,
+        nome: l.nome,
+        valorTexto: analiseFormatar(l.valor, tipo),
+      })),
+      `Melhores da semana ${semana}`,
+    );
+
+    const corpo = linhas
+      .map(
+        (l, i) => `
+        <tr>
+          <td><span class="analise-badge">${i + 1}</span></td>
+          <td><strong>${l.codigo}</strong> ${escapeHtmlAnalise(l.nome)}</td>
+          <td><strong>${analiseFormatar(l.valor, tipo)}</strong></td>
+        </tr>`,
+      )
+      .join("");
+
+    alvo.innerHTML = `
+      <div class="dashboard-card span-12">
+        <h3 style="margin:0 0 4px 0;">Valores da semana ${semana} — ${escapeHtmlAnalise(ANALISE_STATE.indicador)}</h3>
+        <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">
+          ${menorMelhor ? "Menor valor é melhor" : "Maior valor é melhor"} • ${linhas.length} loja(s)
+        </p>
+        <table class="analise-tabela-var">
+          <thead><tr><th>#</th><th>Loja</th><th>Valor</th></tr></thead>
+          <tbody>${corpo}</tbody>
+        </table>
+      </div>
+    `;
+    return;
+  }
+
+  // ----- TODOS os indicadores: ranking por desempenho relativo da semana -----
+  const ranking = calcularDestaqueSemana(registros);
+
+  renderPodioAnalise(
+    ranking.slice(0, 3).map((x) => ({
+      codigo: x.codigo,
+      nome: x.nome,
+      valorTexto: `${x.score.toFixed(0)} pts`,
+    })),
+    `Destaques da semana ${semana}`,
+  );
+
+  if (!ranking.length) {
+    analiseAvisoSelecioneIndicador(
+      alvo,
+      `Sem dados suficientes na semana ${semana}.`,
+    );
+    return;
+  }
+
+  const corpo = ranking
+    .map(
+      (l, i) => `
+      <tr>
+        <td><span class="analise-badge">${i + 1}</span></td>
+        <td><strong>${l.codigo}</strong> ${escapeHtmlAnalise(l.nome)}</td>
+        <td>${l.score.toFixed(0)} pts <span style="color:var(--an-txt-soft);font-size:11px;">(${l.indicadores} ind.)</span></td>
+      </tr>`,
+    )
+    .join("");
+
+  alvo.innerHTML = `
+    <div class="dashboard-card span-12">
+      <h3 style="margin:0 0 4px 0;">Desempenho da semana ${semana} — todos os indicadores</h3>
+      <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">
+        Pontuação relativa (0–100) de cada loja frente às demais nessa semana, considerando o sentido de cada indicador.
+        Selecione um indicador específico para ver os valores absolutos.
+      </p>
+      <table class="analise-tabela-var">
+        <thead><tr><th>#</th><th>Loja</th><th>Pontuação</th></tr></thead>
+        <tbody>${corpo}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+// pontuação relativa (0–100) de cada loja numa semana, média entre indicadores
+function calcularDestaqueSemana(registros) {
+  const porInd = {};
+  registros.forEach((r) => {
+    const v = Number(r.valor);
+    if (!isFinite(v)) return;
+    (porInd[r.indicador] = porInd[r.indicador] || []).push({ loja: r.loja, valor: v });
+  });
+
+  const scoreLoja = {}; // loja -> { soma, n }
+  Object.entries(porInd).forEach(([ind, arr]) => {
+    const menorMelhor = menorMelhorPorIndicadorBanco(ind);
+    const ordenado = [...arr].sort((a, b) =>
+      menorMelhor ? a.valor - b.valor : b.valor - a.valor,
+    );
+    const n = ordenado.length;
+    ordenado.forEach((item, i) => {
+      const pct = n > 1 ? (100 * (n - 1 - i)) / (n - 1) : 100;
+      const s = (scoreLoja[item.loja] = scoreLoja[item.loja] || { soma: 0, n: 0 });
+      s.soma += pct;
+      s.n += 1;
+    });
+  });
+
+  return Object.entries(scoreLoja)
+    .map(([loja, s]) => {
+      const partes = String(loja).split(" - ");
+      const codigo = partes.shift() || loja;
+      const nome = partes.join(" - ") || loja;
+      return {
+        codigo,
+        nome,
+        score: s.n ? s.soma / s.n : 0,
+        indicadores: s.n,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+}
+
+// define os dois períodos comparados conforme o modo (mês a mês / semana a semana)
+function analisePeriodosComparacao() {
+  const modo = ANALISE_STATE.modoComparativo === "semana" ? "semana" : "mes";
+
+  if (modo === "semana") {
+    let semAtual = ANALISE_STATE.semana;
+    if (!semAtual || semAtual === "TODAS") {
+      const sems = analiseSemanasDoMes(ANALISE_STATE.mes);
+      semAtual = sems[sems.length - 1];
+    }
+    const nAtual = parseInt(semAtual, 10);
+    const nAnt = nAtual - 1 <= 0 ? 52 + (nAtual - 1) : nAtual - 1;
+    const semAnt = String(nAnt).padStart(2, "0");
+    return {
+      modo,
+      atual: { semanas: [semAtual], rotulo: `Semana ${semAtual}` },
+      anterior: { semanas: [semAnt], rotulo: `Semana ${semAnt}` },
+    };
+  }
+
+  const idxAtual = ANALISE_STATE.mes;
+  const idxAnterior = idxAtual - 1 < 0 ? 11 : idxAtual - 1;
+  return {
+    modo,
+    atual: { semanas: analiseSemanasDoMes(idxAtual), rotulo: MESES_ANALISE[idxAtual] },
+    anterior: { semanas: analiseSemanasDoMes(idxAnterior), rotulo: MESES_ANALISE[idxAnterior] },
+  };
+}
+
+// botões segmentados Mês a mês / Semana a semana
+function analiseToggleComparativoHtml() {
+  const modo = ANALISE_STATE.modoComparativo === "semana" ? "semana" : "mes";
+  const btn = (val, label) => `
+    <button type="button" onclick="analiseTrocarModoComparativo('${val}')"
+      style="flex:1;padding:9px 12px;border:1px solid var(--an-line);
+        background:${modo === val ? "rgba(58,130,255,0.22)" : "transparent"};
+        color:${modo === val ? "#ffffff" : "var(--an-txt-soft)"};
+        border-radius:9px;font-weight:700;font-size:12px;cursor:pointer;">
+      ${label}
+    </button>`;
+  return `
+    <div class="dashboard-card span-12" style="display:flex;gap:8px;padding:10px;margin-bottom:12px;">
+      ${btn("mes", "Mês a mês")}
+      ${btn("semana", "Semana a semana")}
+    </div>`;
+}
+
+async function analiseTrocarModoComparativo(modo) {
+  ANALISE_STATE.modoComparativo = modo === "semana" ? "semana" : "mes";
+  await carregarDadosAnalise(getContextoDashboardUsuario());
+}
+
 // ===== ABA 2: PERÍODO vs PERÍODO (mês atual vs mês anterior) =====
 async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
   garantirEstilosAbasAnalise();
@@ -1580,13 +1884,15 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
 
   const todosIndicadores = ANALISE_STATE.indicador === "TODOS";
   const tipo = analiseTipoIndicadorAtual();
-  const idxAtual = ANALISE_STATE.mes;
-  const idxAnterior = idxAtual - 1 < 0 ? 11 : idxAtual - 1;
-  const mesAtual = { semanas: analiseSemanasDoMes(idxAtual), rotulo: MESES_ANALISE[idxAtual] };
-  const mesAnterior = { semanas: analiseSemanasDoMes(idxAnterior), rotulo: MESES_ANALISE[idxAnterior] };
+
+  const periodos = analisePeriodosComparacao();
+  const mesAtual = periodos.atual; // mantém os nomes para reuso abaixo
+  const mesAnterior = periodos.anterior;
+  const toggleHtml = analiseToggleComparativoHtml();
   const todas = [...new Set([...mesAtual.semanas, ...mesAnterior.semanas])];
 
   let query = window.db.from("resultados").select("*").in("semana", todas);
+  query = analiseAplicarFiltroAno(query);
   query = analiseFiltrarPorIndicadorClasse(query);
   const { data, error } = await query;
   if (error) throw error;
@@ -1600,7 +1906,12 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
     nome: x.nome,
     valorTexto: scoreParaTextoPodio(x.score),
   }));
-  renderPodioAnalise(podioItens, "Maior evolução vs mês anterior");
+  renderPodioAnalise(
+    podioItens,
+    periodos.modo === "semana"
+      ? "Maior evolução vs semana anterior"
+      : "Maior evolução vs mês anterior",
+  );
 
   // ===== CONTEÚDO =====
   // TODOS os indicadores → tabela de ranking por evolução média
@@ -1620,10 +1931,11 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
       )
       .join("");
     alvo.innerHTML = `
+      ${toggleHtml}
       <div class="dashboard-card span-12">
         <h3 style="margin:0 0 4px 0;">Evolução ${capitalizarAnalise(mesAnterior.rotulo)} → ${capitalizarAnalise(mesAtual.rotulo)} — todos os indicadores</h3>
         <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">
-          Evolução média entre os dois meses, considerando o sentido de cada indicador
+          Evolução média entre os dois períodos, considerando o sentido de cada indicador
         </p>
         <table class="analise-tabela-var">
           <thead><tr><th>#</th><th>Loja</th><th>Evolução média</th></tr></thead>
@@ -1688,8 +2000,9 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
     .join("");
 
   alvo.innerHTML = `
+    ${toggleHtml}
     <div class="dashboard-card span-12">
-      <h3 style="margin:0 0 4px 0;">${escapeHtmlAnalise(ANALISE_STATE.indicador)} — evolução entre meses</h3>
+      <h3 style="margin:0 0 4px 0;">${escapeHtmlAnalise(ANALISE_STATE.indicador)} — ${periodos.modo === "semana" ? "evolução entre semanas" : "evolução entre meses"}</h3>
       <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">
         Ordenado de quem mais evoluiu para quem mais regrediu
       </p>
@@ -1813,6 +2126,7 @@ function capitalizarAnalise(texto) {
 // 📦 BUSCAR DADOS
 // ==========================
 async function carregarDadosAnalise(contexto) {
+  if (!contexto) contexto = getContextoDashboardUsuario();
   const alvo = document.getElementById("analiseConteudo");
   if (!alvo) return;
 
@@ -1863,6 +2177,7 @@ async function carregarDadosAnalise(contexto) {
       .from("resultados")
       .select("*")
       .in("semana", semanasInfo.lista);
+    query = analiseAplicarFiltroAno(query);
 
     if (ANALISE_STATE.classe !== "TODAS") {
       query = query.eq("classe", ANALISE_STATE.classe);
