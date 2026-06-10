@@ -831,6 +831,8 @@ async function telaAnalises() {
           </select>
         </div>
 
+        <div id="analisePodio" class="analise-podio-fixo"></div>
+
         <div class="analise-abas">
           <button class="analise-aba ${ANALISE_STATE.aba === "evolucao" ? "ativa" : ""}" onclick="analiseTrocarAba('evolucao')">
             <span class="analise-aba-ico">📈</span> Evolução
@@ -1128,53 +1130,52 @@ function garantirEstilosAbasAnalise() {
     }
     .analise-aviso strong { color: var(--an-txt); }
 
-    /* ===== PÓDIO DE CAMPEÃS ===== */
+    /* ===== PÓDIO DE CAMPEÃS (fixo no topo, horizontal) ===== */
+    .analise-podio-fixo { margin: 6px 0 2px 0; }
     .analise-podio-wrap {
       background: linear-gradient(180deg, #14213d 0%, #0e1830 100%);
-      border: 1px solid var(--an-line); border-radius: 16px;
-      padding: 20px 22px 24px; margin-bottom: 18px;
+      border: 1px solid var(--an-line); border-radius: 14px;
+      padding: 12px 16px 14px;
     }
     .analise-podio-titulo {
-      font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px;
-      color: var(--an-txt-soft); font-weight: 700; margin-bottom: 18px;
-      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+      color: var(--an-txt-soft); font-weight: 700; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 7px;
     }
     .analise-podio {
-      display: flex; justify-content: center; align-items: flex-end;
-      gap: 14px; flex-wrap: wrap;
+      display: flex; justify-content: flex-start; align-items: stretch;
+      gap: 10px; flex-wrap: nowrap; overflow-x: auto;
     }
     .podio-pos {
-      flex: 1 1 0; max-width: 240px; min-width: 150px;
-      border-radius: 14px; padding: 16px 14px; text-align: center;
-      border: 1px solid var(--an-line); position: relative;
-      background: var(--an-card);
+      flex: 1 1 0; min-width: 0;
+      border-radius: 12px; padding: 10px 12px;
+      border: 1px solid var(--an-line); background: var(--an-card);
+      display: flex; align-items: center; gap: 10px;
     }
-    .podio-pos .podio-medalha { font-size: 30px; line-height: 1; margin-bottom: 8px; }
+    .podio-pos .podio-medalha { font-size: 24px; line-height: 1; flex-shrink: 0; }
+    .podio-pos .podio-info { min-width: 0; flex: 1; }
     .podio-pos .podio-loja {
-      font-weight: 800; color: var(--an-txt); font-size: 14px;
+      font-weight: 800; color: var(--an-txt); font-size: 13px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .podio-pos .podio-cod { color: var(--an-txt-soft); font-size: 11px; font-weight: 700; }
-    .podio-pos .podio-valor {
-      margin-top: 8px; font-size: 17px; font-weight: 900; letter-spacing: 0.3px;
-    }
-    /* 1º lugar — ouro, elevado */
+    .podio-pos .podio-cod { color: var(--an-txt-soft); font-size: 10.5px; font-weight: 700; }
+    .podio-pos .podio-valor { font-size: 14px; font-weight: 900; margin-top: 2px; }
+    /* 1º — ouro */
     .podio-pos.pos-1 {
       background: linear-gradient(180deg, rgba(240,180,41,0.16), rgba(240,180,41,0.04));
-      border-color: rgba(240,180,41,0.55); transform: translateY(-14px);
-      box-shadow: 0 8px 24px rgba(240,180,41,0.12);
+      border-color: rgba(240,180,41,0.5);
     }
     .podio-pos.pos-1 .podio-valor { color: #f5c451; }
-    .podio-pos.pos-1 .podio-medalha { font-size: 38px; }
+    .podio-pos.pos-1 .podio-medalha { font-size: 28px; }
     /* 2º — prata */
-    .podio-pos.pos-2 { border-color: rgba(203,213,225,0.4); }
+    .podio-pos.pos-2 { border-color: rgba(203,213,225,0.35); }
     .podio-pos.pos-2 .podio-valor { color: #cbd5e1; }
     /* 3º — bronze */
-    .podio-pos.pos-3 { border-color: rgba(180,120,70,0.45); }
+    .podio-pos.pos-3 { border-color: rgba(180,120,70,0.4); }
     .podio-pos.pos-3 .podio-valor { color: #d8995e; }
-    @media (max-width: 560px) {
-      .podio-pos.pos-1 { transform: none; }
-      .podio-pos { min-width: 100%; }
+    @media (max-width: 640px) {
+      .podio-pos .podio-valor { font-size: 13px; }
+      .podio-pos .podio-loja { font-size: 12px; }
     }
   `;
   document.head.appendChild(style);
@@ -1210,33 +1211,121 @@ function analiseMenorMelhor() {
   return false;
 }
 
+// menor é melhor para um indicador do banco (por nome)
+function menorMelhorPorIndicadorBanco(indBanco) {
+  try {
+    if (typeof getIndicadorConfig === "function") {
+      const cfg = getIndicadorConfig(indBanco, null);
+      return (cfg?.ordemRanking || "").toString().toLowerCase() === "asc";
+    }
+  } catch (e) {}
+  return false;
+}
+
+// score de evolução por loja (1ª vs última semana), média entre TODOS os indicadores
+function calcularEvolucaoPorLoja(registros, semanas) {
+  const porLoja = {};
+  registros.forEach((r) => {
+    const v = Number(r.valor);
+    if (!isFinite(v)) return;
+    porLoja[r.loja] = porLoja[r.loja] || {};
+    porLoja[r.loja][r.indicador] = porLoja[r.loja][r.indicador] || {};
+    porLoja[r.loja][r.indicador][r.semana] = v;
+  });
+
+  const resultado = [];
+  Object.entries(porLoja).forEach(([loja, indicadores]) => {
+    const melhoras = [];
+    Object.entries(indicadores).forEach(([indBanco, mapaSem]) => {
+      const semComDado = semanas.filter((s) => mapaSem[s] !== undefined);
+      if (semComDado.length < 2) return;
+      const primeiro = mapaSem[semComDado[0]];
+      const ultimo = mapaSem[semComDado[semComDado.length - 1]];
+      if (primeiro === 0) return;
+      const varRel = ((ultimo - primeiro) / Math.abs(primeiro)) * 100;
+      melhoras.push(menorMelhorPorIndicadorBanco(indBanco) ? -varRel : varRel);
+    });
+    if (!melhoras.length) return;
+    const score = melhoras.reduce((a, b) => a + b, 0) / melhoras.length;
+    const [cod, ...resto] = loja.split(" - ");
+    resultado.push({ codigo: cod, nome: resto.join(" - ") || loja, score });
+  });
+  return resultado.sort((a, b) => b.score - a.score);
+}
+
+// score de variação por loja (mês atual vs anterior), média entre TODOS os indicadores
+function calcularVariacaoPorLoja(registros, semanasAtual, semanasAnterior) {
+  const porLoja = {};
+  registros.forEach((r) => {
+    const v = Number(r.valor);
+    if (!isFinite(v)) return;
+    porLoja[r.loja] = porLoja[r.loja] || {};
+    porLoja[r.loja][r.indicador] = porLoja[r.loja][r.indicador] || { at: [], an: [] };
+    if (semanasAtual.includes(r.semana)) porLoja[r.loja][r.indicador].at.push(v);
+    else if (semanasAnterior.includes(r.semana)) porLoja[r.loja][r.indicador].an.push(v);
+  });
+
+  const media = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
+
+  const resultado = [];
+  Object.entries(porLoja).forEach(([loja, indicadores]) => {
+    const melhoras = [];
+    Object.entries(indicadores).forEach(([indBanco, dados]) => {
+      const at = media(dados.at);
+      const an = media(dados.an);
+      if (at === null || an === null || an === 0) return;
+      const varRel = ((at - an) / Math.abs(an)) * 100;
+      melhoras.push(menorMelhorPorIndicadorBanco(indBanco) ? -varRel : varRel);
+    });
+    if (!melhoras.length) return;
+    const score = melhoras.reduce((a, b) => a + b, 0) / melhoras.length;
+    const [cod, ...resto] = loja.split(" - ");
+    resultado.push({ codigo: cod, nome: resto.join(" - ") || loja, score });
+  });
+  return resultado.sort((a, b) => b.score - a.score);
+}
+
+function scoreParaTextoPodio(score) {
+  return score >= 0
+    ? `<span class="analise-var-sobe">▲ ${score.toFixed(1).replace(".", ",")}%</span>`
+    : `<span class="analise-var-desce">▼ ${Math.abs(score).toFixed(1).replace(".", ",")}%</span>`;
+}
+
 // monta o HTML do pódio (top 3). itens = [{nome, codigo, valorTexto}] já ordenados 1º→3º
 function renderPodioAnalise(itens, titulo) {
-  if (!itens || !itens.length) return "";
+  const podio = document.getElementById("analisePodio");
+
+  if (!itens || !itens.length) {
+    if (podio) podio.innerHTML = "";
+    return;
+  }
 
   const card = (item, pos, medalha) => {
     if (!item) return "";
     return `
       <div class="podio-pos pos-${pos}">
         <div class="podio-medalha">${medalha}</div>
-        <div class="podio-cod">Loja ${escapeHtmlAnalise(item.codigo)}</div>
-        <div class="podio-loja">${escapeHtmlAnalise(item.nome)}</div>
-        <div class="podio-valor">${item.valorTexto}</div>
+        <div class="podio-info">
+          <div class="podio-cod">Loja ${escapeHtmlAnalise(item.codigo)}</div>
+          <div class="podio-loja">${escapeHtmlAnalise(item.nome)}</div>
+          <div class="podio-valor">${item.valorTexto}</div>
+        </div>
       </div>
     `;
   };
 
-  // ordem visual de pódio: 2º, 1º, 3º
-  return `
+  const html = `
     <div class="analise-podio-wrap">
       <div class="analise-podio-titulo">🏆 ${escapeHtmlAnalise(titulo)}</div>
       <div class="analise-podio">
-        ${card(itens[1], 2, "🥈")}
         ${card(itens[0], 1, "🥇")}
+        ${card(itens[1], 2, "🥈")}
         ${card(itens[2], 3, "🥉")}
       </div>
     </div>
   `;
+
+  if (podio) podio.innerHTML = html;
 }
 
 function analiseAgregar(valores, tipo) {
@@ -1310,16 +1399,8 @@ async function renderAbaEvolucao({ lojasVisuaisSet }) {
   const alvo = document.getElementById("analiseConteudo");
   if (!alvo) return;
 
-  if (ANALISE_STATE.indicador === "TODOS") {
-    analiseAvisoSelecioneIndicador(
-      alvo,
-      "Selecione um indicador acima para ver a evolução dele ao longo das semanas.",
-    );
-    return;
-  }
-
   const semanas = analiseSemanasDoMes(ANALISE_STATE.mes);
-  const tipo = analiseTipoIndicadorAtual();
+  const todosIndicadores = ANALISE_STATE.indicador === "TODOS";
 
   let query = window.db.from("resultados").select("*").in("semana", semanas);
   query = analiseFiltrarPorIndicadorClasse(query);
@@ -1328,7 +1409,49 @@ async function renderAbaEvolucao({ lojasVisuaisSet }) {
 
   const registros = (data || []).filter((r) => lojasVisuaisSet.has(r.loja));
 
-  // agrega por semana
+  // ===== PÓDIO: lojas que mais evoluíram (todos os indicadores) =====
+  const ranking = calcularEvolucaoPorLoja(registros, semanas);
+  const podioItens = ranking.slice(0, 3).map((x) => ({
+    codigo: x.codigo,
+    nome: x.nome,
+    valorTexto: scoreParaTextoPodio(x.score),
+  }));
+  renderPodioAnalise(podioItens, "Lojas que mais evoluíram no mês");
+
+  // ===== CONTEÚDO =====
+  // com TODOS os indicadores → tabela de ranking de evolução (não dá linha única)
+  if (todosIndicadores) {
+    if (!ranking.length) {
+      analiseAvisoSelecioneIndicador(alvo, "Sem dados suficientes para calcular a evolução neste mês.");
+      return;
+    }
+    const linhas = ranking
+      .map(
+        (l, i) => `
+        <tr>
+          <td><span class="analise-badge">${i + 1}</span></td>
+          <td><strong>${l.codigo}</strong> ${escapeHtmlAnalise(l.nome)}</td>
+          <td>${scoreParaTextoPodio(l.score)}</td>
+        </tr>`,
+      )
+      .join("");
+    alvo.innerHTML = `
+      <div class="dashboard-card span-12">
+        <h3 style="margin:0 0 4px 0;">Ranking de evolução — todos os indicadores</h3>
+        <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">
+          Evolução média (1ª vs última semana do mês), considerando o sentido de cada indicador — ${MESES_ANALISE[ANALISE_STATE.mes]}
+        </p>
+        <table class="analise-tabela-var">
+          <thead><tr><th>#</th><th>Loja</th><th>Evolução média</th></tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
+    `;
+    return;
+  }
+
+  // com 1 indicador → gráfico de linha
+  const tipo = analiseTipoIndicadorAtual();
   const porSemana = {};
   semanas.forEach((s) => (porSemana[s] = []));
   registros.forEach((r) => {
@@ -1342,44 +1465,7 @@ async function renderAbaEvolucao({ lojasVisuaisSet }) {
     return agg === null ? null : Number(agg.toFixed(2));
   });
 
-  // ===== PÓDIO: lojas que mais evoluíram (1ª vs última semana com dado) =====
-  const menorMelhor = analiseMenorMelhor();
-  const porLojaSem = {};
-  registros.forEach((r) => {
-    const v = Number(r.valor);
-    if (!isFinite(v)) return;
-    if (!porLojaSem[r.loja]) porLojaSem[r.loja] = {};
-    porLojaSem[r.loja][r.semana] = v;
-  });
-
-  const evolucoes = Object.entries(porLojaSem)
-    .map(([loja, mapaSem]) => {
-      const semComDado = semanas.filter((s) => mapaSem[s] !== undefined);
-      if (semComDado.length < 2) return null;
-      const primeiro = mapaSem[semComDado[0]];
-      const ultimo = mapaSem[semComDado[semComDado.length - 1]];
-      if (primeiro === 0) return null;
-      const varPct = ((ultimo - primeiro) / Math.abs(primeiro)) * 100;
-      const melhora = menorMelhor ? -varPct : varPct; // melhora positiva = evoluiu
-      const [cod, ...resto] = loja.split(" - ");
-      return { codigo: cod, nome: resto.join(" - ") || loja, melhora };
-    })
-    .filter((x) => x && isFinite(x.melhora))
-    .sort((a, b) => b.melhora - a.melhora)
-    .slice(0, 3)
-    .map((x) => ({
-      codigo: x.codigo,
-      nome: x.nome,
-      valorTexto:
-        x.melhora >= 0
-          ? `<span class="analise-var-sobe">▲ ${x.melhora.toFixed(1).replace(".", ",")}%</span>`
-          : `<span class="analise-var-desce">▼ ${Math.abs(x.melhora).toFixed(1).replace(".", ",")}%</span>`,
-    }));
-
-  const podioHtml = renderPodioAnalise(evolucoes, "Lojas que mais evoluíram no mês");
-
   alvo.innerHTML = `
-    ${podioHtml}
     <div class="dashboard-card span-12">
       <h3 style="margin:0 0 4px 0;">Evolução — ${escapeHtmlAnalise(ANALISE_STATE.indicador)}</h3>
       <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">
@@ -1402,13 +1488,13 @@ async function renderAbaEvolucao({ lojasVisuaisSet }) {
         {
           label: ANALISE_STATE.indicador,
           data: dados,
-          borderColor: "#3b82f6",
-          backgroundColor: "rgba(59,130,246,0.15)",
+          borderColor: "#3a82ff",
+          backgroundColor: "rgba(58,130,255,0.15)",
           borderWidth: 2,
           tension: 0.3,
           fill: true,
           pointRadius: 4,
-          pointBackgroundColor: "#3b82f6",
+          pointBackgroundColor: "#3a82ff",
           spanGaps: true,
         },
       ],
@@ -1418,16 +1504,12 @@ async function renderAbaEvolucao({ lojasVisuaisSet }) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => analiseFormatar(ctx.parsed.y, tipo),
-          },
-        },
+        tooltip: { callbacks: { label: (ctx) => analiseFormatar(ctx.parsed.y, tipo) } },
       },
       scales: {
-        x: { ticks: { color: "#9db4d6" }, grid: { color: "rgba(255,255,255,0.05)" } },
+        x: { ticks: { color: "#8e9cb3" }, grid: { color: "rgba(255,255,255,0.05)" } },
         y: {
-          ticks: { color: "#9db4d6", callback: (v) => analiseFormatar(v, tipo) },
+          ticks: { color: "#8e9cb3", callback: (v) => analiseFormatar(v, tipo) },
           grid: { color: "rgba(255,255,255,0.05)" },
         },
       },
@@ -1441,25 +1523,12 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
   const alvo = document.getElementById("analiseConteudo");
   if (!alvo) return;
 
-  if (ANALISE_STATE.indicador === "TODOS") {
-    analiseAvisoSelecioneIndicador(
-      alvo,
-      "Selecione um indicador acima para comparar o mês atual com o mês anterior.",
-    );
-    return;
-  }
-
+  const todosIndicadores = ANALISE_STATE.indicador === "TODOS";
   const tipo = analiseTipoIndicadorAtual();
   const idxAtual = ANALISE_STATE.mes;
   const idxAnterior = idxAtual - 1 < 0 ? 11 : idxAtual - 1;
-  const mesAtual = {
-    semanas: analiseSemanasDoMes(idxAtual),
-    rotulo: MESES_ANALISE[idxAtual],
-  };
-  const mesAnterior = {
-    semanas: analiseSemanasDoMes(idxAnterior),
-    rotulo: MESES_ANALISE[idxAnterior],
-  };
+  const mesAtual = { semanas: analiseSemanasDoMes(idxAtual), rotulo: MESES_ANALISE[idxAtual] };
+  const mesAnterior = { semanas: analiseSemanasDoMes(idxAnterior), rotulo: MESES_ANALISE[idxAnterior] };
   const todas = [...new Set([...mesAtual.semanas, ...mesAnterior.semanas])];
 
   let query = window.db.from("resultados").select("*").in("semana", todas);
@@ -1469,7 +1538,48 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
 
   const registros = (data || []).filter((r) => lojasVisuaisSet.has(r.loja));
 
-  // agrega por loja em cada mês
+  // ===== PÓDIO: maior evolução vs mês anterior (todos os indicadores) =====
+  const ranking = calcularVariacaoPorLoja(registros, mesAtual.semanas, mesAnterior.semanas);
+  const podioItens = ranking.slice(0, 3).map((x) => ({
+    codigo: x.codigo,
+    nome: x.nome,
+    valorTexto: scoreParaTextoPodio(x.score),
+  }));
+  renderPodioAnalise(podioItens, "Maior evolução vs mês anterior");
+
+  // ===== CONTEÚDO =====
+  // TODOS os indicadores → tabela de ranking por evolução média
+  if (todosIndicadores) {
+    if (!ranking.length) {
+      analiseAvisoSelecioneIndicador(alvo, "Sem dados suficientes para comparar os dois meses.");
+      return;
+    }
+    const linhas = ranking
+      .map(
+        (l, i) => `
+        <tr>
+          <td><span class="analise-badge">${i + 1}</span></td>
+          <td><strong>${l.codigo}</strong> ${escapeHtmlAnalise(l.nome)}</td>
+          <td>${scoreParaTextoPodio(l.score)}</td>
+        </tr>`,
+      )
+      .join("");
+    alvo.innerHTML = `
+      <div class="dashboard-card span-12">
+        <h3 style="margin:0 0 4px 0;">Evolução ${capitalizarAnalise(mesAnterior.rotulo)} → ${capitalizarAnalise(mesAtual.rotulo)} — todos os indicadores</h3>
+        <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">
+          Evolução média entre os dois meses, considerando o sentido de cada indicador
+        </p>
+        <table class="analise-tabela-var">
+          <thead><tr><th>#</th><th>Loja</th><th>Evolução média</th></tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
+    `;
+    return;
+  }
+
+  // 1 indicador → tabela detalhada (anterior, atual, variação)
   const mapaLoja = {};
   lojasEscopoBase.forEach((l) => {
     const chave = getChaveLojaAnalise(l);
@@ -1484,46 +1594,31 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
     else if (mesAnterior.semanas.includes(r.semana)) mapaLoja[r.loja].anterior.push(v);
   });
 
+  const menorMelhor = analiseMenorMelhor();
   const linhas = Object.values(mapaLoja)
     .map((l) => {
       const at = analiseAgregar(l.atual, tipo);
       const an = analiseAgregar(l.anterior, tipo);
       let variacao = null;
       if (at !== null && an !== null && an !== 0) variacao = ((at - an) / Math.abs(an)) * 100;
-      return { ...l, at, an, variacao };
+      const melhora = variacao === null ? null : menorMelhor ? -variacao : variacao;
+      return { ...l, at, an, variacao, melhora };
     })
     .filter((l) => l.at !== null || l.an !== null)
-    .sort((a, b) => (b.variacao ?? -Infinity) - (a.variacao ?? -Infinity));
+    .sort((a, b) => (b.melhora ?? -Infinity) - (a.melhora ?? -Infinity));
 
   if (!linhas.length) {
     analiseAvisoSelecioneIndicador(alvo, "Sem dados suficientes para comparar os dois meses.");
     return;
   }
 
-  // ===== PÓDIO: maior EVOLUÇÃO entre os meses (ajustada por menor-melhor) =====
-  const menorMelhor = analiseMenorMelhor();
-  const podioItens = linhas
-    .filter((l) => l.variacao !== null)
-    .map((l) => ({ ...l, melhora: menorMelhor ? -l.variacao : l.variacao }))
-    .sort((a, b) => b.melhora - a.melhora)
-    .slice(0, 3)
-    .map((l) => ({
-      codigo: l.codigo,
-      nome: l.nome,
-      valorTexto:
-        l.melhora >= 0
-          ? `<span class="analise-var-sobe">▲ ${l.melhora.toFixed(1).replace(".", ",")}%</span>`
-          : `<span class="analise-var-desce">▼ ${Math.abs(l.melhora).toFixed(1).replace(".", ",")}%</span>`,
-    }));
-  const podioHtml = renderPodioAnalise(podioItens, "Maior evolução vs mês anterior");
-
   const linhasHtml = linhas
     .map((l, i) => {
       let varCell = '<span class="analise-var-igual">—</span>';
-      if (l.variacao !== null) {
-        const cls = l.variacao > 0.05 ? "analise-var-sobe" : l.variacao < -0.05 ? "analise-var-desce" : "analise-var-igual";
-        const seta = l.variacao > 0.05 ? "▲" : l.variacao < -0.05 ? "▼" : "—";
-        varCell = `<span class="${cls}">${seta} ${l.variacao.toFixed(1).replace(".", ",")}%</span>`;
+      if (l.melhora !== null) {
+        const cls = l.melhora > 0.05 ? "analise-var-sobe" : l.melhora < -0.05 ? "analise-var-desce" : "analise-var-igual";
+        const seta = l.melhora > 0.05 ? "▲" : l.melhora < -0.05 ? "▼" : "—";
+        varCell = `<span class="${cls}">${seta} ${Math.abs(l.melhora).toFixed(1).replace(".", ",")}%</span>`;
       }
       return `
         <tr>
@@ -1538,11 +1633,10 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
     .join("");
 
   alvo.innerHTML = `
-    ${podioHtml}
     <div class="dashboard-card span-12">
-      <h3 style="margin:0 0 4px 0;">${escapeHtmlAnalise(ANALISE_STATE.indicador)} — variação entre meses</h3>
+      <h3 style="margin:0 0 4px 0;">${escapeHtmlAnalise(ANALISE_STATE.indicador)} — evolução entre meses</h3>
       <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">
-        Ordenado de quem mais subiu para quem mais caiu
+        Ordenado de quem mais evoluiu para quem mais regrediu
       </p>
       <table class="analise-tabela-var">
         <thead>
@@ -1551,7 +1645,7 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
             <th>Loja</th>
             <th>${capitalizarAnalise(mesAnterior.rotulo)}</th>
             <th>${capitalizarAnalise(mesAtual.rotulo)}</th>
-            <th>Variação</th>
+            <th>Evolução</th>
           </tr>
         </thead>
         <tbody>${linhasHtml}</tbody>
@@ -1570,27 +1664,21 @@ async function renderAbaJustificativas({ resultados, lojasEscopoBase, lojasVisua
     (r) => r.justificativa && r.justificativa.toString().trim() !== "",
   );
 
-  // conta por motivo
+  // conta por motivo e por loja (só quem tem 1+)
   const porMotivo = {};
-  // conta por loja — TODAS as lojas do escopo começam em 0 (as com zero entram no pódio)
   const porLoja = {};
-  (lojasEscopoBase || []).forEach((l) => {
-    const chave = getChaveLojaAnalise(l);
-    if (!lojasVisuaisSet || lojasVisuaisSet.has(chave)) porLoja[chave] = 0;
-  });
   comJust.forEach((r) => {
     const motivo = r.justificativa.toString().trim();
     porMotivo[motivo] = (porMotivo[motivo] || 0) + 1;
-    if (porLoja[r.loja] === undefined) porLoja[r.loja] = 0;
-    porLoja[r.loja] += 1;
+    porLoja[r.loja] = (porLoja[r.loja] || 0) + 1;
   });
 
   const motivos = Object.entries(porMotivo).sort((a, b) => b[1] - a[1]);
   const total = comJust.length;
 
-  // ===== PÓDIO: lojas que MENOS justificaram (melhor operacionalmente) =====
-  const lojasMenos = Object.entries(porLoja).sort((a, b) => a[1] - b[1]);
-  const podioItens = lojasMenos.slice(0, 3).map(([loja, q]) => {
+  // ===== PÓDIO: lojas que MAIS justificaram =====
+  const lojasMais = Object.entries(porLoja).sort((a, b) => b[1] - a[1]);
+  const podioItens = lojasMais.slice(0, 3).map(([loja, q]) => {
     const [cod, ...resto] = loja.split(" - ");
     return {
       codigo: cod,
@@ -1598,11 +1686,10 @@ async function renderAbaJustificativas({ resultados, lojasEscopoBase, lojasVisua
       valorTexto: `${q} <span style="font-size:12px;font-weight:700;color:var(--an-txt-soft);">justif.</span>`,
     };
   });
-  const podioHtml = renderPodioAnalise(podioItens, "Lojas que menos justificaram");
+  renderPodioAnalise(podioItens, "Lojas que mais justificaram");
 
   if (!comJust.length) {
     alvo.innerHTML = `
-      ${podioHtml}
       <div class="dashboard-card span-12">
         <div class="analise-aviso">Nenhuma justificativa registrada no período/escopo selecionado.</div>
       </div>
@@ -1621,10 +1708,6 @@ async function renderAbaJustificativas({ resultados, lojasEscopoBase, lojasVisua
     )
     .join("");
 
-  // tabela: lojas que mais justificam (só as com 1+)
-  const lojasMais = Object.entries(porLoja)
-    .filter(([, q]) => q > 0)
-    .sort((a, b) => b[1] - a[1]);
   const linhasLojas = lojasMais
     .map(
       ([loja, q]) => `
@@ -1636,7 +1719,6 @@ async function renderAbaJustificativas({ resultados, lojasEscopoBase, lojasVisua
     .join("");
 
   alvo.innerHTML = `
-    ${podioHtml}
     <div class="dashboard-card span-12" style="margin-bottom:16px;">
       <h3 style="margin:0 0 4px 0;">Motivos mais frequentes</h3>
       <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">

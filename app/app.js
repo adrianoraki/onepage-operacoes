@@ -11,7 +11,7 @@ let supabaseClient = null;
 // 🧠 ESTADO GLOBAL DO APP
 // ==========================
 const APP_STATE = {
-  telaAtiva: "dashboard",
+  telaAtiva: "analises",
   indicadorAtivo: null,
   classeAtiva: null,
 
@@ -935,7 +935,6 @@ function usuarioPodeAbrirTelaApp(tela, user = null) {
 function resolverPrimeiraTelaPermitidaApp(user = null) {
   const usuario = user || getUsuarioEfetivoApp();
 
-  if (usuarioPodeAbrirTelaApp("dashboard", usuario)) return "dashboard";
   if (usuarioPodeAbrirTelaApp("analises", usuario)) return "analises";
   if (usuarioPodeAbrirTelaApp("comparativos", usuario)) return "comparativos";
 
