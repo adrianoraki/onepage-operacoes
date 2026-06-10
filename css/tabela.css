@@ -947,6 +947,18 @@ th.coluna-atual {
   font-weight: 600;
 }
 
+.item-remover-justificativa {
+  margin-top: 8px;
+  border-top: 2px solid #f0d6d6 !important;
+  border-color: #f0c2c2;
+  color: #c0392b;
+  font-weight: 700;
+}
+.item-remover-justificativa:hover {
+  background: #fdecec;
+  border-color: #e57373;
+}
+
 /* ==========================
    📱 RESPONSIVIDADE
    Breakpoints:

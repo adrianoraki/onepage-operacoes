@@ -641,6 +641,17 @@ function garantirPainelJustificativa() {
     lista.appendChild(btn);
   });
 
+  // opção de REMOVER a justificativa
+  const btnRemover = document.createElement("button");
+  btnRemover.type = "button";
+  btnRemover.className = "item-justificativa-painel item-remover-justificativa";
+  btnRemover.textContent = "🗑️ Remover justificativa";
+  btnRemover.addEventListener("click", async () => {
+    tabelaLogInfo("Remover justificativa clicado no painel");
+    await removerJustificativaPainel();
+  });
+  lista.appendChild(btnRemover);
+
   const btnFechar = painel.querySelector("#btn-fechar-painel-justificativa");
   if (btnFechar) {
     btnFechar.addEventListener("click", fecharPainelJustificativa);
@@ -818,6 +829,45 @@ async function selecionarJustificativaPainel(motivo) {
     fecharPainelJustificativa();
   } else {
     tabelaLogWarn("Falha ao salvar justificativa selecionada");
+  }
+}
+
+// remove a justificativa: limpa o registro (valor e justificativa ficam vazios)
+async function removerJustificativaPainel() {
+  const botao = JUSTIFICATIVA_UI_STATE.botaoAtivo;
+  if (!botao) {
+    tabelaLogWarn("Nenhum botão ativo para remover justificativa");
+    return;
+  }
+
+  const input = getInputDoBotaoJustificativa(botao);
+  const loja = botao.dataset.loja;
+  const semana = botao.dataset.semana;
+
+  // limpa visualmente
+  botao.dataset.justificativaAtual = "";
+  botao.classList.remove("ativo", "pendente");
+  atualizarEstadoVisualBotaoJustificativa(botao);
+  if (input) {
+    input.value = "";
+    input.dataset.originalJustificativa = "";
+    atualizarEstadoVisualInputComJustificativa(input, botao);
+    aplicarStatusInput(input, "salvando");
+  }
+
+  // grava direto (valor e justificativa nulos), sem o bloqueio de "campo vazio"
+  const salvou = await salvarValor(loja, semana, null, "");
+
+  if (salvou) {
+    if (input) {
+      input.dataset.original = "";
+      aplicarStatusInput(input, "sucesso");
+    }
+    tabelaLogInfo("Justificativa removida com sucesso");
+    fecharPainelJustificativa();
+  } else {
+    if (input) aplicarStatusInput(input, "erro");
+    tabelaLogWarn("Falha ao remover justificativa");
   }
 }
 
@@ -1033,6 +1083,10 @@ async function carregarTabela({ silencioso = false } = {}) {
     });
 
     const semanas = gerarSemanas();
+    // busca padded ("05") e sem zero ("5") para não perder valores/justificativas por formato
+    const semanasBusca = [
+      ...new Set(semanas.flatMap((s) => [s, String(parseInt(s, 10))])),
+    ];
 
     const [lojasResp, resultadosResp] = await Promise.all([
       window.db.from("lojas").select("*").order("codigo"),
@@ -1041,7 +1095,7 @@ async function carregarTabela({ silencioso = false } = {}) {
         .select("*")
         .eq("indicador", indicadorBanco)
         .in("classe", getClassesConsulta(classeAtual))
-        .in("semana", semanas),
+        .in("semana", semanasBusca),
     ]);
 
     if (lojasResp.error) throw lojasResp.error;
@@ -1057,7 +1111,9 @@ async function carregarTabela({ silencioso = false } = {}) {
 
     const mapa = {};
     resultados.forEach((r) => {
-      mapa[`${r.loja}-${r.semana}`] = r;
+      // normaliza a semana para "NN" na chave, casando com as colunas
+      const semNorm = String(r.semana).padStart(2, "0");
+      mapa[`${r.loja}-${semNorm}`] = r;
     });
 
     const container = document.getElementById("conteudo");
@@ -1698,11 +1754,14 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
   });
 
   try {
+    const semanaNorm = String(semana).padStart(2, "0");
+    const semanaSemZero = String(parseInt(semanaNorm, 10));
+
     const { data: existentes, error: erroBusca } = await window.db
       .from("resultados")
       .select("id, valor, justificativa")
       .eq("loja", loja)
-      .eq("semana", semana)
+      .in("semana", [semanaNorm, semanaSemZero])
       .eq("indicador", indicadorBanco)
       .eq("classe", classe)
       .order("id", { ascending: true });
@@ -1755,7 +1814,7 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
       .insert([
         {
           loja,
-          semana,
+          semana: semanaNorm,
           indicador: indicadorBanco,
           classe,
           valor: numero,

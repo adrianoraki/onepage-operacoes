@@ -1688,24 +1688,49 @@ async function renderEvolucaoSemanaEspecifica({ lojasVisuaisSet, alvo, todosIndi
 
     const porLoja = {};
     registros.forEach((r) => {
+      const key = r.loja;
+      if (!porLoja[key]) porLoja[key] = { valores: [], justificativa: "" };
       const v = Number(r.valor);
-      if (!isFinite(v)) return;
-      (porLoja[r.loja] = porLoja[r.loja] || []).push(v);
+      if (
+        r.valor !== null &&
+        r.valor !== undefined &&
+        r.valor !== "" &&
+        isFinite(v)
+      ) {
+        porLoja[key].valores.push(v);
+      }
+      if (r.justificativa) porLoja[key].justificativa = String(r.justificativa);
     });
 
-    const linhas = Object.entries(porLoja)
-      .map(([loja, vals]) => {
-        const val = analiseAgregar(vals, tipo);
-        const partes = String(loja).split(" - ");
-        const codigo = partes.shift() || loja;
-        const nome = partes.join(" - ") || loja;
-        return { codigo, nome, valor: val };
-      })
-      .filter((x) => x.valor !== null && isFinite(x.valor))
-      .sort((a, b) => (menorMelhor ? a.valor - b.valor : b.valor - a.valor));
+    const comValor = [];
+    const semResposta = []; // sem valor, mas com justificativa → vão por último
+    Object.entries(porLoja).forEach(([loja, info]) => {
+      const partes = String(loja).split(" - ");
+      const codigo = partes.shift() || loja;
+      const nome = partes.join(" - ") || loja;
+
+      if (info.valores.length) {
+        const val = analiseAgregar(info.valores, tipo);
+        if (val !== null && isFinite(val)) {
+          comValor.push({ codigo, nome, valor: val, justificativa: info.justificativa });
+          return;
+        }
+      }
+      if (info.justificativa) {
+        semResposta.push({ codigo, nome, justificativa: info.justificativa });
+      }
+    });
+
+    comValor.sort((a, b) => (menorMelhor ? a.valor - b.valor : b.valor - a.valor));
+    semResposta.sort((a, b) =>
+      String(a.nome).localeCompare(String(b.nome), "pt-BR"),
+    );
+
+    const temJustificativa =
+      semResposta.length > 0 || comValor.some((l) => l.justificativa);
 
     renderPodioAnalise(
-      linhas.slice(0, 3).map((l) => ({
+      comValor.slice(0, 3).map((l) => ({
         codigo: l.codigo,
         nome: l.nome,
         valorTexto: analiseFormatar(l.valor, tipo),
@@ -1713,13 +1738,32 @@ async function renderEvolucaoSemanaEspecifica({ lojasVisuaisSet, alvo, todosIndi
       `Melhores da semana ${semana}`,
     );
 
-    const corpo = linhas
+    const colJustHead = temJustificativa ? "<th>Justificativa</th>" : "";
+    const celJust = (txt) =>
+      temJustificativa
+        ? `<td>${txt ? `<span style="color:#fbbf24;font-size:11px;font-weight:600;">${escapeHtmlAnalise(txt)}</span>` : ""}</td>`
+        : "";
+
+    const linhasComValor = comValor
       .map(
         (l, i) => `
         <tr>
           <td><span class="analise-badge">${i + 1}</span></td>
           <td><strong>${l.codigo}</strong> ${escapeHtmlAnalise(l.nome)}</td>
           <td><strong>${analiseFormatar(l.valor, tipo)}</strong></td>
+          ${celJust(l.justificativa)}
+        </tr>`,
+      )
+      .join("");
+
+    const linhasSemResposta = semResposta
+      .map(
+        (l) => `
+        <tr style="opacity:0.9;">
+          <td><span class="analise-badge" style="background:rgba(148,163,184,0.25);color:#8e9cb3;">—</span></td>
+          <td><strong>${l.codigo}</strong> ${escapeHtmlAnalise(l.nome)}</td>
+          <td><span style="color:var(--an-txt-soft);">Sem resposta</span></td>
+          ${celJust(l.justificativa)}
         </tr>`,
       )
       .join("");
@@ -1728,11 +1772,11 @@ async function renderEvolucaoSemanaEspecifica({ lojasVisuaisSet, alvo, todosIndi
       <div class="dashboard-card span-12">
         <h3 style="margin:0 0 4px 0;">Valores da semana ${semana} — ${escapeHtmlAnalise(ANALISE_STATE.indicador)}</h3>
         <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">
-          ${menorMelhor ? "Menor valor é melhor" : "Maior valor é melhor"} • ${linhas.length} loja(s)
+          ${menorMelhor ? "Menor valor é melhor" : "Maior valor é melhor"} • ${comValor.length} com valor${semResposta.length ? ` • ${semResposta.length} sem resposta (ao final)` : ""}
         </p>
         <table class="analise-tabela-var">
-          <thead><tr><th>#</th><th>Loja</th><th>Valor</th></tr></thead>
-          <tbody>${corpo}</tbody>
+          <thead><tr><th>#</th><th>Loja</th><th>Valor</th>${colJustHead}</tr></thead>
+          <tbody>${linhasComValor}${linhasSemResposta}</tbody>
         </table>
       </div>
     `;
