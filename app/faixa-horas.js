@@ -403,6 +403,7 @@ window.FaixaHoras = window.FaixaHoras || {};
     }
 
     TABELA_STATE_FAIXA_HORAS.salvando.add(chaveSalvar);
+    if (typeof window.registrarSaveApp === "function") window.registrarSaveApp(1);
 
     logInfo("SALVAR Faixa Horas", {
       indicadorBanco,
@@ -501,6 +502,7 @@ window.FaixaHoras = window.FaixaHoras || {};
       return false;
     } finally {
       TABELA_STATE_FAIXA_HORAS.salvando.delete(chaveSalvar);
+      if (typeof window.registrarSaveApp === "function") window.registrarSaveApp(-1);
     }
   }
 

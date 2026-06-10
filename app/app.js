@@ -19,7 +19,51 @@ const APP_STATE = {
   silentRefreshTimer: null,
   silentRefreshRunning: false,
   ultimoSilentRefresh: null,
+
+  // proteção contra o refresh silencioso atropelar uma edição/salvamento
+  savesPendentes: 0,
+  ultimaEdicaoTs: 0,
 };
+
+// registra início/fim de um salvamento (bloqueia o refresh enquanto pendente)
+window.registrarSaveApp = function (delta) {
+  APP_STATE.savesPendentes = Math.max(0, APP_STATE.savesPendentes + (delta || 0));
+  APP_STATE.ultimaEdicaoTs = Date.now();
+};
+
+// true se há save em andamento ou edição muito recente (não pode recarregar agora)
+window.haEdicaoOuSaveRecenteApp = function () {
+  if (APP_STATE.savesPendentes > 0) return true;
+  // 8s de carência após a última digitação/salvamento
+  return Date.now() - APP_STATE.ultimaEdicaoTs < 8000;
+};
+
+// qualquer digitação em campos do conteúdo marca edição recente
+document.addEventListener("input", (e) => {
+  const alvo = e.target;
+  if (!alvo) return;
+  const tag = (alvo.tagName || "").toLowerCase();
+  if (tag !== "input" && tag !== "textarea" && !alvo.isContentEditable) return;
+  if (alvo.closest("#conteudo") || alvo.closest("#config-conteudo")) {
+    APP_STATE.ultimaEdicaoTs = Date.now();
+  }
+});
+
+// ao sair de um campo (blur), também marca edição recente — cobre a janela
+// entre o blur e a conclusão do salvamento assíncrono
+document.addEventListener(
+  "focusout",
+  (e) => {
+    const alvo = e.target;
+    if (!alvo) return;
+    const tag = (alvo.tagName || "").toLowerCase();
+    if (tag !== "input" && tag !== "textarea" && !alvo.isContentEditable) return;
+    if (alvo.closest("#conteudo") || alvo.closest("#config-conteudo")) {
+      APP_STATE.ultimaEdicaoTs = Date.now();
+    }
+  },
+  true,
+);
 
 // ==========================
 // 🪵 HELPERS DE LOG
@@ -1820,6 +1864,16 @@ async function atualizarTelaSilenciosamente() {
     return;
   }
 
+  if (
+    typeof window.haEdicaoOuSaveRecenteApp === "function" &&
+    window.haEdicaoOuSaveRecenteApp()
+  ) {
+    appLogInfo(
+      "Edição recente ou salvamento em andamento - refresh silencioso adiado",
+    );
+    return;
+  }
+
   APP_STATE.silentRefreshRunning = true;
 
   try {
@@ -1851,7 +1905,7 @@ async function atualizarTelaSilenciosamente() {
 
       case "tabela":
         if (typeof window.carregarTabela === "function") {
-          await window.carregarTabela();
+          await window.carregarTabela({ silencioso: true });
         }
         break;
 
