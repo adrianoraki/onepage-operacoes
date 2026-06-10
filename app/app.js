@@ -1474,21 +1474,10 @@ async function abrirTelaInterna(nomeTela, { silent = false } = {}) {
     }
 
     // ======================
-    // 📊 DASHBOARD
+    // 📊 DASHBOARD (removido — redireciona para Análises)
     // ======================
     if (telaNormalizada === "dashboard") {
-      if (!usuarioPodeAbrirTelaApp("dashboard", usuario)) {
-        appLogWarn("Acesso negado ao dashboard");
-        definirTelaAtiva("dashboard");
-        renderAcessoNegadoTela("Dashboard");
-        return;
-      }
-
-      definirTelaAtiva("dashboard");
-
-      await abrirDashboardComSeguranca();
-
-      return;
+      telaNormalizada = "analises";
     }
 
     // ======================

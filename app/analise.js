@@ -763,6 +763,51 @@ function calcularAmplitudeAnalise(melhor, pior) {
 }
 
 // ==========================
+// 👤 CONTEXTO DO USUÁRIO (autônomo — não depende do dashboard)
+// ==========================
+function getContextoDashboardUsuario() {
+  let usuario = null;
+  try {
+    if (typeof window.getUsuarioLogado === "function") {
+      usuario = window.getUsuarioLogado();
+    }
+  } catch (e) {}
+
+  if (!usuario) {
+    try {
+      const raw = localStorage.getItem("usuario");
+      if (raw) usuario = JSON.parse(raw);
+    } catch (e) {}
+  }
+
+  // sem usuário identificável: libera a visão (o RLS do banco protege os dados)
+  if (!usuario) {
+    return { podeTrocarVisao: true, visao: "regional", escopo: {} };
+  }
+
+  const perfil = (usuario.perfil || "").toString().toLowerCase();
+  const ehAdminMaster = perfil === "master" || perfil === "admin";
+
+  const escopo = {};
+  if (usuario.regional_vinculada) {
+    escopo.regional = usuario.regional_vinculada;
+  }
+  // loja vinculada no formato "codigo - nome" (igual getChaveLojaAnalise)
+  const lojaVinc = usuario.loja_vinculada;
+  if (lojaVinc && /^\s*\d+\s*-\s*/.test(String(lojaVinc))) {
+    escopo.loja = String(lojaVinc).trim();
+  } else if (usuario.loja_codigo && lojaVinc) {
+    escopo.loja = `${usuario.loja_codigo} - ${lojaVinc}`;
+  }
+
+  return {
+    podeTrocarVisao: ehAdminMaster,
+    visao: "regional",
+    escopo,
+  };
+}
+
+// ==========================
 // 🧱 TELA BASE
 // ==========================
 async function telaAnalises() {
@@ -1087,6 +1132,16 @@ function garantirEstilosAbasAnalise() {
     .analise-aba:hover { color: var(--an-txt); }
     .analise-aba.ativa { color: #fff; border-bottom-color: var(--an-accent); }
     .analise-aba-ico { font-size: 14px; opacity: 0.9; }
+
+    /* layout base (antes vinha do dashboard.css, agora autônomo) */
+    #analiseContainer .dashboard-topo { margin: 0 0 6px 0; }
+    #analiseContainer .dashboard-titulos { display: flex; flex-direction: column; gap: 2px; }
+    #analiseContainer .dashboard-filtros {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 8px 0;
+    }
+    #analiseContainer .dashboard-grid { display: block; }
+    #analiseConteudo .span-12 { width: 100%; }
+    #analiseConteudo .dashboard-card + .dashboard-card { margin-top: 16px; }
 
     /* cards */
     #analiseConteudo .dashboard-card {
