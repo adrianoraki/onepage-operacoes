@@ -569,20 +569,20 @@ function aplicarEscopoBaseLojasAnalise(lojas, contexto) {
 
   if (!contexto) return lista;
 
-  if (ANALISE_STATE.visao === "regional") {
-    if (!contexto.podeTrocarVisao && contexto.escopo?.regional) {
-      lista = lista.filter(
-        (l) =>
-          normalizarTextoAnaliseUpper(l.regional) ===
-          normalizarTextoAnaliseUpper(contexto.escopo.regional),
-      );
-    }
-
-    return lista;
+  // 🏬 loja vinculada = restrição mais forte: usuário vê SÓ a própria loja
+  if (!contexto.podeTrocarVisao && contexto.escopo?.loja_codigo) {
+    return lista.filter(
+      (l) => String(l.codigo) === String(contexto.escopo.loja_codigo),
+    );
   }
 
-  if (!contexto.podeTrocarVisao && contexto.escopo?.loja) {
-    return lista.filter((l) => getChaveLojaAnalise(l) === contexto.escopo.loja);
+  // senão, restringe pela regional vinculada (se houver)
+  if (!contexto.podeTrocarVisao && contexto.escopo?.regional) {
+    return lista.filter(
+      (l) =>
+        normalizarTextoAnaliseUpper(l.regional) ===
+        normalizarTextoAnaliseUpper(contexto.escopo.regional),
+    );
   }
 
   return lista;
@@ -792,12 +792,12 @@ function getContextoDashboardUsuario() {
   if (usuario.regional_vinculada) {
     escopo.regional = usuario.regional_vinculada;
   }
-  // loja vinculada no formato "codigo - nome" (igual getChaveLojaAnalise)
-  const lojaVinc = usuario.loja_vinculada;
-  if (lojaVinc && /^\s*\d+\s*-\s*/.test(String(lojaVinc))) {
-    escopo.loja = String(lojaVinc).trim();
-  } else if (usuario.loja_codigo && lojaVinc) {
-    escopo.loja = `${usuario.loja_codigo} - ${lojaVinc}`;
+  // loja vinculada (loja_codigo) restringe — exceto se "ignorar loja vinculada" (modo BI) estiver ligado
+  const ignoraLoja =
+    usuario.ignorar_loja_vinculada === true ||
+    usuario.permissoes?.ignorar_loja_vinculada === true;
+  if (!ignoraLoja && usuario.loja_codigo != null && usuario.loja_codigo !== "") {
+    escopo.loja_codigo = String(usuario.loja_codigo).trim();
   }
 
   return {
@@ -845,8 +845,8 @@ async function telaAnalises() {
     ANALISE_STATE.regional = contexto.escopo.regional;
   }
 
-  if (!contexto.podeTrocarVisao && contexto.escopo?.loja) {
-    ANALISE_STATE.loja = contexto.escopo.loja;
+  if (!contexto.podeTrocarVisao && contexto.escopo?.loja_codigo) {
+    ANALISE_STATE.loja = contexto.escopo.loja_codigo;
   }
 
   container.innerHTML = `

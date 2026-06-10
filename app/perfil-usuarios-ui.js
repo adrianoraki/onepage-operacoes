@@ -478,8 +478,13 @@ function abrirAlterarSenha() {
       <div class="config-box">
         <h3>🔑 Alterar Senha</h3>
 
-        <input id="novaSenha" type="password" placeholder="Nova senha"><br><br>
-        <input id="confirmarSenha" type="password" placeholder="Confirmar senha"><br><br>
+        <div id="status-senha" class="status-autosave neutro">
+          ℹ️ Informe a senha atual e a nova senha.
+        </div>
+
+        <input id="senhaAtual" type="password" placeholder="Senha atual" autocomplete="current-password"><br><br>
+        <input id="novaSenha" type="password" placeholder="Nova senha (mín. 6 caracteres)" autocomplete="new-password"><br><br>
+        <input id="confirmarSenha" type="password" placeholder="Confirmar nova senha" autocomplete="new-password"><br><br>
 
         <button class="btn-salvar" onclick="salvarSenha()">
           ✅ Salvar Senha
@@ -489,23 +494,113 @@ function abrirAlterarSenha() {
     </div>
   `;
 
+  // dispara o salvamento automaticamente quando os 3 campos estão preenchidos
+  const dispararSeCompleto = () => {
+    const a = document.getElementById("senhaAtual")?.value || "";
+    const n = document.getElementById("novaSenha")?.value || "";
+    const c = document.getElementById("confirmarSenha")?.value || "";
+    if (a && n.length >= 6 && c && n === c) {
+      salvarSenha();
+    }
+  };
+  const elConfirmar = document.getElementById("confirmarSenha");
+  if (elConfirmar) {
+    elConfirmar.addEventListener("change", dispararSeCompleto);
+    elConfirmar.addEventListener("keyup", (e) => {
+      if (e.key === "Enter") dispararSeCompleto();
+    });
+  }
+
   console.log("🔑 Tela de alteração de senha renderizada");
 }
 
 // ==========================
-// 💾 SALVAR SENHA
+// 💾 SALVAR SENHA (real, via Supabase Auth)
 // ==========================
-async function salvarSenha() {
-  const nova = document.getElementById("novaSenha")?.value;
-  const confirmar = document.getElementById("confirmarSenha")?.value;
+let _salvandoSenha = false;
 
+function setStatusSenha(msg, tipo = "info") {
+  const el = document.getElementById("status-senha");
+  if (el) {
+    el.textContent = msg;
+    el.className = "status-autosave " + tipo;
+  }
+}
+
+async function salvarSenha() {
+  if (_salvandoSenha) return;
+
+  const atual = document.getElementById("senhaAtual")?.value || "";
+  const nova = document.getElementById("novaSenha")?.value || "";
+  const confirmar = document.getElementById("confirmarSenha")?.value || "";
+
+  // validações
+  if (!atual || !nova || !confirmar) {
+    setStatusSenha("⚠️ Preencha a senha atual, a nova e a confirmação.", "erro");
+    return;
+  }
+  if (nova.length < 6) {
+    setStatusSenha("⚠️ A nova senha precisa ter ao menos 6 caracteres.", "erro");
+    return;
+  }
   if (nova !== confirmar) {
-    alert("❌ Senhas não conferem");
+    setStatusSenha("⚠️ A nova senha e a confirmação não conferem.", "erro");
+    return;
+  }
+  if (nova === atual) {
+    setStatusSenha("⚠️ A nova senha deve ser diferente da atual.", "erro");
     return;
   }
 
-  console.log("🔑 Senha alterada (placeholder)");
-  alert("✅ Senha atualizada (ligar no Auth depois)");
+  const user = getUsuarioLogado();
+  const email = user?.email;
+  if (!email) {
+    setStatusSenha("❌ Não foi possível identificar seu e-mail.", "erro");
+    return;
+  }
+
+  const db = getWindowDb();
+  if (!db?.auth) {
+    setStatusSenha("❌ Conexão de autenticação indisponível.", "erro");
+    return;
+  }
+
+  _salvandoSenha = true;
+  setStatusSenha("⏳ Verificando senha atual...", "info");
+
+  try {
+    // 1) confirma que a senha atual está correta (re-autentica)
+    const { error: errLogin } = await db.auth.signInWithPassword({
+      email,
+      password: atual,
+    });
+    if (errLogin) {
+      setStatusSenha("❌ Senha atual incorreta.", "erro");
+      _salvandoSenha = false;
+      return;
+    }
+
+    // 2) atualiza para a nova senha
+    setStatusSenha("⏳ Atualizando senha...", "info");
+    const { error: errUpd } = await db.auth.updateUser({ password: nova });
+    if (errUpd) {
+      setStatusSenha("❌ Erro ao atualizar: " + (errUpd.message || "tente novamente"), "erro");
+      _salvandoSenha = false;
+      return;
+    }
+
+    // limpa os campos e confirma
+    ["senhaAtual", "novaSenha", "confirmarSenha"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    setStatusSenha("✅ Senha alterada com sucesso!", "sucesso");
+  } catch (e) {
+    console.error("❌ Erro ao salvar senha:", e);
+    setStatusSenha("❌ Erro inesperado ao alterar a senha.", "erro");
+  } finally {
+    _salvandoSenha = false;
+  }
 }
 
 // ==========================
@@ -851,37 +946,37 @@ function resumoPermissoesUsuario(usuario) {
   }
 
   if (permissoesSistema.pode_editar_qualquer_semana) {
-    tags.push(`<span class="perm-tag perm-total">Qualquer semana</span>`);
+    tags.push(`<span class="perm-tag perm-edicao">Qualquer semana</span>`);
   } else if (permissoesSistema.pode_editar_semana_anterior) {
-    tags.push(`<span class="perm-tag">Semana atual + anteriores</span>`);
+    tags.push(`<span class="perm-tag perm-edicao">Semana atual + anteriores</span>`);
   } else if (permissoesSistema.pode_editar_semana_atual) {
-    tags.push(`<span class="perm-tag">Semana atual</span>`);
+    tags.push(`<span class="perm-tag perm-edicao">Semana atual</span>`);
   }
 
   if (permissoesSistema.pode_gerenciar_usuarios) {
-    tags.push(`<span class="perm-tag">Gerencia usuários</span>`);
+    tags.push(`<span class="perm-tag perm-admin">Gerencia usuários</span>`);
   }
 
   if (usuario?.permissoes?.ignorar_loja_vinculada === true) {
-    tags.push(`<span class="perm-tag perm-total">Ignora loja vinculada</span>`);
+    tags.push(`<span class="perm-tag perm-escopo">Ignora loja vinculada</span>`);
   }
 
   if (permissoesSistema.permissao_visualizacao === "NENHUMA") {
-    tags.push(`<span class="perm-tag">Visualização: Nenhuma</span>`);
+    tags.push(`<span class="perm-tag perm-escopo">Visualização: Nenhuma</span>`);
   } else if (permissoesSistema.permissao_visualizacao === "NE1_NE2") {
-    tags.push(`<span class="perm-tag">Visualização: NE1 e NE2</span>`);
+    tags.push(`<span class="perm-tag perm-escopo">Visualização: NE1 e NE2</span>`);
   } else if (permissoesSistema.permissao_visualizacao === "NE1") {
-    tags.push(`<span class="perm-tag">Visualização: NE1</span>`);
+    tags.push(`<span class="perm-tag perm-escopo">Visualização: NE1</span>`);
   } else if (permissoesSistema.permissao_visualizacao === "NE2") {
-    tags.push(`<span class="perm-tag">Visualização: NE2</span>`);
+    tags.push(`<span class="perm-tag perm-escopo">Visualização: NE2</span>`);
   } else if (
     permissoesSistema.permissao_visualizacao === "REGIONAL_CONFIGURADA"
   ) {
     tags.push(
-      `<span class="perm-tag">Visualização: Regional configurada</span>`
+      `<span class="perm-tag perm-escopo">Visualização: Regional configurada</span>`
     );
   } else {
-    tags.push(`<span class="perm-tag">Visualização: Todos</span>`);
+    tags.push(`<span class="perm-tag perm-escopo">Visualização: Todos</span>`);
   }
 
   const permissoes = usuario.permissoes || {};
@@ -895,25 +990,25 @@ function resumoPermissoesUsuario(usuario) {
     indicadores.includes("TODAS AS TABELAS") ||
     indicadores.includes("TODOS OS INDICADORES")
   ) {
-    tags.push(`<span class="perm-tag perm-total">Todos os indicadores</span>`);
+    tags.push(`<span class="perm-tag perm-acesso">Todos os indicadores</span>`);
   } else {
     classes.slice(0, 2).forEach((item) => {
       tags.push(
-        `<span class="perm-tag perm-total">${escapeHtml(item)} completo</span>`
+        `<span class="perm-tag perm-acesso">${escapeHtml(item)} completo</span>`
       );
     });
 
     subclasses.slice(0, 2).forEach((token) => {
       const meta = quebrarTokenSubclasse(token);
       tags.push(
-        `<span class="perm-tag">${escapeHtml(meta.classe)} / ${escapeHtml(
+        `<span class="perm-tag perm-acesso">${escapeHtml(meta.classe)} / ${escapeHtml(
           meta.subclasse
         )}</span>`
       );
     });
 
     indicadores.slice(0, 3).forEach((item) => {
-      tags.push(`<span class="perm-tag">${escapeHtml(item)}</span>`);
+      tags.push(`<span class="perm-tag perm-acesso">${escapeHtml(item)}</span>`);
     });
 
     const totalItens = classes.length + subclasses.length + indicadores.length;
@@ -1078,14 +1173,9 @@ function coletarPermissoesSistemaTela(base = {}) {
     "perm_semana_anterior",
     "perm_qualquer_semana",
     "perm_gerenciar_usuarios",
-    "perm_gerenciar_funcoes",
-    "perm_ver_dashboard",
     "perm_ver_analises",
     "perm_ver_comparativos",
     "perm_ver_painel_ouro",
-    "perm_ver_justificativas",
-    "perm_aprovar_ajustes",
-    "perm_atribuir_escopo",
     "perm_ignorar_loja_vinculada",
   ];
 
@@ -1100,14 +1190,9 @@ function coletarPermissoesSistemaTela(base = {}) {
       perm_semana_anterior: "pode_editar_semana_anterior",
       perm_qualquer_semana: "pode_editar_qualquer_semana",
       perm_gerenciar_usuarios: "pode_gerenciar_usuarios",
-      perm_gerenciar_funcoes: "pode_gerenciar_funcoes",
-      perm_ver_dashboard: "pode_ver_dashboard",
       perm_ver_analises: "pode_ver_analises",
       perm_ver_comparativos: "pode_ver_comparativos",
       perm_ver_painel_ouro: "pode_ver_painel_ouro",
-      perm_ver_justificativas: "pode_ver_justificativas",
-      perm_aprovar_ajustes: "pode_aprovar_ajustes",
-      perm_atribuir_escopo: "pode_atribuir_escopo",
       perm_ignorar_loja_vinculada: "ignorar_loja_vinculada",
     };
 
@@ -1305,14 +1390,9 @@ function ativarAutosaveEdicaoUsuario(id) {
     "perm_semana_anterior",
     "perm_qualquer_semana",
     "perm_gerenciar_usuarios",
-    "perm_gerenciar_funcoes",
-    "perm_ver_dashboard",
     "perm_ver_analises",
     "perm_ver_comparativos",
     "perm_ver_painel_ouro",
-    "perm_ver_justificativas",
-    "perm_aprovar_ajustes",
-    "perm_atribuir_escopo",
     "perm_ignorar_loja_vinculada",
     "perm_visualizacao",
     "perm_indicadores_total",
@@ -1433,13 +1513,10 @@ function renderPermissoesIndicadorHtml({
   acessoTotalIndicadores,
 }) {
   let html = `
-    <hr style="margin:18px 0; border:none; border-top:1px solid #eee;">
-
-    <h4>Permissões por indicador</h4>
-
-    <div class="grupo-permissao">
+    <div class="grupo-permissao grp-acesso">
+      <h4><span class="grp-dot"></span> Permissões por indicador</h4>
       <div class="permissoes-grid">
-        <label class="check-item">
+        <label class="check-item check-classe-completa">
           <input
             type="checkbox"
             id="perm_indicadores_total"
@@ -1723,148 +1800,117 @@ async function editarPermissoes(id) {
         .join("");
 
       html += `
-        <hr style="margin:18px 0; border:none; border-top:1px solid #eee;">
-
-        <h4>🔐 Permissões de sistema</h4>
-
-        <div class="permissoes-grid">
-          <label class="check-item">
-            <input type="checkbox" id="perm_semana_atual" ${
-              permsSistema.pode_editar_semana_atual ? "checked" : ""
-            }>
-            Editar semana atual
-          </label>
-
-          <label class="check-item">
-            <input type="checkbox" id="perm_semana_anterior" ${
-              permsSistema.pode_editar_semana_anterior ? "checked" : ""
-            }>
-            Editar semanas anteriores
-          </label>
-
-          <label class="check-item">
-            <input type="checkbox" id="perm_qualquer_semana" ${
-              permsSistema.pode_editar_qualquer_semana ? "checked" : ""
-            }>
-            Editar qualquer semana
-          </label>
-
-          <label class="check-item">
-            <input type="checkbox" id="perm_gerenciar_usuarios" ${
-              permsSistema.pode_gerenciar_usuarios ? "checked" : ""
-            }>
-            Gerenciar usuários
-          </label>
-
-          <label class="check-item">
-            <input type="checkbox" id="perm_gerenciar_funcoes" ${
-              permsSistema.pode_gerenciar_funcoes ? "checked" : ""
-            }>
-            Gerenciar funções
-          </label>
-
-          <label class="check-item">
-            <input type="checkbox" id="perm_ver_dashboard" ${
-              permsSistema.pode_ver_dashboard ? "checked" : ""
-            }>
-            Ver dashboard
-          </label>
-
-          <label class="check-item">
-            <input type="checkbox" id="perm_ver_analises" ${
-              permsSistema.pode_ver_analises ? "checked" : ""
-            }>
-            Ver análises
-          </label>
-
-          <label class="check-item">
-            <input type="checkbox" id="perm_ver_comparativos" ${
-              permsSistema.pode_ver_comparativos ? "checked" : ""
-            }>
-            Ver comparativos
-          </label>
-
-          <label class="check-item">
-            <input type="checkbox" id="perm_ver_painel_ouro" ${
-              permsSistema.pode_ver_painel_ouro ? "checked" : ""
-            }>
-            Ver Painel de Ouro
-          </label>
-
-          <label class="check-item">
-            <input type="checkbox" id="perm_ver_justificativas" ${
-              permsSistema.pode_ver_justificativas ? "checked" : ""
-            }>
-            Ver justificativas
-          </label>
-
-          <label class="check-item">
-            <input type="checkbox" id="perm_aprovar_ajustes" ${
-              permsSistema.pode_aprovar_ajustes ? "checked" : ""
-            }>
-            Aprovar/revisar
-          </label>
-
-          <label class="check-item">
-            <input type="checkbox" id="perm_atribuir_escopo" ${
-              permsSistema.pode_atribuir_escopo ? "checked" : ""
-            }>
-            Atribuir escopo
-          </label>
-
-          <label class="check-item check-item-bi">
-            <input
-              type="checkbox"
-              id="perm_ignorar_loja_vinculada"
-              ${ignorarLojaVinculada ? "checked" : ""}
-            >
-            Ignorar loja vinculada (modo BI)
-          </label>
-
-          <div class="campo" style="margin-top:6px;">
-            <label>Permissão de visualização</label>
-            <select id="perm_visualizacao">
-              <option value="NENHUMA" ${
-                visualizacaoAtual === "NENHUMA" ? "selected" : ""
-              }>Nenhuma</option>
-              <option value="TODOS" ${
-                visualizacaoAtual === "TODOS" ? "selected" : ""
-              }>Todos</option>
-              <option value="REGIONAL_CONFIGURADA" ${
-                visualizacaoAtual === "REGIONAL_CONFIGURADA" ? "selected" : ""
-              }>Regional configurada</option>
-              <option value="NE1" ${
-                visualizacaoAtual === "NE1" ? "selected" : ""
-              }>NE1</option>
-              <option value="NE2" ${
-                visualizacaoAtual === "NE2" ? "selected" : ""
-              }>NE2</option>
-              <option value="NE1_NE2" ${
-                visualizacaoAtual === "NE1_NE2" ? "selected" : ""
-              }>NE1 e NE2</option>
-            </select>
-          </div>
-
-          <div class="campo" style="margin-top:6px;">
-            <label>🏬 Loja vinculada (visualização restrita)</label>
-            <select id="perm_loja_vinculada">
-              <option value="">Nenhuma (sem restrição de loja)</option>
-              ${optionsLojasVinculo}
-            </select>
-            <p style="font-size:12px; color:#888; margin:4px 0 0;">
-              Se escolher uma loja, este usuário verá apenas os dados dela.
-              Pode ser alterado a qualquer momento.
-            </p>
+        <div class="grupo-permissao grp-edicao">
+          <h4><span class="grp-dot"></span> Edição — o que pode lançar/alterar</h4>
+          <div class="permissoes-grid">
+            <label class="check-item">
+              <input type="checkbox" id="perm_semana_atual" ${
+                permsSistema.pode_editar_semana_atual ? "checked" : ""
+              }>
+              Editar semana atual
+            </label>
+            <label class="check-item">
+              <input type="checkbox" id="perm_semana_anterior" ${
+                permsSistema.pode_editar_semana_anterior ? "checked" : ""
+              }>
+              Editar semanas anteriores
+            </label>
+            <label class="check-item">
+              <input type="checkbox" id="perm_qualquer_semana" ${
+                permsSistema.pode_editar_qualquer_semana ? "checked" : ""
+              }>
+              Editar qualquer semana
+            </label>
           </div>
         </div>
 
-        <h4 style="margin-top:16px;">🗂️ Acesso às tabelas</h4>
-        <p style="font-size:12px; color:#888; margin:2px 0 8px;">
-          Libera a tabela inteira no menu. Para liberar só alguns indicadores
-          de uma tabela, use a seção de indicadores abaixo.
-        </p>
-        <div class="permissoes-grid">
-          ${checkboxesClassesHtml}
+        <div class="grupo-permissao grp-admin">
+          <h4><span class="grp-dot"></span> Administração</h4>
+          <div class="permissoes-grid">
+            <label class="check-item">
+              <input type="checkbox" id="perm_gerenciar_usuarios" ${
+                permsSistema.pode_gerenciar_usuarios ? "checked" : ""
+              }>
+              Gerenciar usuários
+            </label>
+          </div>
+        </div>
+
+        <div class="grupo-permissao grp-acesso">
+          <h4><span class="grp-dot"></span> Acesso — o que o usuário vê</h4>
+          <div class="permissoes-grid">
+            <label class="check-item">
+              <input type="checkbox" id="perm_ver_analises" ${
+                permsSistema.pode_ver_analises ? "checked" : ""
+              }>
+              Ver análises
+            </label>
+            <label class="check-item">
+              <input type="checkbox" id="perm_ver_comparativos" ${
+                permsSistema.pode_ver_comparativos ? "checked" : ""
+              }>
+              Ver comparativos
+            </label>
+            <label class="check-item">
+              <input type="checkbox" id="perm_ver_painel_ouro" ${
+                permsSistema.pode_ver_painel_ouro ? "checked" : ""
+              }>
+              Ver Painel de Ouro
+            </label>
+          </div>
+          <p class="grp-sub">🗂️ Acesso às tabelas (libera a tabela inteira no menu — para indicadores específicos, use a seção abaixo):</p>
+          <div class="permissoes-grid">
+            ${checkboxesClassesHtml}
+          </div>
+        </div>
+
+        <div class="grupo-permissao grp-escopo">
+          <h4><span class="grp-dot"></span> Escopo de dados — onde enxerga</h4>
+          <div class="permissoes-grid">
+            <div class="campo">
+              <label>Permissão de visualização</label>
+              <select id="perm_visualizacao">
+                <option value="NENHUMA" ${
+                  visualizacaoAtual === "NENHUMA" ? "selected" : ""
+                }>Nenhuma</option>
+                <option value="TODOS" ${
+                  visualizacaoAtual === "TODOS" ? "selected" : ""
+                }>Todos</option>
+                <option value="REGIONAL_CONFIGURADA" ${
+                  visualizacaoAtual === "REGIONAL_CONFIGURADA" ? "selected" : ""
+                }>Regional configurada</option>
+                <option value="NE1" ${
+                  visualizacaoAtual === "NE1" ? "selected" : ""
+                }>NE1</option>
+                <option value="NE2" ${
+                  visualizacaoAtual === "NE2" ? "selected" : ""
+                }>NE2</option>
+                <option value="NE1_NE2" ${
+                  visualizacaoAtual === "NE1_NE2" ? "selected" : ""
+                }>NE1 e NE2</option>
+              </select>
+            </div>
+
+            <div class="campo">
+              <label>🏬 Loja vinculada (visualização restrita)</label>
+              <select id="perm_loja_vinculada">
+                <option value="">Nenhuma (sem restrição de loja)</option>
+                ${optionsLojasVinculo}
+              </select>
+              <p class="grp-hint">
+                Se escolher uma loja, este usuário verá apenas os dados dela no Análises e no Comparativos.
+              </p>
+            </div>
+
+            <label class="check-item check-item-bi">
+              <input
+                type="checkbox"
+                id="perm_ignorar_loja_vinculada"
+                ${ignorarLojaVinculada ? "checked" : ""}
+              >
+              Ignorar loja vinculada (modo BI)
+            </label>
+          </div>
         </div>
       `;
     }

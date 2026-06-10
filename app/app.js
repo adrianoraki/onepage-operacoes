@@ -800,7 +800,6 @@ function getPermissoesSistemaEfetivasApp(user = null) {
   }
 
   return {
-    pode_ver_dashboard: false,
     pode_ver_analises: false,
     pode_ver_comparativos: false,
     pode_ver_painel_ouro: false,
@@ -913,9 +912,7 @@ function usuarioPodeAbrirTelaApp(tela, user = null) {
 
   let permitido = true;
 
-  if (telaNorm === "dashboard") {
-    permitido = permissoes.pode_ver_dashboard === true;
-  } else if (telaNorm === "analises") {
+  if (telaNorm === "analises") {
     permitido = permissoes.pode_ver_analises === true;
   } else if (telaNorm === "comparativos") {
     permitido = permissoes.pode_ver_comparativos === true;
@@ -998,13 +995,6 @@ function aplicarPermissoesMenuPrincipal() {
       let esconder = false;
 
       if (
-        dataMenu === "dashboard" ||
-        texto.includes("dashboard") ||
-        onclickAttr.includes("dashboard")
-      ) {
-        permissaoAplicavel = true;
-        esconder = permsFalse(permissoes.pode_ver_dashboard);
-      } else if (
         dataMenu === "analises" ||
         texto.includes("anális") ||
         texto.includes("analise") ||

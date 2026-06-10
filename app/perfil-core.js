@@ -122,14 +122,9 @@ function getPermissoesBasePorPerfil(perfil) {
       pode_editar_qualquer_semana: true,
 
       pode_gerenciar_usuarios: true,
-      pode_gerenciar_funcoes: true,
-      pode_ver_dashboard: true,
       pode_ver_analises: true,
       pode_ver_comparativos: true,
       pode_ver_painel_ouro: true,
-      pode_ver_justificativas: true,
-      pode_aprovar_ajustes: true,
-      pode_atribuir_escopo: true,
 
       ignorar_loja_vinculada: true,
       permissao_visualizacao: "TODOS",
@@ -143,17 +138,12 @@ function getPermissoesBasePorPerfil(perfil) {
     const permissoesAdmin = {
       pode_editar_semana_atual: true,
       pode_editar_semana_anterior: true,
-      pode_editar_qualquer_semana: false,
+      pode_editar_qualquer_semana: false, // exclusivo do master
 
       pode_gerenciar_usuarios: true,
-      pode_gerenciar_funcoes: false,
-      pode_ver_dashboard: true,
       pode_ver_analises: true,
       pode_ver_comparativos: true,
       pode_ver_painel_ouro: true,
-      pode_ver_justificativas: true,
-      pode_aprovar_ajustes: true,
-      pode_atribuir_escopo: false,
 
       ignorar_loja_vinculada: true,
       permissao_visualizacao: "TODOS",
@@ -170,14 +160,9 @@ function getPermissoesBasePorPerfil(perfil) {
     pode_editar_qualquer_semana: false,
 
     pode_gerenciar_usuarios: false,
-    pode_gerenciar_funcoes: false,
-    pode_ver_dashboard: false,
     pode_ver_analises: false,
     pode_ver_comparativos: false,
     pode_ver_painel_ouro: false,
-    pode_ver_justificativas: false,
-    pode_aprovar_ajustes: false,
-    pode_atribuir_escopo: false,
 
     ignorar_loja_vinculada: true,
     permissao_visualizacao: "NENHUMA",
@@ -228,16 +213,6 @@ function getPermissoesSistemaUsuario(user = null) {
       base.pode_gerenciar_usuarios
     ),
 
-    pode_gerenciar_funcoes: valorBooleanoPermissao(
-      perms.pode_gerenciar_funcoes,
-      base.pode_gerenciar_funcoes
-    ),
-
-    pode_ver_dashboard: valorBooleanoPermissao(
-      perms.pode_ver_dashboard,
-      base.pode_ver_dashboard
-    ),
-
     pode_ver_analises: valorBooleanoPermissao(
       perms.pode_ver_analises,
       base.pode_ver_analises
@@ -251,21 +226,6 @@ function getPermissoesSistemaUsuario(user = null) {
     pode_ver_painel_ouro: valorBooleanoPermissao(
       perms.pode_ver_painel_ouro,
       base.pode_ver_painel_ouro
-    ),
-
-    pode_ver_justificativas: valorBooleanoPermissao(
-      perms.pode_ver_justificativas,
-      base.pode_ver_justificativas
-    ),
-
-    pode_aprovar_ajustes: valorBooleanoPermissao(
-      perms.pode_aprovar_ajustes,
-      base.pode_aprovar_ajustes
-    ),
-
-    pode_atribuir_escopo: valorBooleanoPermissao(
-      perms.pode_atribuir_escopo,
-      base.pode_atribuir_escopo
     ),
 
     ignorar_loja_vinculada: valorBooleanoPermissao(
@@ -330,14 +290,9 @@ function getUsuarioLogado() {
         permissoesSistema.pode_editar_qualquer_semana,
 
       pode_gerenciar_usuarios: permissoesSistema.pode_gerenciar_usuarios,
-      pode_gerenciar_funcoes: permissoesSistema.pode_gerenciar_funcoes,
-      pode_ver_dashboard: permissoesSistema.pode_ver_dashboard,
       pode_ver_analises: permissoesSistema.pode_ver_analises,
       pode_ver_comparativos: permissoesSistema.pode_ver_comparativos,
       pode_ver_painel_ouro: permissoesSistema.pode_ver_painel_ouro,
-      pode_ver_justificativas: permissoesSistema.pode_ver_justificativas,
-      pode_aprovar_ajustes: permissoesSistema.pode_aprovar_ajustes,
-      pode_atribuir_escopo: permissoesSistema.pode_atribuir_escopo,
 
       ignorar_loja_vinculada: permissoesSistema.ignorar_loja_vinculada,
       permissao_visualizacao: permissoesSistema.permissao_visualizacao,
@@ -374,7 +329,6 @@ function getUsuarioLogado() {
       pode_editar_semana_anterior: usuarioLogado.pode_editar_semana_anterior,
       pode_editar_qualquer_semana:
         usuarioLogado.pode_editar_qualquer_semana,
-      pode_ver_dashboard: usuarioLogado.pode_ver_dashboard,
       pode_ver_analises: usuarioLogado.pode_ver_analises,
       pode_ver_comparativos: usuarioLogado.pode_ver_comparativos,
     });

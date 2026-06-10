@@ -699,6 +699,40 @@ function getChaveLojaComparativo(loja) {
   return `${loja.codigo} - ${loja.nome}`;
 }
 
+// restringe as lojas conforme o escopo do usuário (loja vinculada / regional)
+// master e admin veem tudo; "ignorar loja vinculada" (modo BI) também libera
+function aplicarEscopoLojasComparativo(lojas = []) {
+  let usuario = null;
+  try {
+    if (typeof getUsuarioLogado === "function") usuario = getUsuarioLogado();
+  } catch (e) {}
+  if (!usuario) return lojas;
+
+  const perfil = (usuario.perfil || "").toString().toLowerCase();
+  if (perfil === "master" || perfil === "admin") return lojas;
+
+  const ignoraLoja =
+    usuario.ignorar_loja_vinculada === true ||
+    usuario.permissoes?.ignorar_loja_vinculada === true;
+
+  // loja vinculada → vê só a própria loja
+  if (!ignoraLoja && usuario.loja_codigo != null && usuario.loja_codigo !== "") {
+    return lojas.filter(
+      (l) => String(l.codigo) === String(usuario.loja_codigo),
+    );
+  }
+
+  // senão, regional vinculada (se houver)
+  if (usuario.regional_vinculada) {
+    const reg = String(usuario.regional_vinculada).toUpperCase().trim();
+    return lojas.filter(
+      (l) => String(l.regional || "").toUpperCase().trim() === reg,
+    );
+  }
+
+  return lojas;
+}
+
 function montarMapaLojaRegionalComparativo(lojas = []) {
   const mapa = {};
 
@@ -1203,7 +1237,7 @@ async function carregarDadosComparativos() {
 
     if (lojasError) throw lojasError;
 
-    const lojas = lojasData || [];
+    const lojas = aplicarEscopoLojasComparativo(lojasData || []);
     const mapaLojaRegional = montarMapaLojaRegionalComparativo(lojas);
 
     preencherSelectLojas(lojas);
