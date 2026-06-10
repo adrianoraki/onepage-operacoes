@@ -578,6 +578,57 @@ th.coluna-atual {
 }
 
 /* ==========================
+   🗓️ FILTRO DE PERÍODO (Mês + Semana)
+========================== */
+.filtro-periodo {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+.filtro-mes,
+.filtro-periodo .filtro-semana {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid #d3dbe1;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  background: linear-gradient(to right, #ffffff, #f6fbf7);
+  color: var(--cor-texto);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.filtro-mes {
+  min-width: 120px;
+}
+
+.filtro-mes:focus {
+  border-color: var(--cor-sucesso-2);
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.12);
+  outline: none;
+}
+
+@media (max-width: 640px) {
+  .header-tabela {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .filtro-periodo {
+    width: 100%;
+  }
+  .filtro-periodo .filtro-mes,
+  .filtro-periodo .filtro-semana {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+/* ==========================
    🧭 SUBCLASSES DO SIDEBAR
 ========================== */
 .sidebar_menu .submenu {

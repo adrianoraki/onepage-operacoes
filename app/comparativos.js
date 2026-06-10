@@ -45,14 +45,9 @@ const COMPARATIVO_STATE = {
   ano:
     Number(localStorage.getItem("comparativoAno")) || new Date().getFullYear(),
 
-  semana: (typeof getSemanaAtual === "function"
-    ? getSemanaAtual()
-    : parseInt(localStorage.getItem("semana") || "1", 10)
-  )
-    .toString()
-    .padStart(2, "0"),
+  semana: "TODAS",
 
-  mes: localStorage.getItem("comparativoMes") || "",
+  mes: localStorage.getItem("comparativoMes") || String(new Date().getMonth() + 1),
 
   modoPeriodo: "mensal",
   indicador: "TODOS",
@@ -669,7 +664,7 @@ function getNomeMesComparativo(mes) {
 }
 
 function gerarOptionsMesesComparativo() {
-  let html = `<option value="">Selecione o Mês</option>`;
+  let html = "";
 
   MESES_COMPARATIVO.forEach((mes) => {
     const selected =
@@ -915,26 +910,21 @@ async function telaComparativos() {
 // 🔧 OPTIONS
 // ==========================
 function gerarOptionsSemanasComparativo() {
-  if (typeof gerarOptionsSemanas === "function") {
-    try {
-      return gerarOptionsSemanas();
-    } catch (e) {
-      // fallback abaixo
-    }
-  }
+  const mesSel = getMesSelecionadoComparativo();
+  const ano = getAnoAtualComparativo();
+  const semanas = mesSel ? getSemanasDoMesPorMesComparativo(mesSel, ano) : [];
 
-  const atual = getSemanaAtualComparativo();
-  let html = "";
+  let html = `<option value="TODAS" ${
+    COMPARATIVO_STATE.semana === "TODAS" ? "selected" : ""
+  }>Mês inteiro</option>`;
 
-  for (let i = atual; i >= Math.max(1, atual - 15); i--) {
-    const s = normalizarSemanaComparativo(i);
-
+  semanas.forEach((s) => {
     html += `
       <option value="${s}" ${COMPARATIVO_STATE.semana === s ? "selected" : ""}>
         Semana ${s}
       </option>
     `;
-  }
+  });
 
   return html;
 }
@@ -967,31 +957,27 @@ function gerarOptionsIndicadoresComparativo() {
 // 🔄 HANDLERS
 // ==========================
 async function comparativoAlterarSemana(semana) {
-  COMPARATIVO_STATE.semana = normalizarSemanaComparativo(semana);
-  COMPARATIVO_STATE.mes = "";
+  COMPARATIVO_STATE.semana =
+    semana === "TODAS" ? "TODAS" : normalizarSemanaComparativo(semana);
 
   localStorage.setItem("semana", COMPARATIVO_STATE.semana);
-  localStorage.removeItem("comparativoMes");
-
-  const selMes = document.getElementById("comparativoMes");
-  if (selMes) selMes.value = "";
 
   await carregarDadosComparativos();
 }
 
 async function comparativoAlterarMes(mes) {
-  COMPARATIVO_STATE.mes = mes || "";
-  localStorage.setItem("comparativoMes", COMPARATIVO_STATE.mes);
+  COMPARATIVO_STATE.mes = mes || String(new Date().getMonth() + 1);
+  COMPARATIVO_STATE.semana = "TODAS"; // ao trocar de mês, volta para "Mês inteiro"
 
-  console.log("📅 Comparativo mês alterado:", {
-    mes: COMPARATIVO_STATE.mes,
-    nomeMes: getNomeMesComparativo(COMPARATIVO_STATE.mes),
-    ano: getAnoAtualComparativo(),
-    semanasConsideradas: getSemanasDoMesPorMesComparativo(
-      COMPARATIVO_STATE.mes,
-      getAnoAtualComparativo()
-    ),
-  });
+  localStorage.setItem("comparativoMes", COMPARATIVO_STATE.mes);
+  localStorage.setItem("semana", "TODAS");
+
+  // repopula o dropdown de semanas com as semanas do novo mês
+  const selSemana = document.getElementById("comparativoSemana");
+  if (selSemana) {
+    selSemana.innerHTML = gerarOptionsSemanasComparativo();
+    selSemana.value = "TODAS";
+  }
 
   await carregarDadosComparativos();
 }
@@ -1111,9 +1097,10 @@ async function buscarResultadosComparativoBase({
   mesSelecionado,
   semanaSel,
 }) {
-  const semanasFiltro = mesSelecionado
-    ? getSemanasDoMesPorMesComparativo(mesSelecionado, anoReferencia)
-    : [semanaSel];
+  const semanaEspecifica = semanaSel && semanaSel !== "TODAS";
+  const semanasFiltro = semanaEspecifica
+    ? [semanaSel]
+    : getSemanasDoMesPorMesComparativo(mesSelecionado, anoReferencia);
 
   const variantesSemana = getVariantesSemanasComparativo(semanasFiltro);
 
@@ -1223,11 +1210,14 @@ async function carregarDadosComparativos() {
 
     const anoReferencia = getAnoAtualComparativo();
     const mesSelecionado = getMesSelecionadoComparativo();
-    const semanaSel = normalizarSemanaComparativo(COMPARATIVO_STATE.semana);
+    const semanaSel = COMPARATIVO_STATE.semana === "TODAS"
+      ? "TODAS"
+      : normalizarSemanaComparativo(COMPARATIVO_STATE.semana);
 
-    const semanasConsideradas = mesSelecionado
-      ? getSemanasDoMesPorMesComparativo(mesSelecionado, anoReferencia)
-      : [semanaSel];
+    const semanaEspecifica = semanaSel && semanaSel !== "TODAS";
+    const semanasConsideradas = semanaEspecifica
+      ? [semanaSel]
+      : getSemanasDoMesPorMesComparativo(mesSelecionado, anoReferencia);
 
     const resultadosBrutos = await buscarResultadosComparativoBase({
       anoReferencia,
@@ -1265,8 +1255,14 @@ async function carregarDadosComparativos() {
     const semanasEncontradas =
       extrairSemanasDosResultadosComparativo(resultadosNorm);
 
-    const infoPeriodoHtml = mesSelecionado
+    const infoPeriodoHtml = semanaEspecifica
       ? `
+        <div class="comparativo-info-periodo">
+          <strong>Período:</strong>
+          ${getNomeMesComparativo(mesSelecionado)} / ${anoReferencia} — Semana ${semanaSel}
+        </div>
+      `
+      : `
         <div class="comparativo-info-periodo">
           <strong>Mês selecionado:</strong>
           ${getNomeMesComparativo(mesSelecionado)} / ${anoReferencia}
@@ -1281,12 +1277,7 @@ async function carregarDadosComparativos() {
               : "Nenhuma semana encontrada"
           }
           <br>
-          <small>Enquanto um mês estiver selecionado, o filtro de semana fica inativo. Ao escolher uma semana, o mês é limpo automaticamente.</small>
-        </div>
-      `
-      : `
-        <div class="comparativo-info-periodo">
-          <strong>Semana selecionada:</strong> ${semanaSel} / ${anoReferencia}
+          <small>"Mês inteiro" agrega todas as semanas do mês. Escolha uma semana no filtro para ver só ela.</small>
         </div>
       `;
 

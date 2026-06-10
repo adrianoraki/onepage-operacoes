@@ -818,9 +818,14 @@ function montarTabelaEspecial(lojas, mapa, semanas) {
       <div class="header-tabela">
         <h2>📊 ${config.titulo}</h2>
 
-        <select class="filtro-semana" onchange="alterarSemana(this.value)">
-          ${gerarOptionsSemanas()}
-        </select>
+        <div class="filtro-periodo">
+          <select class="filtro-mes" onchange="alterarMes(this.value)">
+            ${typeof gerarOptionsMesesTabela === "function" ? gerarOptionsMesesTabela() : ""}
+          </select>
+          <select class="filtro-semana" onchange="alterarSemana(this.value)">
+            ${gerarOptionsSemanas()}
+          </select>
+        </div>
       </div>
 
       <div class="filtros-tabela filtros-novos">

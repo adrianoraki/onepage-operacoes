@@ -644,9 +644,14 @@ window.FaixaHoras = window.FaixaHoras || {};
         <div class="header-tabela">
           <h2>📊 ${titulo}</h2>
 
-          <select class="filtro-semana${semanaSelecionadaFaixaHoras === semanaAtualReal ? " semana-atual-ativa" : ""}" onchange="window.alterarSemanaFaixaHoras(this.value)">
-            ${gerarOptionsSemanasFaixaHoras()}
-          </select>
+          <div class="filtro-periodo">
+            <select class="filtro-mes" onchange="window.alterarMesFaixaHoras(this.value)">
+              ${gerarOptionsMesesFaixaHoras()}
+            </select>
+            <select class="filtro-semana${semanaSelecionadaFaixaHoras === semanaAtualReal ? " semana-atual-ativa" : ""}" onchange="window.alterarSemanaFaixaHoras(this.value)">
+              ${gerarOptionsSemanasFaixaHoras()}
+            </select>
+          </div>
         </div>
 
         <div class="info-semana">
@@ -721,23 +726,55 @@ window.FaixaHoras = window.FaixaHoras || {};
   // 🔢 GERAR OPTIONS SEMANA
   // ==========================
   function gerarOptionsSemanasFaixaHoras() {
-    let html = "";
-
     const selecionada =
       semanaSelecionadaFaixaHoras ||
       getSemanaAtualFaixaHoras().toString().padStart(2, "0");
     const real = getSemanaAtualFaixaHoras().toString().padStart(2, "0");
 
-    logInfo("Gerando options - semana ativa", { selecionada, real });
+    if (window.FiltroPeriodo) {
+      return window.FiltroPeriodo.gerarOptionsSemanas(selecionada, real);
+    }
 
+    let html = "";
     for (let i = 1; i <= 53; i++) {
       const s = i.toString().padStart(2, "0");
       const selected = s === selecionada ? "selected" : "";
       const label = s === real ? `Semana ${s} ★` : `Semana ${s}`;
       html += `<option value="${s}" ${selected}>${label}</option>`;
     }
-
     return html;
+  }
+
+  function gerarOptionsMesesFaixaHoras() {
+    if (!window.FiltroPeriodo) return "";
+    const sel =
+      semanaSelecionadaFaixaHoras ||
+      getSemanaAtualFaixaHoras().toString().padStart(2, "0");
+    const semanasMes = window.FiltroPeriodo.getSemanasDoMes(
+      window.FiltroPeriodo.mes,
+      window.FiltroPeriodo.ano(),
+    );
+    if (!semanasMes.includes(sel)) {
+      window.FiltroPeriodo.sincronizarComSemana(sel);
+    }
+    return window.FiltroPeriodo.gerarOptionsMeses();
+  }
+
+  function alterarMesFaixaHoras(mes) {
+    if (!window.FiltroPeriodo) return;
+    window.FiltroPeriodo.setMes(mes);
+
+    const real = getSemanaAtualFaixaHoras().toString().padStart(2, "0");
+    const semanas = window.FiltroPeriodo.getSemanasDoMes(
+      window.FiltroPeriodo.mes,
+      window.FiltroPeriodo.ano(),
+    );
+    semanaSelecionadaFaixaHoras = semanas.includes(real)
+      ? real
+      : semanas[0] || semanaSelecionadaFaixaHoras;
+    localStorage.setItem("semana", semanaSelecionadaFaixaHoras);
+
+    carregarFaixaHoras();
   }
 
   // ==========================
@@ -965,6 +1002,7 @@ window.FaixaHoras = window.FaixaHoras || {};
   window.telaFaixaHoras = telaFaixaHoras;
   window.carregarFaixaHoras = carregarFaixaHoras;
   window.alterarSemanaFaixaHoras = alterarSemanaFaixaHoras;
+  window.alterarMesFaixaHoras = alterarMesFaixaHoras;
   window.autoSalvarFaixaHoras = autoSalvarFaixaHoras;
   window.fhPrepararEdicaoFaixaHoras = fhPrepararEdicao;
 

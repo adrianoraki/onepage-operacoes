@@ -1158,9 +1158,14 @@ function montarHTMLTabela(lojas, mapa, semanas, classeSelecionada = null) {
       <div class="header-tabela">
         <h2>📊 ${titulo}</h2>
 
-        <select class="filtro-semana${semanaSelecionada === semanaAtualReal ? " semana-atual-ativa" : ""}" onchange="alterarSemana(this.value)">
-          ${gerarOptionsSemanas()}
-        </select>
+        <div class="filtro-periodo">
+          <select class="filtro-mes" onchange="alterarMes(this.value)">
+            ${gerarOptionsMesesTabela()}
+          </select>
+          <select class="filtro-semana${semanaSelecionada === semanaAtualReal ? " semana-atual-ativa" : ""}" onchange="alterarSemana(this.value)">
+            ${gerarOptionsSemanas()}
+          </select>
+        </div>
       </div>
 
       <div class="info-semana">
@@ -1784,22 +1789,56 @@ async function salvarValor(loja, semana, valor, justificativa = "") {
 // 🔢 GERAR OPTIONS SEMANA
 // ==========================
 function gerarOptionsSemanas() {
-  let html = "";
-
   const selecionada =
     semanaSelecionada || getSemanaAtual().toString().padStart(2, "0");
   const real = getSemanaAtual().toString().padStart(2, "0");
 
-  tabelaLogInfo("Gerando options - semana ativa", { selecionada, real });
+  // novo filtro: só as semanas do mês selecionado
+  if (window.FiltroPeriodo) {
+    return window.FiltroPeriodo.gerarOptionsSemanas(selecionada, real);
+  }
 
+  // fallback antigo (1-53)
+  let html = "";
   for (let i = 1; i <= 53; i++) {
     const s = i.toString().padStart(2, "0");
     const selected = s === selecionada ? "selected" : "";
     const label = s === real ? `Semana ${s} ★` : `Semana ${s}`;
     html += `<option value="${s}" ${selected}>${label}</option>`;
   }
-
   return html;
+}
+
+function gerarOptionsMesesTabela() {
+  if (!window.FiltroPeriodo) return "";
+  // garante que o mês mostrado contenha a semana selecionada
+  const sel = semanaSelecionada || getSemanaAtual().toString().padStart(2, "0");
+  const semanasMes = window.FiltroPeriodo.getSemanasDoMes(
+    window.FiltroPeriodo.mes,
+    window.FiltroPeriodo.ano(),
+  );
+  if (!semanasMes.includes(sel)) {
+    window.FiltroPeriodo.sincronizarComSemana(sel);
+  }
+  return window.FiltroPeriodo.gerarOptionsMeses();
+}
+
+function alterarMes(mes) {
+  if (!window.FiltroPeriodo) return;
+  window.FiltroPeriodo.setMes(mes);
+
+  // escolhe a semana do novo mês: a atual (se estiver no mês) ou a primeira
+  const real = getSemanaAtual().toString().padStart(2, "0");
+  const semanas = window.FiltroPeriodo.getSemanasDoMes(
+    window.FiltroPeriodo.mes,
+    window.FiltroPeriodo.ano(),
+  );
+  semanaSelecionada = semanas.includes(real)
+    ? real
+    : semanas[0] || semanaSelecionada;
+  localStorage.setItem("semana", semanaSelecionada);
+
+  carregarTabela();
 }
 
 // ==========================
@@ -1885,6 +1924,8 @@ window.carregarTabela = carregarTabela;
 window.montarHTMLTabela = montarHTMLTabela;
 window.montarLinha = montarLinha;
 window.alterarSemana = alterarSemana;
+window.alterarMes = alterarMes;
+window.gerarOptionsMesesTabela = gerarOptionsMesesTabela;
 window.ativarFiltros = ativarFiltros;
 window.processarAutoSalvarCampoTabela = processarAutoSalvarCampoTabela;
 window.autoSalvar = autoSalvar;
