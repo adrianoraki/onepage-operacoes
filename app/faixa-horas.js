@@ -315,6 +315,50 @@ window.FaixaHoras = window.FaixaHoras || {};
   }
 
   // ==========================
+  // 🔢 VALOR (funções LOCAIS — autônomas, não dependem de outros módulos)
+  // banco de horas = número decimal (aceita 5 / 10,5 / 10.5 / -3 / 10:30)
+  // ==========================
+  function fhLimparValor(texto) {
+    if (texto === null || texto === undefined) return null;
+    let bruto = texto.toString().trim();
+    if (!bruto) return null;
+
+    bruto = bruto.replace(/\s/g, "").replace(/h/gi, "");
+
+    // formato hora "10:30" → 10,5
+    if (bruto.includes(":")) {
+      const partes = bruto.split(":");
+      const sinal = partes[0].startsWith("-") ? -1 : 1;
+      const horas = Math.abs(parseInt(partes[0], 10)) || 0;
+      const minutos = parseInt(partes[1], 10) || 0;
+      const num = sinal * (horas + minutos / 60);
+      return Number.isNaN(num) ? null : num;
+    }
+
+    // decimal normal: troca vírgula por ponto, remove pontos de milhar
+    const normalizado = bruto.replace(/\.(?=.*\.)/g, "").replace(",", ".");
+    const num = Number(normalizado);
+    return Number.isNaN(num) ? null : num;
+  }
+
+  function fhFormatarValor(valor) {
+    if (valor === null || valor === undefined || valor === "") return "";
+    const num = Number(valor);
+    if (!isFinite(num)) return "";
+    // sem casas forçadas: 5 → "5", 10.5 → "10,5"
+    return num.toString().replace(".", ",");
+  }
+
+  // ao focar, mostra o número cru editável (ponto vira vírgula visível)
+  function fhPrepararEdicao(input) {
+    if (!input) return;
+    const bruto = (input.value || "").toString().trim();
+    if (!bruto) return;
+    const num = fhLimparValor(bruto);
+    input.value = num === null ? "" : fhFormatarValor(num);
+  }
+
+  // ==========================
   // 💾 SALVAR
   // ==========================
   async function salvarValorFaixaHoras(loja, semana, valor) {
@@ -440,6 +484,11 @@ window.FaixaHoras = window.FaixaHoras || {};
       return true;
     } catch (erro) {
       logError("Erro salvarValorFaixaHoras", erro);
+      // mostra o erro REAL (RLS, permissão, coluna) — senão fica invisível em produção
+      if (typeof window.mostrarErro === "function") {
+        const msg = erro?.message || erro?.hint || erro?.details || "erro desconhecido";
+        window.mostrarErro("Não foi possível salvar Faixa Horas: " + msg);
+      }
       return false;
     } finally {
       TABELA_STATE_FAIXA_HORAS.salvando.delete(chaveSalvar);
@@ -457,22 +506,18 @@ window.FaixaHoras = window.FaixaHoras || {};
     const tipo = input.dataset.tipo || "numero";
 
     const valorDigitado = (input.value || "").toString().trim();
-    const valorOriginal = input.dataset.original ?? "";
+    const valorOriginalTxt = input.dataset.original ?? "";
 
     let valorLimpo = null;
 
     if (valorDigitado !== "") {
-      valorLimpo =
-        typeof limparValorParaSalvar === "function"
-          ? limparValorParaSalvar(valorDigitado, tipo)
-          : Number(valorDigitado.replace(",", "."));
+      valorLimpo = fhLimparValor(valorDigitado);
 
       if (valorLimpo === null || Number.isNaN(valorLimpo)) {
         logWarn("Valor inválido, salvamento ignorado", {
           loja,
           semana,
           valorDigitado,
-          tipo,
         });
 
         aplicarStatusInputFaixaHoras(input, "erro");
@@ -480,33 +525,30 @@ window.FaixaHoras = window.FaixaHoras || {};
       }
     }
 
-    const valorComparacao =
-      valorLimpo === null || valorLimpo === undefined ? "" : String(valorLimpo);
+    // comparação NUMÉRICA (não string) — evita falso "sem alteração"
+    const originalNum = valorOriginalTxt === "" ? null : fhLimparValor(valorOriginalTxt);
+    const semAlteracao =
+      (valorLimpo === null && originalNum === null) ||
+      (valorLimpo !== null && originalNum !== null && valorLimpo === originalNum);
 
-    if (valorComparacao === valorOriginal) {
+    if (semAlteracao) {
       logInfo("Nenhuma alteração detectada, salvamento ignorado", {
         loja,
         semana,
-        valor: valorComparacao,
+        valor: valorLimpo,
       });
-
-      if (valorLimpo !== null && typeof formatarValorParaInput === "function") {
-        input.value = formatarValorParaInput(valorLimpo, tipo);
-      }
-
+      if (valorLimpo !== null) input.value = fhFormatarValor(valorLimpo);
       return true;
     }
 
-    if (valorLimpo !== null && typeof formatarValorParaInput === "function") {
-      input.value = formatarValorParaInput(valorLimpo, tipo);
-    }
+    if (valorLimpo !== null) input.value = fhFormatarValor(valorLimpo);
 
     aplicarStatusInputFaixaHoras(input, "salvando");
 
     const salvou = await salvarValorFaixaHoras(loja, semana, valorLimpo);
 
     if (salvou) {
-      input.dataset.original = valorComparacao;
+      input.dataset.original = valorLimpo === null ? "" : String(valorLimpo);
       aplicarStatusInputFaixaHoras(input, "sucesso");
       return true;
     }
@@ -552,15 +594,12 @@ window.FaixaHoras = window.FaixaHoras || {};
       const valor = reg?.valor ?? "";
       const destaque = semana === semanaAtualReal ? "coluna-atual" : "";
 
-      const valorFormatado =
-        typeof formatarValorParaInput === "function"
-          ? formatarValorParaInput(valor, campoCfg.tipo)
-          : valor;
+      const valorFormatado = fhFormatarValor(valor);
 
       const valorOriginal =
         valor === null || valor === undefined || valor === ""
           ? ""
-          : String(valor);
+          : String(Number(valor));
 
       html += `
         <td class="${destaque}">
@@ -574,7 +613,7 @@ window.FaixaHoras = window.FaixaHoras || {};
               data-campo="valor"
               data-tipo="${escapeHtmlFaixaHoras(campoCfg.tipo)}"
               data-original="${escapeHtmlFaixaHoras(valorOriginal)}"
-              onfocus="prepararInputFormatado(this)"
+              onfocus="window.fhPrepararEdicaoFaixaHoras(this)"
               onblur="window.autoSalvarFaixaHoras(this)"
               class="input-valor-faixa-horas"
             >
@@ -927,6 +966,7 @@ window.FaixaHoras = window.FaixaHoras || {};
   window.carregarFaixaHoras = carregarFaixaHoras;
   window.alterarSemanaFaixaHoras = alterarSemanaFaixaHoras;
   window.autoSalvarFaixaHoras = autoSalvarFaixaHoras;
+  window.fhPrepararEdicaoFaixaHoras = fhPrepararEdicao;
 
   window.FaixaHoras.telaFaixaHoras = telaFaixaHoras;
   window.FaixaHoras.carregarFaixaHoras = carregarFaixaHoras;

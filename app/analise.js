@@ -11,6 +11,8 @@ const ANALISE_STATE = {
     localStorage.getItem("semana") ||
     getSemanaAtual().toString().padStart(2, "0"),
 
+  mes: new Date().getMonth(), // índice 0-11 do mês selecionado
+  aba: "evolucao",
   visao: "regional",
   classe: "TODAS",
   indicador: "TODOS",
@@ -765,6 +767,7 @@ function calcularAmplitudeAnalise(melhor, pior) {
 // ==========================
 async function telaAnalises() {
   console.log("📈 Iniciando telaAnalises...");
+  garantirEstilosAbasAnalise();
 
   const container = document.getElementById("conteudo");
   if (!container) {
@@ -814,59 +817,30 @@ async function telaAnalises() {
           </div>
         </div>
 
-        <div class="dashboard-filtros">
-          <select id="analiseSemana" onchange="analiseAlterarSemana(this.value)">
-            ${gerarOptionsSemanas()}
+        <div class="dashboard-filtros analise-filtros">
+          <select id="analiseMes" onchange="analiseAlterarMes(this.value)">
+            ${gerarOptionsMesesAnalise()}
           </select>
 
-          ${
-            contexto.podeTrocarVisao
-              ? `
-                <select id="analiseVisao" onchange="analiseAlterarVisao(this.value)">
-                  <option value="gerencial" ${
-                    ANALISE_STATE.visao === "gerencial" ? "selected" : ""
-                  }>Visão Gerencial</option>
-                  <option value="regional" ${
-                    ANALISE_STATE.visao === "regional" ? "selected" : ""
-                  }>Visão Regional</option>
-                </select>
-              `
-              : ""
-          }
-
-          <select id="analiseClasse" onchange="analiseAlterarClasse(this.value)">
-            ${gerarOptionsClassesAnalise()}
+          <select id="analiseSemana" onchange="analiseAlterarSemana(this.value)">
+            ${gerarOptionsSemanasAnalise()}
           </select>
 
           <select id="analiseIndicador" onchange="analiseAlterarIndicador(this.value)">
             ${gerarOptionsIndicadoresAnalise()}
           </select>
+        </div>
 
-          ${
-            ANALISE_STATE.visao === "regional" || contexto.podeTrocarVisao
-              ? `
-                <select id="analiseRegional" onchange="analiseAlterarRegional(this.value)">
-                  <option value="TODAS">Todas regionais</option>
-                  <option value="NE1" ${
-                    ANALISE_STATE.regional === "NE1" ? "selected" : ""
-                  }>NE1</option>
-                  <option value="NE2" ${
-                    ANALISE_STATE.regional === "NE2" ? "selected" : ""
-                  }>NE2</option>
-                </select>
-              `
-              : ""
-          }
-
-          ${
-            ANALISE_STATE.visao === "gerencial" && contexto.podeTrocarVisao
-              ? `
-                <select id="analiseLoja" onchange="analiseAlterarLoja(this.value)">
-                  <option value="TODAS">Todas as lojas</option>
-                </select>
-              `
-              : ""
-          }
+        <div class="analise-abas">
+          <button class="analise-aba ${ANALISE_STATE.aba === "evolucao" ? "ativa" : ""}" onclick="analiseTrocarAba('evolucao')">
+            <span class="analise-aba-ico">📈</span> Evolução
+          </button>
+          <button class="analise-aba ${ANALISE_STATE.aba === "periodo" ? "ativa" : ""}" onclick="analiseTrocarAba('periodo')">
+            <span class="analise-aba-ico">🔄</span> Período vs Período
+          </button>
+          <button class="analise-aba ${ANALISE_STATE.aba === "justificativas" ? "ativa" : ""}" onclick="analiseTrocarAba('justificativas')">
+            <span class="analise-aba-ico">📝</span> Justificativas
+          </button>
         </div>
 
         <div id="analiseConteudo" class="dashboard-grid">
@@ -973,6 +947,732 @@ async function analiseAlterarVisao(visao) {
 }
 
 // ==========================
+// 📅 FILTROS DE MÊS E SEMANA
+// ==========================
+const MESES_ANALISE = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+function gerarOptionsMesesAnalise() {
+  return MESES_ANALISE.map(
+    (nome, i) =>
+      `<option value="${i}" ${ANALISE_STATE.mes === i ? "selected" : ""}>${nome}</option>`,
+  ).join("");
+}
+
+// semanas de um mês (índice 0-11) do ano vigente
+function analiseSemanasDoMes(indiceMes) {
+  const ano = new Date().getFullYear();
+  const primeiroDia = new Date(ano, indiceMes, 1);
+  const ultimoDia = new Date(ano, indiceMes + 1, 0);
+  const set = new Set();
+  for (let d = new Date(primeiroDia); d <= ultimoDia; d.setDate(d.getDate() + 1)) {
+    set.add(getNumeroSemanaPorDataAnalise(d).toString().padStart(2, "0"));
+  }
+  return [...set];
+}
+
+function gerarOptionsSemanasAnalise() {
+  const semanas = analiseSemanasDoMes(ANALISE_STATE.mes);
+  let html = `<option value="TODAS" ${ANALISE_STATE.semana === "TODAS" ? "selected" : ""}>Mês inteiro</option>`;
+  html += semanas
+    .map(
+      (s) =>
+        `<option value="${s}" ${ANALISE_STATE.semana === s ? "selected" : ""}>Semana ${s}</option>`,
+    )
+    .join("");
+  return html;
+}
+
+async function analiseAlterarMes(indice) {
+  ANALISE_STATE.mes = parseInt(indice, 10);
+  ANALISE_STATE.semana = "TODAS"; // ao trocar de mês, volta para mês inteiro
+
+  const selSemana = document.getElementById("analiseSemana");
+  if (selSemana) {
+    selSemana.innerHTML = gerarOptionsSemanasAnalise();
+    selSemana.value = "TODAS";
+  }
+
+  destruirGraficosAnalise();
+  await carregarDadosAnalise(getContextoDashboardUsuario());
+}
+
+// ==========================
+// 🗂️ ABAS DE ANÁLISE (Evolução / Período / Justificativas)
+// ==========================
+async function analiseTrocarAba(aba) {
+  ANALISE_STATE.aba = aba;
+  destruirGraficosAnalise();
+
+  document.querySelectorAll(".analise-aba").forEach((b) => {
+    b.classList.remove("ativa");
+  });
+  const btn = document.querySelector(`.analise-aba[onclick*="${aba}"]`);
+  if (btn) btn.classList.add("ativa");
+
+  await carregarDadosAnalise(getContextoDashboardUsuario());
+}
+
+// injeta estilos das abas uma única vez
+function garantirEstilosAbasAnalise() {
+  if (document.getElementById("analise-abas-estilos")) return;
+  const style = document.createElement("style");
+  style.id = "analise-abas-estilos";
+  style.textContent = `
+    /* paleta profissional — deep navy + electric blue (dashboards SaaS/analytics) */
+    :root {
+      --an-page: #0a1020;
+      --an-card: #121d33;
+      --an-card-2: #0e1830;
+      --an-line: rgba(148,163,184,0.12);
+      --an-txt: #f1f5f9;
+      --an-txt-soft: #8e9cb3;
+      --an-accent: #3a82ff;
+      --an-accent-soft: rgba(58,130,255,0.16);
+      --an-green: #34d399;
+      --an-red: #fb7185;
+    }
+
+    /* o wrapper branco do layout NÃO pode aparecer atrás da análise */
+    .pagina-container:has(#analiseContainer) {
+      max-width: none !important; width: 100% !important;
+      padding: 0 !important; margin: 0 !important; background: var(--an-page) !important;
+    }
+
+    /* container ocupa toda a área útil com fundo escuro (mata o branco) */
+    #analiseContainer.dashboard-container {
+      background: var(--an-page) !important;
+      margin: calc(-1 * clamp(15px, 2vw, 25px)) !important;
+      padding: clamp(18px, 2.4vw, 30px) !important;
+      border: none !important; border-radius: 0 !important;
+      min-height: calc(100dvh - 34px) !important;
+      color: var(--an-txt);
+    }
+
+    /* cabeçalho */
+    #analiseContainer .dashboard-titulo {
+      color: var(--an-txt) !important; font-weight: 800; letter-spacing: 0.2px;
+    }
+    #analiseContainer .dashboard-subtitulo { color: var(--an-txt-soft) !important; }
+
+    /* filtros */
+    .analise-filtros {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 6px;
+    }
+    .analise-filtros select {
+      background: var(--an-card); color: var(--an-txt);
+      border: 1px solid var(--an-line); border-radius: 10px;
+      padding: 9px 14px; font-size: 13px; font-weight: 600;
+      cursor: pointer; outline: none; transition: border-color 0.15s; min-width: 140px;
+    }
+    .analise-filtros select:hover { border-color: rgba(58,130,255,0.55); }
+    .analise-filtros select:focus { border-color: var(--an-accent); }
+
+    /* abas */
+    .analise-abas {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      margin: 18px 0 20px 0; border-bottom: 1px solid var(--an-line); padding-bottom: 0;
+    }
+    .analise-aba {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: transparent; color: var(--an-txt-soft);
+      border: none; border-bottom: 2px solid transparent;
+      padding: 10px 18px; font-size: 13.5px; font-weight: 700; cursor: pointer;
+      transition: color 0.15s, border-color 0.15s; margin-bottom: -1px;
+    }
+    .analise-aba:hover { color: var(--an-txt); }
+    .analise-aba.ativa { color: #fff; border-bottom-color: var(--an-accent); }
+    .analise-aba-ico { font-size: 14px; opacity: 0.9; }
+
+    /* cards */
+    #analiseConteudo .dashboard-card {
+      background: var(--an-card); border: 1px solid var(--an-line);
+      border-radius: 16px; padding: 22px 24px;
+    }
+    #analiseConteudo h3 { font-size: 16px; color: var(--an-txt); letter-spacing: 0.2px; }
+
+    /* área do gráfico — fundo escuro (sem branco) */
+    #analiseConteudo .dashboard-grafico-area,
+    #analiseConteudo .dashboard-grafico-area canvas {
+      background: transparent !important; border-radius: 12px;
+    }
+    #analiseConteudo canvas { background: transparent !important; }
+
+    /* tabelas */
+    .analise-tabela-var { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .analise-tabela-var thead th {
+      color: var(--an-txt-soft); font-weight: 700; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      padding: 11px 14px; text-align: left; border-bottom: 1px solid var(--an-line);
+    }
+    .analise-tabela-var tbody td {
+      padding: 12px 14px; color: var(--an-txt);
+      border-bottom: 1px solid rgba(148,163,184,0.06);
+    }
+    .analise-tabela-var tbody tr:hover { background: rgba(58,130,255,0.06); }
+    .analise-var-sobe { color: var(--an-green); font-weight: 800; }
+    .analise-var-desce { color: var(--an-red); font-weight: 800; }
+    .analise-var-igual { color: var(--an-txt-soft); font-weight: 700; }
+
+    .analise-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 32px; padding: 3px 9px; border-radius: 8px;
+      background: var(--an-accent-soft); color: #bcd4ff; font-weight: 800; font-size: 12px;
+    }
+
+    .analise-aviso {
+      padding: 60px 30px; text-align: center; color: var(--an-txt-soft);
+      font-size: 14px; line-height: 1.6;
+    }
+    .analise-aviso strong { color: var(--an-txt); }
+
+    /* ===== PÓDIO DE CAMPEÃS ===== */
+    .analise-podio-wrap {
+      background: linear-gradient(180deg, #14213d 0%, #0e1830 100%);
+      border: 1px solid var(--an-line); border-radius: 16px;
+      padding: 20px 22px 24px; margin-bottom: 18px;
+    }
+    .analise-podio-titulo {
+      font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px;
+      color: var(--an-txt-soft); font-weight: 700; margin-bottom: 18px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .analise-podio {
+      display: flex; justify-content: center; align-items: flex-end;
+      gap: 14px; flex-wrap: wrap;
+    }
+    .podio-pos {
+      flex: 1 1 0; max-width: 240px; min-width: 150px;
+      border-radius: 14px; padding: 16px 14px; text-align: center;
+      border: 1px solid var(--an-line); position: relative;
+      background: var(--an-card);
+    }
+    .podio-pos .podio-medalha { font-size: 30px; line-height: 1; margin-bottom: 8px; }
+    .podio-pos .podio-loja {
+      font-weight: 800; color: var(--an-txt); font-size: 14px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .podio-pos .podio-cod { color: var(--an-txt-soft); font-size: 11px; font-weight: 700; }
+    .podio-pos .podio-valor {
+      margin-top: 8px; font-size: 17px; font-weight: 900; letter-spacing: 0.3px;
+    }
+    /* 1º lugar — ouro, elevado */
+    .podio-pos.pos-1 {
+      background: linear-gradient(180deg, rgba(240,180,41,0.16), rgba(240,180,41,0.04));
+      border-color: rgba(240,180,41,0.55); transform: translateY(-14px);
+      box-shadow: 0 8px 24px rgba(240,180,41,0.12);
+    }
+    .podio-pos.pos-1 .podio-valor { color: #f5c451; }
+    .podio-pos.pos-1 .podio-medalha { font-size: 38px; }
+    /* 2º — prata */
+    .podio-pos.pos-2 { border-color: rgba(203,213,225,0.4); }
+    .podio-pos.pos-2 .podio-valor { color: #cbd5e1; }
+    /* 3º — bronze */
+    .podio-pos.pos-3 { border-color: rgba(180,120,70,0.45); }
+    .podio-pos.pos-3 .podio-valor { color: #d8995e; }
+    @media (max-width: 560px) {
+      .podio-pos.pos-1 { transform: none; }
+      .podio-pos { min-width: 100%; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// tipo do indicador selecionado (percentual → média; senão → soma)
+function analiseTipoIndicadorAtual() {
+  if (ANALISE_STATE.indicador === "TODOS") return "numero";
+  try {
+    const classe = ANALISE_STATE.classe === "TODAS" ? null : ANALISE_STATE.classe;
+    if (typeof window.getCampoConfig === "function") {
+      const cfg = window.getCampoConfig(ANALISE_STATE.indicador, "valor", classe);
+      return cfg?.tipo || "numero";
+    }
+  } catch (e) {}
+  return "numero";
+}
+
+function analiseEhPercentual(tipo) {
+  return /percent|porcent|%/i.test(tipo || "");
+}
+
+// menor é melhor? (ordemRanking asc → ex: ruptura, quebra)
+function analiseMenorMelhor() {
+  if (ANALISE_STATE.indicador === "TODOS") return false;
+  try {
+    if (typeof getIndicadorConfig === "function") {
+      const classe = ANALISE_STATE.classe === "TODAS" ? null : ANALISE_STATE.classe;
+      const cfg = getIndicadorConfig(ANALISE_STATE.indicador, classe);
+      return (cfg?.ordemRanking || "").toString().toLowerCase() === "asc";
+    }
+  } catch (e) {}
+  return false;
+}
+
+// monta o HTML do pódio (top 3). itens = [{nome, codigo, valorTexto}] já ordenados 1º→3º
+function renderPodioAnalise(itens, titulo) {
+  if (!itens || !itens.length) return "";
+
+  const card = (item, pos, medalha) => {
+    if (!item) return "";
+    return `
+      <div class="podio-pos pos-${pos}">
+        <div class="podio-medalha">${medalha}</div>
+        <div class="podio-cod">Loja ${escapeHtmlAnalise(item.codigo)}</div>
+        <div class="podio-loja">${escapeHtmlAnalise(item.nome)}</div>
+        <div class="podio-valor">${item.valorTexto}</div>
+      </div>
+    `;
+  };
+
+  // ordem visual de pódio: 2º, 1º, 3º
+  return `
+    <div class="analise-podio-wrap">
+      <div class="analise-podio-titulo">🏆 ${escapeHtmlAnalise(titulo)}</div>
+      <div class="analise-podio">
+        ${card(itens[1], 2, "🥈")}
+        ${card(itens[0], 1, "🥇")}
+        ${card(itens[2], 3, "🥉")}
+      </div>
+    </div>
+  `;
+}
+
+function analiseAgregar(valores, tipo) {
+  if (!valores.length) return null;
+  const soma = valores.reduce((a, b) => a + b, 0);
+  return analiseEhPercentual(tipo) ? soma / valores.length : soma;
+}
+
+function analiseFormatar(valor, tipo) {
+  if (valor === null || valor === undefined || !isFinite(valor)) return "—";
+  if (analiseEhPercentual(tipo)) return formatarPercentualBRAnalise(valor, 2);
+  if (tipoMoedaAnalise(tipo)) return formatarMoedaBRAnalise(valor);
+  return formatarNumeroAnalise(valor, 0);
+}
+
+// gera as últimas N semanas (numeração ISO simples), terminando na semana atual
+function analiseUltimasSemanas(qtd) {
+  const atual = parseInt(
+    ANALISE_STATE.semana || getSemanaAtual().toString().padStart(2, "0"),
+    10,
+  );
+  const lista = [];
+  for (let i = qtd - 1; i >= 0; i--) {
+    let s = atual - i;
+    if (s <= 0) s = 52 + s;
+    lista.push(s.toString().padStart(2, "0"));
+  }
+  return lista;
+}
+
+// semanas do mês vigente e do mês anterior
+function analiseSemanasMes(offsetMeses) {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth() + offsetMeses;
+  const primeiroDia = new Date(ano, mes, 1);
+  const ultimoDia = new Date(ano, mes + 1, 0);
+  const set = new Set();
+  for (let d = new Date(primeiroDia); d <= ultimoDia; d.setDate(d.getDate() + 1)) {
+    set.add(getNumeroSemanaPorDataAnalise(d).toString().padStart(2, "0"));
+  }
+  return {
+    semanas: [...set],
+    rotulo: primeiroDia.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }),
+  };
+}
+
+function analiseFiltrarPorIndicadorClasse(query) {
+  if (ANALISE_STATE.classe !== "TODAS") query = query.eq("classe", ANALISE_STATE.classe);
+  if (ANALISE_STATE.indicador !== "TODOS") {
+    const ind = getIndicadorBancoAnalise(
+      ANALISE_STATE.indicador,
+      ANALISE_STATE.classe === "TODAS" ? null : ANALISE_STATE.classe,
+    );
+    query = query.eq("indicador", ind);
+  }
+  return query;
+}
+
+function analiseAvisoSelecioneIndicador(alvo, msg) {
+  alvo.innerHTML = `
+    <div class="dashboard-card span-12">
+      <div class="analise-aviso">${msg}</div>
+    </div>
+  `;
+}
+
+// ===== ABA 1: EVOLUÇÃO (tendência ao longo das semanas) =====
+async function renderAbaEvolucao({ lojasVisuaisSet }) {
+  garantirEstilosAbasAnalise();
+  const alvo = document.getElementById("analiseConteudo");
+  if (!alvo) return;
+
+  if (ANALISE_STATE.indicador === "TODOS") {
+    analiseAvisoSelecioneIndicador(
+      alvo,
+      "Selecione um indicador acima para ver a evolução dele ao longo das semanas.",
+    );
+    return;
+  }
+
+  const semanas = analiseSemanasDoMes(ANALISE_STATE.mes);
+  const tipo = analiseTipoIndicadorAtual();
+
+  let query = window.db.from("resultados").select("*").in("semana", semanas);
+  query = analiseFiltrarPorIndicadorClasse(query);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const registros = (data || []).filter((r) => lojasVisuaisSet.has(r.loja));
+
+  // agrega por semana
+  const porSemana = {};
+  semanas.forEach((s) => (porSemana[s] = []));
+  registros.forEach((r) => {
+    const v = Number(r.valor);
+    if (porSemana[r.semana] && isFinite(v)) porSemana[r.semana].push(v);
+  });
+
+  const labels = semanas.map((s) => `Sem ${s}`);
+  const dados = semanas.map((s) => {
+    const agg = analiseAgregar(porSemana[s], tipo);
+    return agg === null ? null : Number(agg.toFixed(2));
+  });
+
+  // ===== PÓDIO: lojas que mais evoluíram (1ª vs última semana com dado) =====
+  const menorMelhor = analiseMenorMelhor();
+  const porLojaSem = {};
+  registros.forEach((r) => {
+    const v = Number(r.valor);
+    if (!isFinite(v)) return;
+    if (!porLojaSem[r.loja]) porLojaSem[r.loja] = {};
+    porLojaSem[r.loja][r.semana] = v;
+  });
+
+  const evolucoes = Object.entries(porLojaSem)
+    .map(([loja, mapaSem]) => {
+      const semComDado = semanas.filter((s) => mapaSem[s] !== undefined);
+      if (semComDado.length < 2) return null;
+      const primeiro = mapaSem[semComDado[0]];
+      const ultimo = mapaSem[semComDado[semComDado.length - 1]];
+      if (primeiro === 0) return null;
+      const varPct = ((ultimo - primeiro) / Math.abs(primeiro)) * 100;
+      const melhora = menorMelhor ? -varPct : varPct; // melhora positiva = evoluiu
+      const [cod, ...resto] = loja.split(" - ");
+      return { codigo: cod, nome: resto.join(" - ") || loja, melhora };
+    })
+    .filter((x) => x && isFinite(x.melhora))
+    .sort((a, b) => b.melhora - a.melhora)
+    .slice(0, 3)
+    .map((x) => ({
+      codigo: x.codigo,
+      nome: x.nome,
+      valorTexto:
+        x.melhora >= 0
+          ? `<span class="analise-var-sobe">▲ ${x.melhora.toFixed(1).replace(".", ",")}%</span>`
+          : `<span class="analise-var-desce">▼ ${Math.abs(x.melhora).toFixed(1).replace(".", ",")}%</span>`,
+    }));
+
+  const podioHtml = renderPodioAnalise(evolucoes, "Lojas que mais evoluíram no mês");
+
+  alvo.innerHTML = `
+    ${podioHtml}
+    <div class="dashboard-card span-12">
+      <h3 style="margin:0 0 4px 0;">Evolução — ${escapeHtmlAnalise(ANALISE_STATE.indicador)}</h3>
+      <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">
+        ${analiseEhPercentual(tipo) ? "Média" : "Total"} de todas as lojas, por semana — ${MESES_ANALISE[ANALISE_STATE.mes]}
+      </p>
+      <div class="dashboard-grafico-area" style="height:360px;">
+        <canvas id="analiseChartEvolucao"></canvas>
+      </div>
+    </div>
+  `;
+
+  const canvas = document.getElementById("analiseChartEvolucao");
+  if (!canvas || typeof Chart === "undefined") return;
+
+  window.analiseCharts.principal = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: ANALISE_STATE.indicador,
+          data: dados,
+          borderColor: "#3b82f6",
+          backgroundColor: "rgba(59,130,246,0.15)",
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: "#3b82f6",
+          spanGaps: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => analiseFormatar(ctx.parsed.y, tipo),
+          },
+        },
+      },
+      scales: {
+        x: { ticks: { color: "#9db4d6" }, grid: { color: "rgba(255,255,255,0.05)" } },
+        y: {
+          ticks: { color: "#9db4d6", callback: (v) => analiseFormatar(v, tipo) },
+          grid: { color: "rgba(255,255,255,0.05)" },
+        },
+      },
+    },
+  });
+}
+
+// ===== ABA 2: PERÍODO vs PERÍODO (mês atual vs mês anterior) =====
+async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
+  garantirEstilosAbasAnalise();
+  const alvo = document.getElementById("analiseConteudo");
+  if (!alvo) return;
+
+  if (ANALISE_STATE.indicador === "TODOS") {
+    analiseAvisoSelecioneIndicador(
+      alvo,
+      "Selecione um indicador acima para comparar o mês atual com o mês anterior.",
+    );
+    return;
+  }
+
+  const tipo = analiseTipoIndicadorAtual();
+  const idxAtual = ANALISE_STATE.mes;
+  const idxAnterior = idxAtual - 1 < 0 ? 11 : idxAtual - 1;
+  const mesAtual = {
+    semanas: analiseSemanasDoMes(idxAtual),
+    rotulo: MESES_ANALISE[idxAtual],
+  };
+  const mesAnterior = {
+    semanas: analiseSemanasDoMes(idxAnterior),
+    rotulo: MESES_ANALISE[idxAnterior],
+  };
+  const todas = [...new Set([...mesAtual.semanas, ...mesAnterior.semanas])];
+
+  let query = window.db.from("resultados").select("*").in("semana", todas);
+  query = analiseFiltrarPorIndicadorClasse(query);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const registros = (data || []).filter((r) => lojasVisuaisSet.has(r.loja));
+
+  // agrega por loja em cada mês
+  const mapaLoja = {};
+  lojasEscopoBase.forEach((l) => {
+    const chave = getChaveLojaAnalise(l);
+    if (lojasVisuaisSet.has(chave)) {
+      mapaLoja[chave] = { nome: l.nome, codigo: l.codigo, atual: [], anterior: [] };
+    }
+  });
+  registros.forEach((r) => {
+    const v = Number(r.valor);
+    if (!mapaLoja[r.loja] || !isFinite(v)) return;
+    if (mesAtual.semanas.includes(r.semana)) mapaLoja[r.loja].atual.push(v);
+    else if (mesAnterior.semanas.includes(r.semana)) mapaLoja[r.loja].anterior.push(v);
+  });
+
+  const linhas = Object.values(mapaLoja)
+    .map((l) => {
+      const at = analiseAgregar(l.atual, tipo);
+      const an = analiseAgregar(l.anterior, tipo);
+      let variacao = null;
+      if (at !== null && an !== null && an !== 0) variacao = ((at - an) / Math.abs(an)) * 100;
+      return { ...l, at, an, variacao };
+    })
+    .filter((l) => l.at !== null || l.an !== null)
+    .sort((a, b) => (b.variacao ?? -Infinity) - (a.variacao ?? -Infinity));
+
+  if (!linhas.length) {
+    analiseAvisoSelecioneIndicador(alvo, "Sem dados suficientes para comparar os dois meses.");
+    return;
+  }
+
+  // ===== PÓDIO: maior EVOLUÇÃO entre os meses (ajustada por menor-melhor) =====
+  const menorMelhor = analiseMenorMelhor();
+  const podioItens = linhas
+    .filter((l) => l.variacao !== null)
+    .map((l) => ({ ...l, melhora: menorMelhor ? -l.variacao : l.variacao }))
+    .sort((a, b) => b.melhora - a.melhora)
+    .slice(0, 3)
+    .map((l) => ({
+      codigo: l.codigo,
+      nome: l.nome,
+      valorTexto:
+        l.melhora >= 0
+          ? `<span class="analise-var-sobe">▲ ${l.melhora.toFixed(1).replace(".", ",")}%</span>`
+          : `<span class="analise-var-desce">▼ ${Math.abs(l.melhora).toFixed(1).replace(".", ",")}%</span>`,
+    }));
+  const podioHtml = renderPodioAnalise(podioItens, "Maior evolução vs mês anterior");
+
+  const linhasHtml = linhas
+    .map((l, i) => {
+      let varCell = '<span class="analise-var-igual">—</span>';
+      if (l.variacao !== null) {
+        const cls = l.variacao > 0.05 ? "analise-var-sobe" : l.variacao < -0.05 ? "analise-var-desce" : "analise-var-igual";
+        const seta = l.variacao > 0.05 ? "▲" : l.variacao < -0.05 ? "▼" : "—";
+        varCell = `<span class="${cls}">${seta} ${l.variacao.toFixed(1).replace(".", ",")}%</span>`;
+      }
+      return `
+        <tr>
+          <td><span class="analise-badge">${i + 1}</span></td>
+          <td><strong>${l.codigo}</strong> ${escapeHtmlAnalise(l.nome)}</td>
+          <td>${analiseFormatar(l.an, tipo)}</td>
+          <td>${analiseFormatar(l.at, tipo)}</td>
+          <td>${varCell}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  alvo.innerHTML = `
+    ${podioHtml}
+    <div class="dashboard-card span-12">
+      <h3 style="margin:0 0 4px 0;">${escapeHtmlAnalise(ANALISE_STATE.indicador)} — variação entre meses</h3>
+      <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">
+        Ordenado de quem mais subiu para quem mais caiu
+      </p>
+      <table class="analise-tabela-var">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Loja</th>
+            <th>${capitalizarAnalise(mesAnterior.rotulo)}</th>
+            <th>${capitalizarAnalise(mesAtual.rotulo)}</th>
+            <th>Variação</th>
+          </tr>
+        </thead>
+        <tbody>${linhasHtml}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ===== ABA 3: JUSTIFICATIVAS =====
+async function renderAbaJustificativas({ resultados, lojasEscopoBase, lojasVisuaisSet }) {
+  garantirEstilosAbasAnalise();
+  const alvo = document.getElementById("analiseConteudo");
+  if (!alvo) return;
+
+  const comJust = (resultados || []).filter(
+    (r) => r.justificativa && r.justificativa.toString().trim() !== "",
+  );
+
+  // conta por motivo
+  const porMotivo = {};
+  // conta por loja — TODAS as lojas do escopo começam em 0 (as com zero entram no pódio)
+  const porLoja = {};
+  (lojasEscopoBase || []).forEach((l) => {
+    const chave = getChaveLojaAnalise(l);
+    if (!lojasVisuaisSet || lojasVisuaisSet.has(chave)) porLoja[chave] = 0;
+  });
+  comJust.forEach((r) => {
+    const motivo = r.justificativa.toString().trim();
+    porMotivo[motivo] = (porMotivo[motivo] || 0) + 1;
+    if (porLoja[r.loja] === undefined) porLoja[r.loja] = 0;
+    porLoja[r.loja] += 1;
+  });
+
+  const motivos = Object.entries(porMotivo).sort((a, b) => b[1] - a[1]);
+  const total = comJust.length;
+
+  // ===== PÓDIO: lojas que MENOS justificaram (melhor operacionalmente) =====
+  const lojasMenos = Object.entries(porLoja).sort((a, b) => a[1] - b[1]);
+  const podioItens = lojasMenos.slice(0, 3).map(([loja, q]) => {
+    const [cod, ...resto] = loja.split(" - ");
+    return {
+      codigo: cod,
+      nome: resto.join(" - ") || loja,
+      valorTexto: `${q} <span style="font-size:12px;font-weight:700;color:var(--an-txt-soft);">justif.</span>`,
+    };
+  });
+  const podioHtml = renderPodioAnalise(podioItens, "Lojas que menos justificaram");
+
+  if (!comJust.length) {
+    alvo.innerHTML = `
+      ${podioHtml}
+      <div class="dashboard-card span-12">
+        <div class="analise-aviso">Nenhuma justificativa registrada no período/escopo selecionado.</div>
+      </div>
+    `;
+    return;
+  }
+
+  const linhasMotivos = motivos
+    .map(
+      ([m, q]) => `
+      <tr>
+        <td>${escapeHtmlAnalise(m)}</td>
+        <td><span class="analise-badge">${q}</span></td>
+        <td>${((q / total) * 100).toFixed(1).replace(".", ",")}%</td>
+      </tr>`,
+    )
+    .join("");
+
+  // tabela: lojas que mais justificam (só as com 1+)
+  const lojasMais = Object.entries(porLoja)
+    .filter(([, q]) => q > 0)
+    .sort((a, b) => b[1] - a[1]);
+  const linhasLojas = lojasMais
+    .map(
+      ([loja, q]) => `
+      <tr>
+        <td>${escapeHtmlAnalise(loja)}</td>
+        <td><span class="analise-badge">${q}</span></td>
+      </tr>`,
+    )
+    .join("");
+
+  alvo.innerHTML = `
+    ${podioHtml}
+    <div class="dashboard-card span-12" style="margin-bottom:16px;">
+      <h3 style="margin:0 0 4px 0;">Motivos mais frequentes</h3>
+      <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">
+        ${total} justificativa(s) no período
+      </p>
+      <table class="analise-tabela-var">
+        <thead><tr><th>Justificativa</th><th>Qtd</th><th>%</th></tr></thead>
+        <tbody>${linhasMotivos}</tbody>
+      </table>
+    </div>
+    <div class="dashboard-card span-12">
+      <h3 style="margin:0 0 12px 0;">Lojas que mais justificam</h3>
+      <table class="analise-tabela-var">
+        <thead><tr><th>Loja</th><th>Qtd</th></tr></thead>
+        <tbody>${linhasLojas}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+// helpers locais simples
+function escapeHtmlAnalise(texto) {
+  return (texto ?? "")
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function capitalizarAnalise(texto) {
+  if (!texto) return "";
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+// ==========================
 // 📦 BUSCAR DADOS
 // ==========================
 async function carregarDadosAnalise(contexto) {
@@ -986,7 +1686,17 @@ async function carregarDadosAnalise(contexto) {
   `;
 
   try {
-    const semanasInfo = getPrimeiraEUltimaSemanaMesVigenteAnalise();
+    const semanasMes = analiseSemanasDoMes(ANALISE_STATE.mes);
+    const semanasUsar =
+      ANALISE_STATE.semana !== "TODAS" && semanasMes.includes(ANALISE_STATE.semana)
+        ? [ANALISE_STATE.semana]
+        : semanasMes;
+    const semanasInfo = {
+      lista: semanasUsar,
+      primeira: semanasUsar[0] || null,
+      ultima: semanasUsar[semanasUsar.length - 1] || null,
+      descricao: MESES_ANALISE[ANALISE_STATE.mes],
+    };
 
     const { data: lojasData, error: lojasError } = await window.db
       .from("lojas")
@@ -1040,6 +1750,24 @@ async function carregarDadosAnalise(contexto) {
     const resultadosVisuais = resultadosEscopoBase.filter((r) =>
       lojasVisuaisSet.has(r.loja),
     );
+
+    // roteamento por ABA
+    if (ANALISE_STATE.aba === "evolucao") {
+      await renderAbaEvolucao({ lojasBaseSet, lojasVisuaisSet });
+      return;
+    }
+    if (ANALISE_STATE.aba === "periodo") {
+      await renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet });
+      return;
+    }
+    if (ANALISE_STATE.aba === "justificativas") {
+      await renderAbaJustificativas({
+        resultados: resultadosVisuais,
+        lojasEscopoBase,
+        lojasVisuaisSet,
+      });
+      return;
+    }
 
     if (ANALISE_STATE.visao === "regional") {
       renderAnaliseRegional({
