@@ -1022,13 +1022,25 @@ function gerarOptionsMesesAnalise() {
 
 // semanas de um mês (índice 0-11) do ano vigente
 function analiseSemanasDoMes(indiceMes, ano = ANALISE_STATE.ano) {
+  // usa o MESMO cálculo das tabelas: a semana pertence ao mês cuja
+  // segunda-feira cai dentro dele (sem sobreposição entre meses)
+  if (
+    window.FiltroPeriodo &&
+    typeof window.FiltroPeriodo.getSemanasDoMes === "function"
+  ) {
+    return window.FiltroPeriodo.getSemanasDoMes(indiceMes + 1, ano);
+  }
+
+  // fallback: segunda-feira no mês
   const primeiroDia = new Date(ano, indiceMes, 1);
   const ultimoDia = new Date(ano, indiceMes + 1, 0);
   const set = new Set();
   for (let d = new Date(primeiroDia); d <= ultimoDia; d.setDate(d.getDate() + 1)) {
-    set.add(getNumeroSemanaPorDataAnalise(d).toString().padStart(2, "0"));
+    if (d.getDay() === 1) {
+      set.add(getNumeroSemanaPorDataAnalise(d).toString().padStart(2, "0"));
+    }
   }
-  return [...set];
+  return [...set].sort((a, b) => Number(a) - Number(b));
 }
 
 // ===== ANO (filtro oculto até existir dado de mais de um ano) =====
@@ -1359,6 +1371,8 @@ function menorMelhorPorIndicadorBanco(indBanco) {
 function calcularEvolucaoPorLoja(registros, semanas) {
   const porLoja = {};
   registros.forEach((r) => {
+    const temValor = r.valor !== null && r.valor !== undefined && r.valor !== "";
+    if (!temValor) return;
     const v = Number(r.valor);
     if (!isFinite(v)) return;
     porLoja[r.loja] = porLoja[r.loja] || {};
@@ -1390,6 +1404,9 @@ function calcularEvolucaoPorLoja(registros, semanas) {
 function calcularVariacaoPorLoja(registros, semanasAtual, semanasAnterior) {
   const porLoja = {};
   registros.forEach((r) => {
+    // valor null/"" NÃO vira 0 (registro só de justificativa é ignorado aqui)
+    const temValor = r.valor !== null && r.valor !== undefined && r.valor !== "";
+    if (!temValor) return;
     const v = Number(r.valor);
     if (!isFinite(v)) return;
     porLoja[r.loja] = porLoja[r.loja] || {};
@@ -1527,7 +1544,7 @@ function analiseAvisoSelecioneIndicador(alvo, msg) {
 }
 
 // ===== ABA 1: EVOLUÇÃO (tendência ao longo das semanas) =====
-async function renderAbaEvolucao({ lojasVisuaisSet }) {
+async function renderAbaEvolucao({ lojasVisuaisSet, lojasVisuais }) {
   garantirEstilosAbasAnalise();
   const alvo = document.getElementById("analiseConteudo");
   if (!alvo) return;
@@ -1538,17 +1555,28 @@ async function renderAbaEvolucao({ lojasVisuaisSet }) {
 
   // 📌 semana específica → mostra o VALOR daquela semana
   if (semanaEspecifica) {
-    await renderEvolucaoSemanaEspecifica({ lojasVisuaisSet, alvo, todosIndicadores });
+    await renderEvolucaoSemanaEspecifica({
+      lojasVisuaisSet,
+      lojasVisuais,
+      alvo,
+      todosIndicadores,
+    });
     return;
   }
 
   const semanas = analiseSemanasDoMes(ANALISE_STATE.mes);
+  const semanasBusca = [
+    ...new Set(semanas.flatMap((s) => [s, String(parseInt(s, 10))])),
+  ];
 
-  let query = window.db.from("resultados").select("*").in("semana", semanas);
+  let query = window.db.from("resultados").select("*").in("semana", semanasBusca);
   query = analiseAplicarFiltroAno(query);
   query = analiseFiltrarPorIndicadorClasse(query);
   const { data, error } = await query;
   if (error) throw error;
+  (data || []).forEach((r) => {
+    r.semana = String(r.semana).padStart(2, "0");
+  });
 
   const registros = (data || []).filter((r) => lojasVisuaisSet.has(r.loja));
 
@@ -1598,8 +1626,9 @@ async function renderAbaEvolucao({ lojasVisuaisSet }) {
   const porSemana = {};
   semanas.forEach((s) => (porSemana[s] = []));
   registros.forEach((r) => {
+    const temValor = r.valor !== null && r.valor !== undefined && r.valor !== "";
     const v = Number(r.valor);
-    if (porSemana[r.semana] && isFinite(v)) porSemana[r.semana].push(v);
+    if (porSemana[r.semana] && temValor && isFinite(v)) porSemana[r.semana].push(v);
   });
 
   const labels = semanas.map((s) => `Sem ${s}`);
@@ -1661,10 +1690,13 @@ async function renderAbaEvolucao({ lojasVisuaisSet }) {
 }
 
 // ===== SEMANA ESPECÍFICA: mostra o valor da semana selecionada =====
-async function renderEvolucaoSemanaEspecifica({ lojasVisuaisSet, alvo, todosIndicadores }) {
+async function renderEvolucaoSemanaEspecifica({ lojasVisuaisSet, lojasVisuais, alvo, todosIndicadores }) {
   const semana = ANALISE_STATE.semana;
+  const semVariantes = [semana, String(parseInt(semana, 10))].filter(
+    (v, i, a) => v && a.indexOf(v) === i,
+  );
 
-  let query = window.db.from("resultados").select("*").eq("semana", semana);
+  let query = window.db.from("resultados").select("*").in("semana", semVariantes);
   query = analiseAplicarFiltroAno(query);
   query = analiseFiltrarPorIndicadorClasse(query);
   const { data, error } = await query;
@@ -1672,56 +1704,70 @@ async function renderEvolucaoSemanaEspecifica({ lojasVisuaisSet, alvo, todosIndi
 
   const registros = (data || []).filter((r) => lojasVisuaisSet.has(r.loja));
 
-  if (!registros.length) {
-    renderPodioAnalise([], `Semana ${semana}`);
-    analiseAvisoSelecioneIndicador(
-      alvo,
-      `Sem dados lançados para a semana ${semana}.`,
-    );
-    return;
-  }
+  // lista completa de lojas visíveis (todas sempre aparecem)
+  const todasLojas = (lojasVisuais || []).map((l) => {
+    const chave = getChaveLojaAnalise(l);
+    return { chave, codigo: String(l.codigo), nome: l.nome || chave };
+  });
 
   // ----- 1 indicador: tabela com o VALOR de cada loja na semana -----
   if (!todosIndicadores) {
     const tipo = analiseTipoIndicadorAtual();
     const menorMelhor = analiseMenorMelhor();
 
+    // pré-popula TODAS as lojas visíveis (garante que as 29 apareçam)
     const porLoja = {};
+    todasLojas.forEach((l) => {
+      porLoja[l.chave] = {
+        codigo: l.codigo,
+        nome: l.nome,
+        valores: [],
+        justificativa: "",
+      };
+    });
+
     registros.forEach((r) => {
-      const key = r.loja;
-      if (!porLoja[key]) porLoja[key] = { valores: [], justificativa: "" };
-      const v = Number(r.valor);
-      if (
-        r.valor !== null &&
-        r.valor !== undefined &&
-        r.valor !== "" &&
-        isFinite(v)
-      ) {
-        porLoja[key].valores.push(v);
+      if (!porLoja[r.loja]) {
+        const partes = String(r.loja).split(" - ");
+        porLoja[r.loja] = {
+          codigo: partes.shift() || r.loja,
+          nome: partes.join(" - ") || r.loja,
+          valores: [],
+          justificativa: "",
+        };
       }
-      if (r.justificativa) porLoja[key].justificativa = String(r.justificativa);
+      const v = Number(r.valor);
+      if (r.valor !== null && r.valor !== undefined && r.valor !== "" && isFinite(v)) {
+        porLoja[r.loja].valores.push(v);
+      }
+      if (r.justificativa) porLoja[r.loja].justificativa = String(r.justificativa);
     });
 
     const comValor = [];
-    const semResposta = []; // sem valor, mas com justificativa → vão por último
-    Object.entries(porLoja).forEach(([loja, info]) => {
-      const partes = String(loja).split(" - ");
-      const codigo = partes.shift() || loja;
-      const nome = partes.join(" - ") || loja;
-
+    const semResposta = []; // sem valor, COM justificativa → vão por último
+    const semDados = []; // sem valor e sem justificativa
+    Object.values(porLoja).forEach((info) => {
       if (info.valores.length) {
         const val = analiseAgregar(info.valores, tipo);
         if (val !== null && isFinite(val)) {
-          comValor.push({ codigo, nome, valor: val, justificativa: info.justificativa });
+          comValor.push({
+            codigo: info.codigo,
+            nome: info.nome,
+            valor: val,
+            justificativa: info.justificativa,
+          });
           return;
         }
       }
       if (info.justificativa) {
-        semResposta.push({ codigo, nome, justificativa: info.justificativa });
+        semResposta.push({ codigo: info.codigo, nome: info.nome, justificativa: info.justificativa });
+      } else {
+        semDados.push({ codigo: info.codigo, nome: info.nome });
       }
     });
 
     comValor.sort((a, b) => (menorMelhor ? a.valor - b.valor : b.valor - a.valor));
+    semDados.sort((a, b) => String(a.nome).localeCompare(String(b.nome), "pt-BR"));
     semResposta.sort((a, b) =>
       String(a.nome).localeCompare(String(b.nome), "pt-BR"),
     );
@@ -1756,11 +1802,23 @@ async function renderEvolucaoSemanaEspecifica({ lojasVisuaisSet, alvo, todosIndi
       )
       .join("");
 
+    const linhasSemDados = semDados
+      .map(
+        (l) => `
+        <tr style="opacity:0.7;">
+          <td><span class="analise-badge" style="background:rgba(148,163,184,0.18);color:#8e9cb3;">—</span></td>
+          <td><strong>${l.codigo}</strong> ${escapeHtmlAnalise(l.nome)}</td>
+          <td><span style="color:var(--an-txt-soft);">Sem dados</span></td>
+          ${celJust("")}
+        </tr>`,
+      )
+      .join("");
+
     const linhasSemResposta = semResposta
       .map(
         (l) => `
         <tr style="opacity:0.9;">
-          <td><span class="analise-badge" style="background:rgba(148,163,184,0.25);color:#8e9cb3;">—</span></td>
+          <td><span class="analise-badge" style="background:rgba(251,191,36,0.2);color:#fbbf24;">—</span></td>
           <td><strong>${l.codigo}</strong> ${escapeHtmlAnalise(l.nome)}</td>
           <td><span style="color:var(--an-txt-soft);">Sem resposta</span></td>
           ${celJust(l.justificativa)}
@@ -1768,15 +1826,17 @@ async function renderEvolucaoSemanaEspecifica({ lojasVisuaisSet, alvo, todosIndi
       )
       .join("");
 
+    const total = comValor.length + semDados.length + semResposta.length;
+
     alvo.innerHTML = `
       <div class="dashboard-card span-12">
         <h3 style="margin:0 0 4px 0;">Valores da semana ${semana} — ${escapeHtmlAnalise(ANALISE_STATE.indicador)}</h3>
         <p style="margin:0 0 12px 0;color:var(--an-txt-soft);font-size:12px;">
-          ${menorMelhor ? "Menor valor é melhor" : "Maior valor é melhor"} • ${comValor.length} com valor${semResposta.length ? ` • ${semResposta.length} sem resposta (ao final)` : ""}
+          ${menorMelhor ? "Menor valor é melhor" : "Maior valor é melhor"} • ${total} loja(s) • ${comValor.length} com valor${semResposta.length ? ` • ${semResposta.length} com justificativa (ao final)` : ""}
         </p>
         <table class="analise-tabela-var">
           <thead><tr><th>#</th><th>Loja</th><th>Valor</th>${colJustHead}</tr></thead>
-          <tbody>${linhasComValor}${linhasSemResposta}</tbody>
+          <tbody>${linhasComValor}${linhasSemDados}${linhasSemResposta}</tbody>
         </table>
       </div>
     `;
@@ -1833,6 +1893,8 @@ async function renderEvolucaoSemanaEspecifica({ lojasVisuaisSet, alvo, todosIndi
 function calcularDestaqueSemana(registros) {
   const porInd = {};
   registros.forEach((r) => {
+    const temValor = r.valor !== null && r.valor !== undefined && r.valor !== "";
+    if (!temValor) return;
     const v = Number(r.valor);
     if (!isFinite(v)) return;
     (porInd[r.indicador] = porInd[r.indicador] || []).push({ loja: r.loja, valor: v });
@@ -1934,12 +1996,21 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
   const mesAnterior = periodos.anterior;
   const toggleHtml = analiseToggleComparativoHtml();
   const todas = [...new Set([...mesAtual.semanas, ...mesAnterior.semanas])];
+  // busca padded ("05") e sem zero ("5") para não perder lançamentos por formato
+  const todasBusca = [
+    ...new Set(todas.flatMap((s) => [s, String(parseInt(s, 10))])),
+  ];
 
-  let query = window.db.from("resultados").select("*").in("semana", todas);
+  let query = window.db.from("resultados").select("*").in("semana", todasBusca);
   query = analiseAplicarFiltroAno(query);
   query = analiseFiltrarPorIndicadorClasse(query);
   const { data, error } = await query;
   if (error) throw error;
+
+  // normaliza a semana de cada registro para "NN" (casa com mesAtual/mesAnterior)
+  (data || []).forEach((r) => {
+    r.semana = String(r.semana).padStart(2, "0");
+  });
 
   const registros = (data || []).filter((r) => lojasVisuaisSet.has(r.loja));
 
@@ -1995,48 +2066,97 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
   lojasEscopoBase.forEach((l) => {
     const chave = getChaveLojaAnalise(l);
     if (lojasVisuaisSet.has(chave)) {
-      mapaLoja[chave] = { nome: l.nome, codigo: l.codigo, atual: [], anterior: [] };
+      mapaLoja[chave] = {
+        nome: l.nome,
+        codigo: l.codigo,
+        atual: [],
+        anterior: [],
+        justAtual: "",
+        justAnterior: "",
+      };
     }
   });
   registros.forEach((r) => {
+    if (!mapaLoja[r.loja]) return;
+
+    const ehAtual = mesAtual.semanas.includes(r.semana);
+    const ehAnterior = mesAnterior.semanas.includes(r.semana);
+    if (!ehAtual && !ehAnterior) return;
+
+    // captura a justificativa (sem resposta) de cada período
+    if (r.justificativa) {
+      if (ehAtual) mapaLoja[r.loja].justAtual = String(r.justificativa);
+      else mapaLoja[r.loja].justAnterior = String(r.justificativa);
+    }
+
+    // só empurra valor REAL (null/"" NÃO viram 0)
+    const temValor = r.valor !== null && r.valor !== undefined && r.valor !== "";
+    if (!temValor) return;
     const v = Number(r.valor);
-    if (!mapaLoja[r.loja] || !isFinite(v)) return;
-    if (mesAtual.semanas.includes(r.semana)) mapaLoja[r.loja].atual.push(v);
-    else if (mesAnterior.semanas.includes(r.semana)) mapaLoja[r.loja].anterior.push(v);
+    if (!isFinite(v)) return;
+
+    if (ehAtual) mapaLoja[r.loja].atual.push(v);
+    else mapaLoja[r.loja].anterior.push(v);
   });
 
   const menorMelhor = analiseMenorMelhor();
-  const linhas = Object.values(mapaLoja)
-    .map((l) => {
-      const at = analiseAgregar(l.atual, tipo);
-      const an = analiseAgregar(l.anterior, tipo);
-      let variacao = null;
-      if (at !== null && an !== null && an !== 0) variacao = ((at - an) / Math.abs(an)) * 100;
-      const melhora = variacao === null ? null : menorMelhor ? -variacao : variacao;
-      return { ...l, at, an, variacao, melhora };
-    })
-    .filter((l) => l.at !== null || l.an !== null)
+  const todasLinhas = Object.values(mapaLoja).map((l) => {
+    const at = analiseAgregar(l.atual, tipo);
+    const an = analiseAgregar(l.anterior, tipo);
+    let variacao = null;
+    if (at !== null && an !== null && an !== 0) variacao = ((at - an) / Math.abs(an)) * 100;
+    const melhora = variacao === null ? null : menorMelhor ? -variacao : variacao;
+    return { ...l, at, an, variacao, melhora };
+  });
+
+  // lojas com valor no período em foco (atual) → rankeadas
+  const comValor = todasLinhas
+    .filter((l) => l.at !== null)
     .sort((a, b) => (b.melhora ?? -Infinity) - (a.melhora ?? -Infinity));
 
-  if (!linhas.length) {
-    analiseAvisoSelecioneIndicador(alvo, "Sem dados suficientes para comparar os dois meses.");
+  // sem valor no período em foco (justificativa ou só período anterior) → por último
+  const semResposta = todasLinhas
+    .filter((l) => l.at === null && (l.justAtual || l.an !== null || l.justAnterior))
+    .sort((a, b) => String(a.nome).localeCompare(String(b.nome), "pt-BR"));
+
+  const ordenadas = [...comValor, ...semResposta];
+
+  if (!ordenadas.length) {
+    analiseAvisoSelecioneIndicador(alvo, "Sem dados suficientes para comparar os dois períodos.");
     return;
   }
 
-  const linhasHtml = linhas
+  // célula de valor: valor real, ou justificativa destacada, ou "sem resposta"
+  const celValor = (valor, just) => {
+    if (valor !== null) return analiseFormatar(valor, tipo);
+    if (just) return `<span style="color:#fbbf24;font-size:11px;font-weight:700;">${escapeHtmlAnalise(just)}</span>`;
+    return `<span style="color:var(--an-txt-soft);">—</span>`;
+  };
+
+  const linhasHtml = ordenadas
     .map((l, i) => {
+      const ehSemResposta = l.at === null;
+
       let varCell = '<span class="analise-var-igual">—</span>';
-      if (l.melhora !== null) {
+      if (!ehSemResposta && l.melhora !== null) {
         const cls = l.melhora > 0.05 ? "analise-var-sobe" : l.melhora < -0.05 ? "analise-var-desce" : "analise-var-igual";
         const seta = l.melhora > 0.05 ? "▲" : l.melhora < -0.05 ? "▼" : "—";
         varCell = `<span class="${cls}">${seta} ${Math.abs(l.melhora).toFixed(1).replace(".", ",")}%</span>`;
       }
+
+      const badge = ehSemResposta
+        ? `<span class="analise-badge" style="background:rgba(251,191,36,0.2);color:#fbbf24;">—</span>`
+        : `<span class="analise-badge">${i + 1}</span>`;
+
+      const celAtual = celValor(l.at, l.justAtual);
+      const celAnterior = celValor(l.an, l.justAnterior);
+
       return `
-        <tr>
-          <td><span class="analise-badge">${i + 1}</span></td>
+        <tr ${ehSemResposta ? 'style="opacity:0.92;"' : ""}>
+          <td>${badge}</td>
           <td><strong>${l.codigo}</strong> ${escapeHtmlAnalise(l.nome)}</td>
-          <td>${analiseFormatar(l.an, tipo)}</td>
-          <td>${analiseFormatar(l.at, tipo)}</td>
+          <td>${periodos.modo === "semana" ? celAtual : celAnterior}</td>
+          <td>${periodos.modo === "semana" ? celAnterior : celAtual}</td>
           <td>${varCell}</td>
         </tr>
       `;
@@ -2055,8 +2175,8 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
           <tr>
             <th>#</th>
             <th>Loja</th>
-            <th>${capitalizarAnalise(mesAnterior.rotulo)}</th>
-            <th>${capitalizarAnalise(mesAtual.rotulo)}</th>
+            <th>${capitalizarAnalise((periodos.modo === "semana" ? mesAtual : mesAnterior).rotulo)}</th>
+            <th>${capitalizarAnalise((periodos.modo === "semana" ? mesAnterior : mesAtual).rotulo)}</th>
             <th>Evolução</th>
           </tr>
         </thead>
@@ -2249,11 +2369,11 @@ async function carregarDadosAnalise(contexto) {
 
     // roteamento por ABA
     if (ANALISE_STATE.aba === "evolucao") {
-      await renderAbaEvolucao({ lojasBaseSet, lojasVisuaisSet });
+      await renderAbaEvolucao({ lojasBaseSet, lojasVisuaisSet, lojasVisuais });
       return;
     }
     if (ANALISE_STATE.aba === "periodo") {
-      await renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet });
+      await renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet, lojasVisuais });
       return;
     }
     if (ANALISE_STATE.aba === "justificativas") {

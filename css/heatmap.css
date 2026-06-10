@@ -309,6 +309,20 @@
 }
 .matriz-celula:hover { transform: scale(1.06); position: relative; z-index: 1; }
 .matriz-vazia { background: #1a2c3d !important; color: #5a7286 !important; font-weight: 500; }
+.matriz-justificativa {
+  background: #2a2410 !important;
+  vertical-align: middle;
+  padding: 4px 6px !important;
+}
+.matriz-justif-txt {
+  display: block;
+  color: #fbbf24;
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: normal;
+  word-break: break-word;
+}
 
 /* ============================================================
    🎬 MODO APRESENTAÇÃO (DATA SHOW) — preenche a tela TODA

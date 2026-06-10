@@ -1871,7 +1871,11 @@ function renderMatrizRegional(
       const indBanco = normalizarIndicadorBancoComparativo(r.indicador);
 
       if (!lojas[chaveLoja].indicadores[indBanco]) {
-        lojas[chaveLoja].indicadores[indBanco] = { valor: [], valor2: [] };
+        lojas[chaveLoja].indicadores[indBanco] = {
+          valor: [],
+          valor2: [],
+          justificativa: "",
+        };
       }
 
       const slot = lojas[chaveLoja].indicadores[indBanco];
@@ -1882,6 +1886,8 @@ function renderMatrizRegional(
           if (Number.isFinite(numero)) slot[campo].push(numero);
         }
       });
+      // justificativa (sem resposta) — usada quando não há valor na semana
+      if (r.justificativa) slot.justificativa = String(r.justificativa);
     });
 
   const colunas = indicadoresMeta;
@@ -1894,6 +1900,23 @@ function renderMatrizRegional(
 
     return agregarValoresComparativo(arr, ind.tipo);
   };
+
+  // justificativa (sem resposta) da loja para o indicador — só Ruptura/Etiqueta têm
+  const justificativaCelula = (lojaObj, ind) => {
+    const slot = lojaObj?.indicadores?.[ind.banco];
+    return slot && slot.justificativa ? String(slot.justificativa) : "";
+  };
+
+  const escMatriz = (t) =>
+    String(t ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  // semana específica selecionada (não "Mês inteiro")
+  const semanaEspecificaSel =
+    COMPARATIVO_STATE.semana && COMPARATIVO_STATE.semana !== "TODAS";
 
   const nomesLojas = Object.keys(lojas).sort((a, b) => {
     const la = lojas[a];
@@ -1948,6 +1971,13 @@ function renderMatrizRegional(
           const v = valorCelula(lojaObj, ind);
 
           if (v === null || v === undefined || !Number.isFinite(v)) {
+            // sem valor: se há semana específica e justificativa, mostra o motivo destacado
+            const just = justificativaCelula(lojaObj, ind);
+            if (semanaEspecificaSel && just) {
+              return `<td class="matriz-celula matriz-justificativa" title="${escMatriz(just)}">
+                <span class="matriz-justif-txt">${escMatriz(just)}</span>
+              </td>`;
+            }
             return `<td class="matriz-celula matriz-vazia">—</td>`;
           }
 
