@@ -1138,10 +1138,7 @@ async function buscarResultadosComparativoBase({
 
   const variantesSemana = getVariantesSemanasComparativo(semanasFiltro);
 
-  let query = window.db
-    .from("resultados")
-    .select("*")
-    .eq("ano_referencia", anoReferencia);
+  let query = window.db.from("resultados").select("*");
 
   if (variantesSemana.length) {
     query = query.in("semana", variantesSemana);
@@ -1364,7 +1361,7 @@ async function carregarDadosComparativos() {
     const umaRegional = regionais.length === 1;
 
     if (COMPARATIVO_STATE.indicador === "TODOS") {
-      const indicadoresMeta = getIndicadoresMatrizComparativo();
+      const indicadoresMeta = getColunasMatrizComparativo();
 
       alvo.innerHTML = `
         ${infoPeriodoHtml}
@@ -1719,6 +1716,46 @@ function getIndicadoresMatrizComparativo() {
   });
 }
 
+// colunas da matriz: expande indicadores de 2 campos (ex: Televendas → Part % + Margem)
+function getColunasMatrizComparativo() {
+  const colunas = [];
+
+  getIndicadoresComparativoLista().forEach((i) => {
+    const classe = i.classe || getClasseOficialIndicadorComparativo(i.valor);
+    const banco = normalizarIndicadorBancoComparativo(
+      getIndicadorBancoComparativo(i.valor, classe)
+    );
+    const menorMelhor = menorEhMelhorComparativo(i.valor, classe);
+
+    let campos = null;
+    if (typeof getIndicadorConfig === "function") {
+      try {
+        campos = getIndicadorConfig(i.valor, classe)?.campos || null;
+      } catch (e) {}
+    }
+    if (!campos || !campos.length) {
+      campos = [
+        { key: "valor", label: i.nome, tipo: getTipoCampoComparativo(i.valor, classe) },
+      ];
+    }
+
+    const dupla = campos.length > 1;
+    campos.forEach((campo) => {
+      colunas.push({
+        valor: i.valor,
+        classe,
+        banco,
+        campo: campo.key || "valor",
+        nome: dupla ? `${i.nome} · ${campo.label}` : i.nome,
+        tipo: campo.tipo || getTipoCampoComparativo(i.valor, classe),
+        menorMelhor,
+      });
+    });
+  });
+
+  return colunas;
+}
+
 function formatarCelulaMatriz(valor, tipo) {
   const n = Number(valor);
 
@@ -1834,22 +1871,24 @@ function renderMatrizRegional(
       const indBanco = normalizarIndicadorBancoComparativo(r.indicador);
 
       if (!lojas[chaveLoja].indicadores[indBanco]) {
-        lojas[chaveLoja].indicadores[indBanco] = [];
+        lojas[chaveLoja].indicadores[indBanco] = { valor: [], valor2: [] };
       }
 
-      if (r.valor !== null && r.valor !== undefined && r.valor !== "") {
-        const numero = Number(r.valor);
-
-        if (Number.isFinite(numero)) {
-          lojas[chaveLoja].indicadores[indBanco].push(numero);
+      const slot = lojas[chaveLoja].indicadores[indBanco];
+      ["valor", "valor2"].forEach((campo) => {
+        const raw = r[campo];
+        if (raw !== null && raw !== undefined && raw !== "") {
+          const numero = Number(raw);
+          if (Number.isFinite(numero)) slot[campo].push(numero);
         }
-      }
+      });
     });
 
   const colunas = indicadoresMeta;
 
   const valorCelula = (lojaObj, ind) => {
-    const arr = lojaObj?.indicadores?.[ind.banco];
+    const slot = lojaObj?.indicadores?.[ind.banco];
+    const arr = slot ? slot[ind.campo || "valor"] : null;
 
     if (!arr || !arr.length) return null;
 
@@ -1881,7 +1920,7 @@ function renderMatrizRegional(
       .map((lojaKey) => valorCelula(lojas[lojaKey], ind))
       .filter((v) => v !== null && v !== undefined && Number.isFinite(v));
 
-    faixaColuna[ind.banco] = {
+    faixaColuna[`${ind.banco}::${ind.campo}`] = {
       min: vals.length ? Math.min(...vals) : 0,
       max: vals.length ? Math.max(...vals) : 0,
     };
@@ -1920,7 +1959,7 @@ function renderMatrizRegional(
             fundo = c.fundo;
             texto = c.texto;
           } else {
-            const { min, max } = faixaColuna[ind.banco];
+            const { min, max } = faixaColuna[`${ind.banco}::${ind.campo}`];
             const intens = calcularIntensidadeHeatmap(
               v,
               min,
