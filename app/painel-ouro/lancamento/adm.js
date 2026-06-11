@@ -240,7 +240,7 @@
         }
         pontuacao += pts;
         const valor = String(reg[ind] ?? "").trim();
-        return { indicador: ind, resultado: valor === "" ? null : valor, peso: peso, pontos: pts };
+        return { indicador: ind, resultado: valor === "" ? null : valor, Ponto: peso, pontos: pts };
       });
 
       payloads.push({
@@ -251,6 +251,25 @@
       });
     });
     return payloads;
+  }
+
+
+  // ☁️ AUTO-SAVE por blur (padrão OnePage): ao sair de qualquer campo,
+  // grava no banco a(s) loja(s) preenchida(s). Debounce por loja no poSync.
+  function poLigarAutoSave() {
+    const tb = document.getElementById("po-adm-tbody");
+    if (!tb || tb.dataset.autosave === "1" || !window.poSync || !window.poSync.salvarUmaLoja) return;
+    tb.dataset.autosave = "1";
+    tb.addEventListener("blur", (e) => {
+      const t = e.target;
+      if (!t || t.tagName !== "INPUT") return;
+      try {
+        const ano = Number(anoAtivo);
+        const mes = Number(mesAtivo) + 1;
+        const payloads = poMontarPayloadsSupabase();
+        payloads.forEach(p => window.poSync.salvarUmaLoja(PO_SYNC_SLUG, ano, mes, p));
+      } catch (err) { console.error("auto-save blur falhou", err); }
+    }, true); // captura: pega o blur de inputs filhos
   }
 
   function poAplicarDadosRemotos(mapa) {
@@ -479,9 +498,9 @@
         <th colspan="2">CONCLUSÃO DE TREINAMENTOS</th>
       </tr>
       <tr class="row-subheaders">
-        <th>RESULTADO</th><th>PESO</th>
-        <th>RESULTADO</th><th>PESO</th>
-        <th>RESULTADO</th><th>PESO</th>
+        <th>RESULTADO</th><th>Ponto</th>
+        <th>RESULTADO</th><th>Ponto</th>
+        <th>RESULTADO</th><th>Ponto</th>
       </tr>
     `;
     table.appendChild(thead);
@@ -522,6 +541,7 @@
 
     atualizarTabelaCorpo();
     poSincronizarRemoto();
+    poLigarAutoSave();
   };
 
   // Auto-render no DOMContentLoaded removido: a tela é aberta apenas pelo Sidebar Ouro,

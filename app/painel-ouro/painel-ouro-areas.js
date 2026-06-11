@@ -105,11 +105,13 @@ function poAreasCorPontos(pontos, peso) {
 async function poCarregarIndicadoresArea(areaSlug) {
   const { data, error } = await window.db
     .from("painel_ouro_indicadores_config")
-    .select("nome, peso, ordem")
+    .select('nome, "Ponto", ordem')
     .eq("area_slug", areaSlug)
     .order("ordem", { ascending: true });
 
   if (error) { poErr("Erro ao carregar indicadores da área", error); return []; }
+  // Normaliza a coluna "Ponto" (banco) para a chave .peso usada no código.
+  (data || []).forEach(d => { d.peso = d["Ponto"]; });
   return data || [];
 }
 

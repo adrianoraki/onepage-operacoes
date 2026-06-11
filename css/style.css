@@ -37,9 +37,9 @@ body {
   overflow: hidden;
 }
 
-/* 👑 MODO PAINEL DE OURO — troca a imagem de fundo (teclado → painelouro) */
+/* 👑 MODO PAINEL DE OURO — troca a imagem de fundo (teclado → ouro.jpg) */
 body.po-modo-ouro .main_box {
-  background-image: url("/assets/ouro.png");
+  background-image: url("/assets/ouro.jpg");
 }
 
 .main_box::before {

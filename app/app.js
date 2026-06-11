@@ -680,6 +680,11 @@ async function logout() {
 
     window.dashboardModoApresentacao = false;
 
+    // 👑 Sai do modo Painel de Ouro ao deslogar — evita que o login seguinte
+    // restaure o painel automaticamente (fundo do ouro + base do OnePage misturados).
+    try { sessionStorage.removeItem("po_modo_ouro"); } catch (_) {}
+    document.body.classList.remove("po-modo-ouro");
+
     if (typeof window.pausarTimerInatividade === "function") {
       window.pausarTimerInatividade();
     }

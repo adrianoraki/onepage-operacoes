@@ -244,8 +244,8 @@
         const ptsV = (nV !== null && nV >= METAS_REFERENCIA[d].vendas) ? 1 : 0;
         const ptsQ = (nQ !== null && nQ >= METAS_REFERENCIA[d].quebras) ? 1 : 0;
         pontuacao += ptsV + ptsQ;
-        subs.push({ indicador: `${d}_vendas`,  resultado: vV === "" ? null : vV, peso: 1, pontos: ptsV });
-        subs.push({ indicador: `${d}_quebras`, resultado: vQ === "" ? null : vQ, peso: 1, pontos: ptsQ });
+        subs.push({ indicador: `${d}_vendas`,  resultado: vV === "" ? null : vV, Ponto: 1, pontos: ptsV });
+        subs.push({ indicador: `${d}_quebras`, resultado: vQ === "" ? null : vQ, Ponto: 1, pontos: ptsQ });
       });
 
       payloads.push({
@@ -256,6 +256,25 @@
       });
     });
     return payloads;
+  }
+
+
+  // ☁️ AUTO-SAVE por blur (padrão OnePage): ao sair de qualquer campo,
+  // grava no banco a(s) loja(s) preenchida(s). Debounce por loja no poSync.
+  function poLigarAutoSave() {
+    const tb = document.getElementById("po-servicos-tbody");
+    if (!tb || tb.dataset.autosave === "1" || !window.poSync || !window.poSync.salvarUmaLoja) return;
+    tb.dataset.autosave = "1";
+    tb.addEventListener("blur", (e) => {
+      const t = e.target;
+      if (!t || t.tagName !== "INPUT") return;
+      try {
+        const ano = Number(anoAtivo);
+        const mes = Number(mesAtivo) + 1;
+        const payloads = poMontarPayloadsSupabase();
+        payloads.forEach(p => window.poSync.salvarUmaLoja(PO_SYNC_SLUG, ano, mes, p));
+      } catch (err) { console.error("auto-save blur falhou", err); }
+    }, true); // captura: pega o blur de inputs filhos
   }
 
   function poAplicarDadosRemotos(mapa) {
@@ -533,20 +552,20 @@
         <th colspan="2" class="th-sub">VENDAS</th><th colspan="2" class="th-sub">QUEBRAS</th>
       </tr>
       <tr>
-        <th class="th-res-vendas">RESULTADO</th><th class="th-peso-vendas">PESO</th>
-        <th class="th-res-quebras">RESULTADO</th><th class="th-peso-quebras">PESO</th>
+        <th class="th-res-vendas">RESULTADO</th><th class="th-peso-vendas">Ponto</th>
+        <th class="th-res-quebras">RESULTADO</th><th class="th-peso-quebras">Ponto</th>
         
-        <th class="th-res-vendas">RESULTADO</th><th class="th-peso-vendas">PESO</th>
-        <th class="th-res-quebras">RESULTADO</th><th class="th-peso-quebras">PESO</th>
+        <th class="th-res-vendas">RESULTADO</th><th class="th-peso-vendas">Ponto</th>
+        <th class="th-res-quebras">RESULTADO</th><th class="th-peso-quebras">Ponto</th>
         
-        <th class="th-res-vendas">RESULTADO</th><th class="th-peso-vendas">PESO</th>
-        <th class="th-res-quebras">RESULTADO</th><th class="th-peso-quebras">PESO</th>
+        <th class="th-res-vendas">RESULTADO</th><th class="th-peso-vendas">Ponto</th>
+        <th class="th-res-quebras">RESULTADO</th><th class="th-peso-quebras">Ponto</th>
         
-        <th class="th-res-vendas">RESULTADO</th><th class="th-peso-vendas">PESO</th>
-        <th class="th-res-quebras">RESULTADO</th><th class="th-peso-quebras">PESO</th>
+        <th class="th-res-vendas">RESULTADO</th><th class="th-peso-vendas">Ponto</th>
+        <th class="th-res-quebras">RESULTADO</th><th class="th-peso-quebras">Ponto</th>
         
-        <th class="th-res-vendas">RESULTADO</th><th class="th-peso-vendas">PESO</th>
-        <th class="th-res-quebras">RESULTADO</th><th class="th-peso-quebras">PESO</th>
+        <th class="th-res-vendas">RESULTADO</th><th class="th-peso-vendas">Ponto</th>
+        <th class="th-res-quebras">RESULTADO</th><th class="th-peso-quebras">Ponto</th>
       </tr>
     `;
     table.appendChild(thead);
@@ -587,6 +606,7 @@
 
     atualizarTabelaCorpo();
     poSincronizarRemoto();
+    poLigarAutoSave();
   };
 
   // Auto-render no DOMContentLoaded removido: a tela é aberta apenas pelo Sidebar Ouro,

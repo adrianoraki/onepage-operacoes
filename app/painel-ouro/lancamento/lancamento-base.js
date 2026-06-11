@@ -287,6 +287,8 @@ async function poLbCarregarIndicadores(slug) {
     .eq("ativo", true)
     .order("ordem");
   if (error) { poLbErr("Erro indicadores", error); return []; }
+  // Normaliza a coluna "Ponto" (banco) para a chave .peso usada no código.
+  (data || []).forEach(d => { if (d.peso == null && d["Ponto"] != null) d.peso = d["Ponto"]; });
   return data || [];
 }
 
@@ -568,13 +570,13 @@ window.poLbSalvarTudo = async function() {
         const atingiu = PO_LB.binario[cod] === true;
         const pts = atingiu ? Number(ind.peso) : 0;
         pontuacao = pts;
-        sub = [{ indicador: ind.nome, resultado: atingiu ? "sim" : "nao", peso: Number(ind.peso), pontos: pts }];
+        sub = [{ indicador: ind.nome, resultado: atingiu ? "sim" : "nao", Ponto: Number(ind.peso), pontos: pts }];
       } else {
         PO_LB.indicadores.forEach(ind => {
           const val = PO_LB.valores[cod]?.[ind.nome] || "";
           const pts = poLbCalcularPontos(ind, val) ?? 0;
           pontuacao += pts;
-          sub.push({ indicador: ind.nome, resultado: val === "" ? null : val, peso: Number(ind.peso), pontos: pts });
+          sub.push({ indicador: ind.nome, resultado: val === "" ? null : val, Ponto: Number(ind.peso), pontos: pts });
         });
       }
 

@@ -464,7 +464,7 @@ window.poAbrirDetalhe = async function (codigo) {
       <tr>
         <td style="color:#5d6b78">${s.indicador}</td>
         <td style="text-align:right">${s.resultado == null ? "–" : s.resultado}</td>
-        <td style="text-align:right;font-weight:700;color:${Number(s.pontos) > 0 ? "#1e7d45" : "#c0392b"}">${poFmt(s.pontos)} / ${poFmt(s.peso)}</td>
+        <td style="text-align:right;font-weight:700;color:${Number(s.pontos) > 0 ? "#1e7d45" : "#c0392b"}">${poFmt(s.pontos)} / ${poFmt(s.Ponto != null ? s.Ponto : s.peso)}</td>
       </tr>`).join("");
     return `<div class="po-detalhe-area">
       <div class="po-detalhe-area-top"><span>${NOMES_AREA[d.area_slug] || d.area_slug}</span><span>${poFmt(obt)} / ${poFmt(mx)} pts</span></div>

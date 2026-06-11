@@ -73,6 +73,22 @@ console.log("✅ supabase-sync.js carregado");
       .po-sync-toast.visivel { opacity: 1; transform: translateY(0); }
       .po-sync-toast.ok  { background: rgba(46,160,98,0.96); }
       .po-sync-toast.err { background: rgba(231,76,60,0.96); }
+      .po-auto-status {
+        position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(8px);
+        z-index: 9100; padding: 9px 18px; border-radius: 999px;
+        font-family: "Poppins", Inter, sans-serif; font-size: 12px; font-weight: 700;
+        color: #fff; opacity: 0; transition: all 0.2s; pointer-events: none;
+        display: flex; align-items: center; gap: 8px;
+      }
+      .po-auto-status.visivel { opacity: 1; transform: translateX(-50%) translateY(0); }
+      .po-auto-status.salvando { background: rgba(201,162,39,0.96); }
+      .po-auto-status.salvo    { background: rgba(46,160,98,0.96); }
+      .po-auto-status.erro     { background: rgba(231,76,60,0.96); }
+      .po-auto-dot {
+        width: 10px; height: 10px; border: 2px solid rgba(255,255,255,0.5);
+        border-top-color: #fff; border-radius: 50%; animation: poAutoSpin 0.6s linear infinite;
+      }
+      @keyframes poAutoSpin { to { transform: rotate(360deg); } }
     `;
     document.head.appendChild(s);
   }
@@ -159,12 +175,12 @@ console.log("✅ supabase-sync.js carregado");
 
     const info = document.createElement("span");
     info.className = "po-supabase-info";
-    info.textContent = "Os dados digitados ficam guardados localmente; clique para gravar no banco.";
+    info.textContent = "Salvamento automático ao sair de cada campo. Use o botão para gravar tudo de uma vez.";
 
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "po-supabase-btn";
-    btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar no banco';
+    btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Salvar tudo agora';
     btn.addEventListener("click", () => onSalvar(btn));
 
     bar.appendChild(info);
@@ -172,5 +188,61 @@ console.log("✅ supabase-sync.js carregado");
     return bar;
   }
 
-  window.poSync = { salvar, carregar, toast, criarBarraSalvar };
+  /**
+   * Salva UMA loja (uma linha) com auto-save por blur, em fila/debounce
+   * por loja para não disparar várias gravações simultâneas.
+   * payload = { loja_codigo, pontuacao_obtida, pontuacao_maxima, sub_resultados }
+   * Mostra um indicador discreto de status (salvando / salvo / erro).
+   */
+  const _filaAuto = {};        // chave: slug|ano|mes|loja → timeout
+  async function _gravarLinha(slug, ano, mes, payload) {
+    if (!clienteDisponivel()) throw new Error("Banco indisponível");
+    let userId = null;
+    try { const { data } = await window.db.auth.getUser(); userId = data?.user?.id || null; } catch (e) {}
+    const row = {
+      ...payload,
+      area_slug: slug, ano: Number(ano), mes: Number(mes),
+      lancado_por: userId, lancado_em: new Date().toISOString(), ativo: true,
+    };
+    const { error } = await window.db
+      .from("painel_ouro_resultados")
+      .upsert([row], { onConflict: "loja_codigo,area_slug,ano,mes", ignoreDuplicates: false });
+    if (error) throw error;
+  }
+
+  function statusAuto(estado) {
+    // estado: "salvando" | "salvo" | "erro"
+    let el = document.getElementById("po-auto-status");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "po-auto-status";
+      el.className = "po-auto-status";
+      document.body.appendChild(el);
+    }
+    if (estado === "salvando") { el.className = "po-auto-status salvando visivel"; el.innerHTML = '<span class="po-auto-dot"></span> Salvando…'; }
+    else if (estado === "salvo") { el.className = "po-auto-status salvo visivel"; el.innerHTML = "✓ Salvo no banco"; clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("visivel"), 1600); }
+    else { el.className = "po-auto-status erro visivel"; el.innerHTML = "✕ Erro ao salvar"; clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("visivel"), 4000); }
+  }
+
+  /**
+   * Auto-save por loja: agenda a gravação ~400ms após o último blur,
+   * agrupando edições rápidas na mesma loja.
+   */
+  function salvarUmaLoja(slug, ano, mes, payload) {
+    if (!payload || !payload.loja_codigo) return;
+    const chave = `${slug}|${ano}|${mes}|${payload.loja_codigo}`;
+    clearTimeout(_filaAuto[chave]);
+    _filaAuto[chave] = setTimeout(async () => {
+      try {
+        statusAuto("salvando");
+        await _gravarLinha(slug, ano, mes, payload);
+        statusAuto("salvo");
+      } catch (err) {
+        console.error("☁️ auto-save falhou", err);
+        statusAuto("erro");
+      }
+    }, 400);
+  }
+
+  window.poSync = { salvar, carregar, toast, criarBarraSalvar, salvarUmaLoja };
 })();

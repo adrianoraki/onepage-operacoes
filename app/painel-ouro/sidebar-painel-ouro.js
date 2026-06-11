@@ -197,7 +197,7 @@ console.log("✅ sidebar-painel-ouro.js carregado");
   position: relative;
   overflow: hidden;
 
-  /* fundo translúcido — deixa a imagem painelouro.jpg aparecer atrás,
+  /* fundo translúcido — deixa a imagem ouro.jpg aparecer atrás,
      com leve blur e tom quente para manter o texto dourado legível */
   background: linear-gradient(180deg,
     rgba(14,12,8,0.42) 0%,
@@ -834,7 +834,7 @@ window.entrarModoOuro = async function() {
   // Marca o modo ouro como ativo (persiste no refresh)
   try { sessionStorage.setItem("po_modo_ouro", "1"); } catch (_) {}
 
-  // 🖼️ Troca a imagem de fundo (teclado → painelouro.jpg) e ativa o tema ouro
+  // 🖼️ Troca a imagem de fundo (teclado → ouro.jpg) e ativa o tema ouro
   document.body.classList.add("po-modo-ouro");
 
   // Substitui o sidebar pelo ouro (sem loading screen — silencioso)
@@ -926,6 +926,13 @@ window.sairModoOuro = async function() {
     let flag = null;
     try { flag = sessionStorage.getItem("po_modo_ouro"); } catch (_) {}
     if (flag !== "1") return;
+
+    // Só restaura se houver usuário logado de fato (evita reentrar no painel
+    // após logout/login, quando a flag possa ter sobrevivido na mesma aba).
+    const temUsuario = typeof window.getUsuarioLogado === "function"
+      ? !!window.getUsuarioLogado()
+      : true;
+    if (!temUsuario) { try { sessionStorage.removeItem("po_modo_ouro"); } catch (_) {} return; }
 
     // espera o app estar pronto: sidebar + função de entrar + módulo
     const sidebarEl = document.getElementById("sidebar");
