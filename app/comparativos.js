@@ -331,15 +331,59 @@ function normalizarIndicadorBancoComparativo(valor) {
 
   if (v === "BANCOS DE HORAS") v = "BANCO DE HORAS";
   if (v === "DEVOLUCAO") v = "DEVOLUÇÃO";
+  if (v === "DEVOLUCOES" || v === "DEVOLUÇÕES") v = "DEVOLUÇÃO";
   if (v === "QUEBRA ACOUGUE") v = "QUEBRA AÇOUGUE";
   if (v === "VISITA PROSPECCAO") v = "VISITA PROSPECÇÃO";
+
+  // variantes no plural / com acento que impedem o "match" da loja
+  if (v === "CANCELAMENTOS") v = "CANCELAMENTO";
+  if (v === "DESCONTOS") v = "DESCONTO";
+  if (v === "TROCAS") v = "TROCA";
+  if (v === "QUEBRAS") v = "QUEBRA";
 
   return v;
 }
 
+// Converte valores que podem vir como número OU string formatada em padrão BR
+// (ex: "R$ 1.234,56", "1.335.250,00", "2,43", "  -10 "). Retorna NaN se não der.
+function parseNumeroComparativo(raw) {
+  if (raw === null || raw === undefined) return NaN;
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : NaN;
+
+  let s = String(raw).trim();
+  if (!s) return NaN;
+
+  // remove R$, %, espaços e qualquer caractere que não seja dígito, ponto, vírgula ou sinal
+  s = s.replace(/[^\d.,\-]/g, "");
+  if (!s || s === "-" || s === "." || s === ",") return NaN;
+
+  const temVirgula = s.includes(",");
+  const temPonto = s.includes(".");
+
+  if (temVirgula && temPonto) {
+    // formato BR: 1.234.567,89 → ponto = milhar, vírgula = decimal
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else if (temVirgula) {
+    // só vírgula → separador decimal BR
+    s = s.replace(",", ".");
+  } else if (temPonto) {
+    // só ponto: pode ser milhar (1.234 = 1234) ou decimal (2.43 = 2,43).
+    // heurística: se o último grupo tiver exatamente 3 dígitos, é separador de milhar.
+    const partes = s.split(".");
+    const ultima = partes[partes.length - 1];
+    if (partes.length > 1 && ultima.length === 3) {
+      s = partes.join(""); // 1.234 / 1.234.567 → milhar
+    }
+    // senão mantém como decimal (2.43, 12.5, etc.)
+  }
+
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+
 function calcularMediaComparativo(lista = []) {
   const numeros = (lista || [])
-    .map((v) => Number(v))
+    .map((v) => parseNumeroComparativo(v))
     .filter((v) => !Number.isNaN(v) && Number.isFinite(v));
 
   if (!numeros.length) return null;
@@ -349,7 +393,7 @@ function calcularMediaComparativo(lista = []) {
 
 function somarComparativo(lista = []) {
   const numeros = (lista || [])
-    .map((v) => Number(v))
+    .map((v) => parseNumeroComparativo(v))
     .filter((v) => !Number.isNaN(v) && Number.isFinite(v));
 
   if (!numeros.length) return null;
@@ -1286,6 +1330,13 @@ async function carregarDadosComparativos() {
     const semanasEncontradas =
       extrairSemanasDosResultadosComparativo(resultadosNorm);
 
+    // diagnóstico: nomes de indicadores que vieram do banco (ajuda a achar variações
+    // de nome que impedem o "match" — ex: "CANCELAMENTOS" vs "CANCELAMENTO")
+    const indicadoresNoBanco = [
+      ...new Set(resultadosNorm.map((r) => r.indicador).filter(Boolean)),
+    ].sort();
+    console.log("🏷️ Indicadores encontrados no banco:", indicadoresNoBanco);
+
     const infoPeriodoHtml = semanaEspecifica
       ? `
         <div class="comparativo-info-periodo">
@@ -1472,12 +1523,10 @@ function renderComparativoRegional(
         };
       }
 
-      if (r.valor !== null && r.valor !== undefined && r.valor !== "") {
-        const numero = Number(r.valor);
-
-        if (Number.isFinite(numero)) {
-          mapaLojas[chave].valores.push(numero);
-        }
+      const numero = parseNumeroComparativo(r.valor);
+      // zero é valor válido (ex: semana sem desconto/cancelamento = R$ 0,00)
+      if (Number.isFinite(numero)) {
+        mapaLojas[chave].valores.push(numero);
       }
     });
 
@@ -1880,13 +1929,11 @@ function renderMatrizRegional(
 
       const slot = lojas[chaveLoja].indicadores[indBanco];
       ["valor", "valor2"].forEach((campo) => {
-        const raw = r[campo];
-        if (raw !== null && raw !== undefined && raw !== "") {
-          const numero = Number(raw);
-          if (Number.isFinite(numero)) slot[campo].push(numero);
-        }
+        const numero = parseNumeroComparativo(r[campo]);
+        // inclui zero como valor válido (ex: DESCONTO/CANCELAMENTO = R$ 0,00)
+        if (Number.isFinite(numero)) slot[campo].push(numero);
       });
-      // justificativa (sem resposta) — usada quando não há valor na semana
+      // guarda a justificativa (sem resposta) — exibida quando a célula não tiver valor
       if (r.justificativa) slot.justificativa = String(r.justificativa);
     });
 
@@ -1901,7 +1948,8 @@ function renderMatrizRegional(
     return agregarValoresComparativo(arr, ind.tipo);
   };
 
-  // justificativa (sem resposta) da loja para o indicador — só Ruptura/Etiqueta têm
+  // justificativa (sem resposta) da loja para o indicador — exibida quando a célula
+  // não tem valor numérico (vale tanto para "Mês inteiro" quanto para semana específica)
   const justificativaCelula = (lojaObj, ind) => {
     const slot = lojaObj?.indicadores?.[ind.banco];
     return slot && slot.justificativa ? String(slot.justificativa) : "";
@@ -1913,10 +1961,6 @@ function renderMatrizRegional(
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
-
-  // semana específica selecionada (não "Mês inteiro")
-  const semanaEspecificaSel =
-    COMPARATIVO_STATE.semana && COMPARATIVO_STATE.semana !== "TODAS";
 
   const nomesLojas = Object.keys(lojas).sort((a, b) => {
     const la = lojas[a];
@@ -1971,9 +2015,9 @@ function renderMatrizRegional(
           const v = valorCelula(lojaObj, ind);
 
           if (v === null || v === undefined || !Number.isFinite(v)) {
-            // sem valor: se há semana específica e justificativa, mostra o motivo destacado
+            // sem valor: se a loja deixou justificativa no preenchimento, mostra o motivo
             const just = justificativaCelula(lojaObj, ind);
-            if (semanaEspecificaSel && just) {
+            if (just) {
               return `<td class="matriz-celula matriz-justificativa" title="${escMatriz(just)}">
                 <span class="matriz-justif-txt">${escMatriz(just)}</span>
               </td>`;
