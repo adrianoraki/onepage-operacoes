@@ -10,12 +10,12 @@
     s.id = "po-adm-styles";
     s.textContent = `
       .painel-adm {
-        background: linear-gradient(180deg, #0f1418 0%, #12161a 100%);
-        color: #f4e7b2;
-        border: 1px solid rgba(212,175,55,0.12);
+        background: #ffffff;
+        color: #2c3a47;
+        border: 1px solid #e6e1d3;
         padding: 18px;
         border-radius: 10px;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+        box-shadow: 0 4px 16px rgba(15,23,42,0.08);
         margin: 18px 0;
         font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
       }
@@ -23,7 +23,7 @@
       .painel-adm h2 {
         margin: 0 0 16px 0;
         font-size: 18px;
-        color: #ffd966;
+        color: #9a7b1c;
         display: flex;
         align-items: center;
         gap: 10px;
@@ -34,10 +34,10 @@
         gap: 12px;
         margin-bottom: 20px;
         flex-wrap: wrap;
-        background: rgba(255,255,255,0.02);
+        background: #faf8f2;
         padding: 12px;
         border-radius: 8px;
-        border: 1px solid rgba(212,175,55,0.05);
+        border: 1px solid #efe9d8;
       }
 
       .po-adm-control {
@@ -50,14 +50,14 @@
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 1px;
-        color: rgba(201,162,39,0.6);
+        color: #a08a3c;
         font-weight: 700;
       }
 
       .po-adm-select {
-        background: #161c22;
-        border: 1px solid rgba(212,175,55,0.2);
-        color: #f4e7b2;
+        background: #ffffff;
+        border: 1px solid #d9cfae;
+        color: #2c3a47;
         padding: 6px 12px;
         border-radius: 6px;
         font-family: inherit;
@@ -67,12 +67,12 @@
         transition: border-color 0.2s;
       }
 
-      .po-adm-select:focus { border-color: #ffd966; }
+      .po-adm-select:focus { border-color: #9a7b1c; }
 
       .table-adm-container {
         overflow-x: auto;
         border-radius: 8px;
-        border: 1px solid rgba(212,175,55,0.1);
+        border: 1px solid #e6e1d3;
       }
 
       .table-adm {
@@ -88,33 +88,33 @@
         font-weight: 700;
         padding: 6px 4px;
         text-align: center;
-        border: 1px solid rgba(255,255,255,0.08);
+        border: 1px solid #eee9da;
       }
 
-      .row-metas th { background: #e5cbb7; color: #1e293b; font-size: 12px !important; }
-      .row-indicadores th { background: #2c3545; color: #fff; letter-spacing: 0.5px; }
-      .row-subheaders th { background: #1a2432; color: #ffd966; font-size: 10px !important; }
+      .row-metas th { background: #f3e8d8; color: #1e293b; font-size: 12px !important; }
+      .row-indicadores th { background: #44546a; color: #fff; letter-spacing: 0.5px; }
+      .row-subheaders th { background: #eef2f7; color: #8a6d1f; font-size: 10px !important; }
       
-      .th-fixa { background: #11161d !important; color: #ffd966 !important; }
-      .th-total-pontos { background: #b25e10 !important; color: #fff !important; font-size: 12px !important; }
+      .th-fixa { background: #f6f1e3 !important; color: #8a6d1f !important; }
+      .th-total-pontos { background: #c9a227 !important; color: #fff !important; font-size: 12px !important; }
 
       .table-adm tbody td {
         padding: 6px 8px;
         font-size: 13px;
-        color: #e9e1b8;
-        border: 1px solid rgba(255,255,255,0.04);
-        background: rgba(0,0,0,0.1);
+        color: #3a4a5a;
+        border: 1px solid #f0ece0;
+        background: #ffffff;
       }
 
       .table-adm tbody tr:hover td {
-        background: rgba(212,175,55,0.03);
-        color: #fff;
+        background: #faf6ea;
+        color: #1f2d3a;
       }
 
       .po-adm-input {
-        background: rgba(0, 0, 0, 0.4);
-        border: 1px solid rgba(212,175,55,0.15);
-        color: #fff;
+        background: #fdfcf8;
+        border: 1px solid #d9cfae;
+        color: #2c3a47;
         padding: 4px 6px;
         border-radius: 4px;
         width: 85px;
@@ -125,9 +125,9 @@
       }
 
       .po-adm-input:focus {
-        background: #161c22;
-        border-color: #ffd966;
-        box-shadow: 0 0 6px rgba(255,217,102,0.3);
+        background: #ffffff;
+        border-color: #9a7b1c;
+        box-shadow: 0 0 0 3px rgba(201,162,39,0.15);
         outline: none;
       }
 
@@ -140,12 +140,12 @@
         min-width: 20px;
         text-align: center;
       }
-      .badge-adm-pts.ganhou { background: #2e7d32; color: #fff; }
-      .badge-adm-pts.perdeu { background: rgba(255,255,255,0.05); color: #888; }
+      .badge-adm-pts.ganhou { background: #dff3e6; color: #1e7d45; }
+      .badge-adm-pts.perdeu { background: #f1f1ee; color: #9aa3ad; }
 
-      .res-good { color: #9be67a; font-weight:700; }
-      .res-bad  { color: #ff8a8a; font-weight:700; }
-      .td-total-final { font-weight: 800; color: #ffd966; text-align: center; background: rgba(212,175,55,0.05) !important; }
+      .res-good { color: #1e7d45; font-weight:700; }
+      .res-bad  { color: #c0392b; font-weight:700; }
+      .td-total-final { font-weight: 800; color: #9a7b1c; text-align: center; background: rgba(201,162,39,0.10) !important; }
     `;
     document.head.appendChild(s);
   })();
@@ -214,9 +214,98 @@
     localStorage.setItem("po_db_adm_ne", JSON.stringify(dbAdm));
   }
 
+  // ============================================================
+  // ☁️ INTEGRAÇÃO SUPABASE — grava/recupera em painel_ouro_resultados
+  // ============================================================
+  const PO_SYNC_SLUG = "adm";
+  const PO_SYNC_MAX = 10;
+
+  function poMontarPayloadsSupabase() {
+    const payloads = [];
+    LISTA_LOJAS.forEach(loja => {
+      const reg = dbAdm[anoAtivo]?.[mesAtivo]?.[loja.codigo];
+      if (!reg) return;
+      const preenchido = INDICADORES.some(ind => String(reg[ind] ?? "").trim() !== "");
+      if (!preenchido) return;
+
+      let pontuacao = 0;
+      const subs = INDICADORES.map(ind => {
+        const cfg = METAS_ADM[ind];
+        const peso = cfg ? cfg.peso : 0;
+        const n = converterInputParaNumero(reg[ind]);
+        let pts = 0;
+        if (n !== null && cfg) {
+          const ok = cfg.operacao === "maior_igual" ? (n >= cfg.target) : (n <= cfg.target);
+          pts = ok ? peso : 0;
+        }
+        pontuacao += pts;
+        const valor = String(reg[ind] ?? "").trim();
+        return { indicador: ind, resultado: valor === "" ? null : valor, peso: peso, pontos: pts };
+      });
+
+      payloads.push({
+        loja_codigo: loja.codigo,
+        pontuacao_obtida: pontuacao,
+        pontuacao_maxima: PO_SYNC_MAX,
+        sub_resultados: subs,
+      });
+    });
+    return payloads;
+  }
+
+  function poAplicarDadosRemotos(mapa) {
+    if (!mapa || !Object.keys(mapa).length) return false;
+    let aplicou = false;
+    Object.entries(mapa).forEach(([cod, subs]) => {
+      if (!dbAdm[anoAtivo]) dbAdm[anoAtivo] = {};
+      if (!dbAdm[anoAtivo][mesAtivo]) dbAdm[anoAtivo][mesAtivo] = {};
+      if (!dbAdm[anoAtivo][mesAtivo][cod]) dbAdm[anoAtivo][mesAtivo][cod] = {};
+      const reg = dbAdm[anoAtivo][mesAtivo][cod];
+      (subs || []).forEach(s => {
+        if (INDICADORES.includes(s.indicador)) {
+          reg[s.indicador] = s.resultado == null ? "" : String(s.resultado);
+          aplicou = true;
+        }
+      });
+    });
+    if (aplicou) salvarNoStorage();
+    return aplicou;
+  }
+
+  async function poSincronizarRemoto() {
+    if (!window.poSync) return;
+    try {
+      const mapa = await window.poSync.carregar(PO_SYNC_SLUG, Number(anoAtivo), Number(mesAtivo) + 1);
+      if (poAplicarDadosRemotos(mapa)) atualizarTabelaCorpo();
+    } catch (e) {
+      console.error("☁️ Falha ao sincronizar com o banco:", e);
+    }
+  }
+
+  async function poSalvarRemoto(btn) {
+    if (!window.poSync) { alert("Módulo de sincronização indisponível."); return; }
+    const payloads = poMontarPayloadsSupabase();
+    if (!payloads.length) { window.poSync.toast("Nenhuma loja preenchida para salvar.", false); return; }
+    const txtOriginal = btn ? btn.innerHTML : "";
+    try {
+      if (btn) { btn.disabled = true; btn.innerHTML = "Salvando…"; }
+      const qtd = await window.poSync.salvar(PO_SYNC_SLUG, Number(anoAtivo), Number(mesAtivo) + 1, payloads);
+      window.poSync.toast(`✓ ${qtd} lojas salvas no banco!`, true);
+    } catch (err) {
+      console.error("☁️ Erro ao salvar no banco:", err);
+      window.poSync.toast(`Erro ao salvar: ${err.message || "tente novamente"}`, false);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = txtOriginal; }
+    }
+  }
+
+
   function converterInputParaNumero(valorStr) {
     if (!valorStr || valorStr.trim() === "") return null;
-    let limpo = valorStr.replace("%", "").replace(/\s/g, "").replace(",", ".");
+    let limpo = valorStr.replace("R$", "").replace("%", "").replace(/\s/g, "");
+    if (limpo.includes(",")) {
+      limpo = limpo.replace(/\./g, "").replace(",", ".");
+    }
     let num = parseFloat(limpo);
     return isNaN(num) ? null : num;
   }
@@ -243,6 +332,7 @@
     selectAno.addEventListener("change", (e) => {
       anoAtivo = e.target.value;
       atualizarTabelaCorpo();
+      poSincronizarRemoto();
     });
     divAno.appendChild(selectAno);
 
@@ -261,6 +351,7 @@
     selectMes.addEventListener("change", (e) => {
       mesAtivo = e.target.value;
       atualizarTabelaCorpo();
+      poSincronizarRemoto();
     });
     divMes.appendChild(selectMes);
 
@@ -401,6 +492,12 @@
 
     tableContainer.appendChild(table);
     wrapper.appendChild(tableContainer);
+
+    // Barra de salvamento no Supabase
+    if (window.poSync) {
+      wrapper.appendChild(window.poSync.criarBarraSalvar(poSalvarRemoto));
+    }
+
     return wrapper;
   }
 
@@ -424,15 +521,11 @@
     container.appendChild(section);
 
     atualizarTabelaCorpo();
+    poSincronizarRemoto();
   };
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const main = document.getElementById('conteudo');
-    if (main && (main.innerHTML.trim() === '' || main.innerHTML.includes('Carregando'))) {
-      main.innerHTML = '';
-      window.renderAdmTable(main);
-    }
-  });
+  // Auto-render no DOMContentLoaded removido: a tela é aberta apenas pelo Sidebar Ouro,
+  // evitando que a tabela sobrescreva o dashboard principal no carregamento da página.
 })();
 
 // Ativador oficial disparado por clique no seu sidebar-painel-ouro.js

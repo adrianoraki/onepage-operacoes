@@ -10,12 +10,12 @@
     s.id = "servicos-styles";
     s.textContent = `
       .painel-servicos {
-        background: linear-gradient(180deg, #0f1418 0%, #12161a 100%);
-        color: #f4e7b2;
-        border: 1px solid rgba(212,175,55,0.12);
+        background: #ffffff;
+        color: #2c3a47;
+        border: 1px solid #e6e1d3;
         padding: 18px;
         border-radius: 10px;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+        box-shadow: 0 4px 16px rgba(15,23,42,0.08);
         margin: 18px 0;
         font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
       }
@@ -23,7 +23,7 @@
       .painel-servicos h2 {
         margin: 0 0 16px 0;
         font-size: 18px;
-        color: #ffd966;
+        color: #9a7b1c;
         display: flex;
         align-items: center;
         gap: 10px;
@@ -34,10 +34,10 @@
         gap: 12px;
         margin-bottom: 20px;
         flex-wrap: wrap;
-        background: rgba(255,255,255,0.02);
+        background: #faf8f2;
         padding: 12px;
         border-radius: 8px;
-        border: 1px solid rgba(212,175,55,0.05);
+        border: 1px solid #efe9d8;
       }
 
       .po-servicos-control {
@@ -50,14 +50,14 @@
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 1px;
-        color: rgba(201,162,39,0.6);
+        color: #a08a3c;
         font-weight: 700;
       }
 
       .po-servicos-select {
-        background: #161c22;
-        border: 1px solid rgba(212,175,55,0.2);
-        color: #f4e7b2;
+        background: #ffffff;
+        border: 1px solid #d9cfae;
+        color: #2c3a47;
         padding: 6px 12px;
         border-radius: 6px;
         font-family: inherit;
@@ -67,12 +67,12 @@
         transition: border-color 0.2s;
       }
 
-      .po-servicos-select:focus { border-color: #ffd966; }
+      .po-servicos-select:focus { border-color: #9a7b1c; }
 
       .table-servicos-container {
         overflow-x: auto;
         border-radius: 8px;
-        border: 1px solid rgba(212,175,55,0.1);
+        border: 1px solid #e6e1d3;
       }
 
       .table-servicos {
@@ -88,37 +88,37 @@
         font-weight: 700;
         padding: 6px 4px;
         text-align: center;
-        border: 1px solid rgba(255,255,255,0.08);
+        border: 1px solid #eee9da;
       }
 
-      .th-dep { background: #1a2432; color: #ffd966; font-size: 13px !important; letter-spacing: 1px; }
-      .th-meta { background: #232a35; color: #cfc6a0; font-weight: 600; }
-      .th-sub { background: #2c3545; color: #fff; font-size: 10px !important; }
+      .th-dep { background: #eef2f7; color: #8a6d1f; font-size: 13px !important; letter-spacing: 1px; }
+      .th-meta { background: #eef2f7; color: #5d6b78; font-weight: 600; }
+      .th-sub { background: #44546a; color: #fff; font-size: 10px !important; }
       
       /* Cores de Fundo das Colunas de Categoria */
-      .th-res-vendas { background: #2e5432; color: #fff; }
-      .th-peso-vendas { background: #1c3d5a; color: #fff; }
-      .th-res-quebras { background: #7a2020; color: #fff; }
-      .th-peso-quebras { background: #7c4215; color: #fff; }
+      .th-res-vendas { background: #e3f2e8; color: #1e7d45; }
+      .th-peso-vendas { background: #e3ecf6; color: #2f5d8a; }
+      .th-res-quebras { background: #fbe9e7; color: #a13a2e; }
+      .th-peso-quebras { background: #f7eddc; color: #9a6a1f; }
       .th-total-pontos { background: #b25e10; color: #fff; font-size: 12px !important; }
 
       .table-servicos tbody td {
         padding: 6px 8px;
         font-size: 13px;
-        color: #e9e1b8;
-        border: 1px solid rgba(255,255,255,0.04);
-        background: rgba(0,0,0,0.1);
+        color: #3a4a5a;
+        border: 1px solid #f0ece0;
+        background: #ffffff;
       }
 
       .table-servicos tbody tr:hover td {
-        background: rgba(212,175,55,0.03);
-        color: #fff;
+        background: #faf6ea;
+        color: #1f2d3a;
       }
 
       .po-servicos-input {
-        background: rgba(0, 0, 0, 0.4);
-        border: 1px solid rgba(212,175,55,0.15);
-        color: #fff;
+        background: #fdfcf8;
+        border: 1px solid #d9cfae;
+        color: #2c3a47;
         padding: 4px 6px;
         border-radius: 4px;
         width: 75px;
@@ -129,9 +129,9 @@
       }
 
       .po-servicos-input:focus {
-        background: #161c22;
-        border-color: #ffd966;
-        box-shadow: 0 0 6px rgba(255,217,102,0.3);
+        background: #ffffff;
+        border-color: #9a7b1c;
+        box-shadow: 0 0 0 3px rgba(201,162,39,0.15);
         outline: none;
       }
 
@@ -144,12 +144,12 @@
         min-width: 20px;
         text-align: center;
       }
-      .badge-pts.ganhou { background: #2e7d32; color: #fff; }
-      .badge-pts.perdeu { background: rgba(255,255,255,0.05); color: #888; }
+      .badge-pts.ganhou { background: #dff3e6; color: #1e7d45; }
+      .badge-pts.perdeu { background: #f1f1ee; color: #9aa3ad; }
 
-      .res-good { color: #9be67a; font-weight:700; }
-      .res-bad  { color: #ff8a8a; font-weight:700; }
-      .td-total-final { font-weight: 800; color: #ffd966; text-align: center; background: rgba(212,175,55,0.05) !important; }
+      .res-good { color: #1e7d45; font-weight:700; }
+      .res-bad  { color: #c0392b; font-weight:700; }
+      .td-total-final { font-weight: 800; color: #9a7b1c; text-align: center; background: rgba(201,162,39,0.10) !important; }
     `;
     document.head.appendChild(s);
   })();
@@ -220,10 +220,102 @@
     localStorage.setItem("po_db_servicos_assai", JSON.stringify(dbServicos));
   }
 
+  // ============================================================
+  // ☁️ INTEGRAÇÃO SUPABASE — grava/recupera em painel_ouro_resultados
+  // ============================================================
+  const PO_SYNC_SLUG = "servicos_assai";
+
+  function poMontarPayloadsSupabase() {
+    const payloads = [];
+    LISTA_LOJAS.forEach(loja => {
+      const reg = dbServicos[anoAtivo]?.[mesAtivo]?.[loja.codigo];
+      if (!reg) return;
+      const preenchido = DEPARTAMENTOS.some(d =>
+        String(reg[d]?.vendas ?? "").trim() !== "" || String(reg[d]?.quebras ?? "").trim() !== "");
+      if (!preenchido) return;
+
+      let pontuacao = 0;
+      const subs = [];
+      DEPARTAMENTOS.forEach(d => {
+        const vV = String(reg[d]?.vendas ?? "").trim();
+        const vQ = String(reg[d]?.quebras ?? "").trim();
+        const nV = converterInputParaNumero(vV);
+        const nQ = converterInputParaNumero(vQ);
+        const ptsV = (nV !== null && nV >= METAS_REFERENCIA[d].vendas) ? 1 : 0;
+        const ptsQ = (nQ !== null && nQ >= METAS_REFERENCIA[d].quebras) ? 1 : 0;
+        pontuacao += ptsV + ptsQ;
+        subs.push({ indicador: `${d}_vendas`,  resultado: vV === "" ? null : vV, peso: 1, pontos: ptsV });
+        subs.push({ indicador: `${d}_quebras`, resultado: vQ === "" ? null : vQ, peso: 1, pontos: ptsQ });
+      });
+
+      payloads.push({
+        loja_codigo: loja.codigo,
+        pontuacao_obtida: pontuacao,
+        pontuacao_maxima: 10,
+        sub_resultados: subs,
+      });
+    });
+    return payloads;
+  }
+
+  function poAplicarDadosRemotos(mapa) {
+    if (!mapa || !Object.keys(mapa).length) return false;
+    let aplicou = false;
+    Object.entries(mapa).forEach(([cod, subs]) => {
+      if (!dbServicos[anoAtivo]) dbServicos[anoAtivo] = {};
+      if (!dbServicos[anoAtivo][mesAtivo]) dbServicos[anoAtivo][mesAtivo] = {};
+      if (!dbServicos[anoAtivo][mesAtivo][cod]) {
+        dbServicos[anoAtivo][mesAtivo][cod] = {};
+        DEPARTAMENTOS.forEach(d => { dbServicos[anoAtivo][mesAtivo][cod][d] = { vendas: "", quebras: "" }; });
+      }
+      const reg = dbServicos[anoAtivo][mesAtivo][cod];
+      (subs || []).forEach(s => {
+        DEPARTAMENTOS.forEach(d => {
+          if (!reg[d]) reg[d] = { vendas: "", quebras: "" };
+          if (s.indicador === `${d}_vendas`)  { reg[d].vendas  = s.resultado == null ? "" : String(s.resultado); aplicou = true; }
+          if (s.indicador === `${d}_quebras`) { reg[d].quebras = s.resultado == null ? "" : String(s.resultado); aplicou = true; }
+        });
+      });
+    });
+    if (aplicou) salvarNoStorage();
+    return aplicou;
+  }
+
+  async function poSincronizarRemoto() {
+    if (!window.poSync) return;
+    try {
+      const mapa = await window.poSync.carregar(PO_SYNC_SLUG, Number(anoAtivo), Number(mesAtivo) + 1);
+      if (poAplicarDadosRemotos(mapa)) atualizarTabelaCorpo();
+    } catch (e) {
+      console.error("☁️ Falha ao sincronizar com o banco:", e);
+    }
+  }
+
+  async function poSalvarRemoto(btn) {
+    if (!window.poSync) { alert("Módulo de sincronização indisponível."); return; }
+    const payloads = poMontarPayloadsSupabase();
+    if (!payloads.length) { window.poSync.toast("Nenhuma loja preenchida para salvar.", false); return; }
+    const txtOriginal = btn ? btn.innerHTML : "";
+    try {
+      if (btn) { btn.disabled = true; btn.innerHTML = "Salvando…"; }
+      const qtd = await window.poSync.salvar(PO_SYNC_SLUG, Number(anoAtivo), Number(mesAtivo) + 1, payloads);
+      window.poSync.toast(`✓ ${qtd} lojas salvas no banco!`, true);
+    } catch (err) {
+      console.error("☁️ Erro ao salvar no banco:", err);
+      window.poSync.toast(`Erro ao salvar: ${err.message || "tente novamente"}`, false);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = txtOriginal; }
+    }
+  }
+
+
   // Helper para converter string de input formatada para float matemático pura
   function converterInputParaNumero(valorStr) {
     if (!valorStr || valorStr.trim() === "") return null;
-    let limpo = valorStr.replace("%", "").replace(/\s/g, "").replace(",", ".");
+    let limpo = valorStr.replace("R$", "").replace("%", "").replace(/\s/g, "");
+    if (limpo.includes(",")) {
+      limpo = limpo.replace(/\./g, "").replace(",", ".");
+    }
     let num = parseFloat(limpo);
     return isNaN(num) ? null : num;
   }
@@ -251,6 +343,7 @@
     selectAno.addEventListener("change", (e) => {
       anoAtivo = e.target.value;
       atualizarTabelaCorpo();
+      poSincronizarRemoto();
     });
     divAno.appendChild(selectAno);
 
@@ -269,6 +362,7 @@
     selectMes.addEventListener("change", (e) => {
       mesAtivo = e.target.value;
       atualizarTabelaCorpo();
+      poSincronizarRemoto();
     });
     divMes.appendChild(selectMes);
 
@@ -415,8 +509,8 @@
     const thead = document.createElement('thead');
     thead.innerHTML = `
       <tr>
-        <th rowspan="4" style="background:#11161d; color:#ffd966; font-size:12px;">CÓDIGO</th>
-        <th rowspan="4" style="background:#11161d; color:#ffd966; font-size:12px; text-align:left; padding-left:10px;">LOJA</th>
+        <th rowspan="4" style="background:#f6f1e3; color:#8a6d1f; font-size:12px;">CÓDIGO</th>
+        <th rowspan="4" style="background:#f6f1e3; color:#8a6d1f; font-size:12px; text-align:left; padding-left:10px;">LOJA</th>
         <th colspan="4" class="th-dep">AÇOUGUE</th>
         <th colspan="4" class="th-dep">C. EMBALADAS</th>
         <th colspan="4" class="th-dep">EMPÓRIO</th>
@@ -463,6 +557,12 @@
 
     tableContainer.appendChild(table);
     wrapper.appendChild(tableContainer);
+
+    // Barra de salvamento no Supabase
+    if (window.poSync) {
+      wrapper.appendChild(window.poSync.criarBarraSalvar(poSalvarRemoto));
+    }
+
     return wrapper;
   }
 
@@ -486,15 +586,11 @@
     container.appendChild(section);
 
     atualizarTabelaCorpo();
+    poSincronizarRemoto();
   };
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const main = document.getElementById('conteudo');
-    if (main && (main.innerHTML.trim() === '' || main.innerHTML.includes('Carregando'))) {
-      main.innerHTML = '';
-      window.renderServicosAssaiTable(main);
-    }
-  });
+  // Auto-render no DOMContentLoaded removido: a tela é aberta apenas pelo Sidebar Ouro,
+  // evitando que a tabela sobrescreva o dashboard principal no carregamento da página.
 })();
 
 // Conector acionado pela rota "servicos_assai" do Sidebar Ouro

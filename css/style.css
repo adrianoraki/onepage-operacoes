@@ -37,12 +37,23 @@ body {
   overflow: hidden;
 }
 
+/* 👑 MODO PAINEL DE OURO — troca a imagem de fundo (teclado → painelouro) */
+body.po-modo-ouro .main_box {
+  background-image: url("/assets/ouro.png");
+}
+
 .main_box::before {
   content: "";
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
   z-index: 0;
+  transition: background 0.3s ease;
+}
+
+/* No modo ouro o overlay fica mais leve e quente para a foto aparecer */
+body.po-modo-ouro .main_box::before {
+  background: linear-gradient(180deg, rgba(8,6,3,0.34) 0%, rgba(12,9,4,0.42) 100%);
 }
 
 /* ==========================

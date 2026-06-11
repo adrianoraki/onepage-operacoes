@@ -197,15 +197,18 @@ console.log("✅ sidebar-painel-ouro.js carregado");
   position: relative;
   overflow: hidden;
 
-  /* fundo escuro quente — diferente do sidebar padrão (frio) */
+  /* fundo translúcido — deixa a imagem painelouro.jpg aparecer atrás,
+     com leve blur e tom quente para manter o texto dourado legível */
   background: linear-gradient(180deg,
-    #0e0c08 0%,
-    #140f06 40%,
-    #0e0b06 100%
+    rgba(14,12,8,0.42) 0%,
+    rgba(20,15,6,0.50) 40%,
+    rgba(14,11,6,0.42) 100%
   );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 
-  border-right: 1px solid rgba(201,162,39,0.14);
-  box-shadow: 8px 0 32px rgba(0,0,0,0.35);
+  border-right: 1px solid rgba(201,162,39,0.18);
+  box-shadow: 8px 0 32px rgba(0,0,0,0.25);
 }
 
 /* Brilho de fundo sutil */
@@ -245,10 +248,10 @@ console.log("✅ sidebar-painel-ouro.js carregado");
   width: 100%;
   padding: 7px 10px;
   margin-bottom: 14px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
   border-radius: 9px;
-  color: rgba(255,255,255,0.45);
+  color: rgba(255,255,255,0.72);
   font-family: "Poppins", sans-serif;
   font-size: 11px;
   font-weight: 600;
@@ -295,7 +298,7 @@ console.log("✅ sidebar-painel-ouro.js carregado");
   font-family: "Poppins", sans-serif;
   font-size: 9px;
   font-weight: 600;
-  color: rgba(255,255,255,0.22);
+  color: rgba(255,255,255,0.55);
   text-transform: uppercase;
   letter-spacing: 1.5px;
 }
@@ -317,10 +320,11 @@ console.log("✅ sidebar-painel-ouro.js carregado");
   font-family: "Poppins", sans-serif;
   font-size: 9px;
   font-weight: 700;
-  color: rgba(201,162,39,0.35);
+  color: rgba(230,190,90,0.7);
   text-transform: uppercase;
   letter-spacing: 1.5px;
   padding: 12px 10px 6px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
 .po-sb-item {
@@ -334,7 +338,7 @@ console.log("✅ sidebar-painel-ouro.js carregado");
   border-radius: 10px;
   background: none;
   border: 1px solid transparent;
-  color: rgba(255,255,255,0.45);
+  color: rgba(255,255,255,0.72);
   font-family: "Poppins", sans-serif;
   font-size: 12px;
   font-weight: 600;
@@ -342,13 +346,14 @@ console.log("✅ sidebar-painel-ouro.js carregado");
   transition: all 0.15s;
   text-align: left;
   position: relative;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.35);
 }
 .po-sb-item i {
   width: 16px;
   min-width: 16px;
   text-align: center;
   font-size: 13px;
-  color: rgba(201,162,39,0.4);
+  color: rgba(230,190,90,0.75);
   transition: color 0.15s;
 }
 .po-sb-item:hover {
@@ -732,7 +737,7 @@ window.poSbClicarArea = function(areaSlug, areaNome) {
 
   // Mapa de áreas → função de tela de lançamento (cada área tem seu arquivo)
   const FUNCOES_AREA = {
-    vendas:         "renderVendasTable",
+    vendas:         "poLancVendas",
     quebras:        "poLancQuebras",
     frente_caixa:   "poLancFrenteCaixa",
     passai:         "poLancPassai",
@@ -829,6 +834,9 @@ window.entrarModoOuro = async function() {
   // Marca o modo ouro como ativo (persiste no refresh)
   try { sessionStorage.setItem("po_modo_ouro", "1"); } catch (_) {}
 
+  // 🖼️ Troca a imagem de fundo (teclado → painelouro.jpg) e ativa o tema ouro
+  document.body.classList.add("po-modo-ouro");
+
   // Substitui o sidebar pelo ouro (sem loading screen — silencioso)
   sidebarEl.innerHTML = poSbMontarSidebar();
 
@@ -850,6 +858,9 @@ window.sairModoOuro = async function() {
 
   // Remove a marca do modo ouro (não restaura no próximo refresh)
   try { sessionStorage.removeItem("po_modo_ouro"); } catch (_) {}
+
+  // 🖼️ Restaura a imagem de fundo padrão (volta o teclado)
+  document.body.classList.remove("po-modo-ouro");
 
   // 1. Destroi gráficos antes de sair
   if (typeof window.poDestruirChartsPub === "function") {

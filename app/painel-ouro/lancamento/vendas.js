@@ -10,12 +10,12 @@
     s.id = "vendas-styles";
     s.textContent = `
       .painel-vendas {
-        background: linear-gradient(180deg,#0f1418 0%, #12161a 100%);
-        color: #f4e7b2;
-        border: 1px solid rgba(212,175,55,0.12);
+        background: #ffffff;
+        color: #2c3a47;
+        border: 1px solid #e6e1d3;
         padding: 18px;
         border-radius: 10px;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+        box-shadow: 0 4px 16px rgba(15,23,42,0.08);
         margin: 18px 0;
         font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
       }
@@ -23,7 +23,7 @@
       .painel-vendas h2 {
         margin: 0 0 16px 0;
         font-size: 18px;
-        color: #ffd966;
+        color: #9a7b1c;
         display: flex;
         align-items: center;
         gap: 10px;
@@ -35,10 +35,10 @@
         gap: 12px;
         margin-bottom: 20px;
         flex-wrap: wrap;
-        background: rgba(255,255,255,0.02);
+        background: #faf8f2;
         padding: 12px;
         border-radius: 8px;
-        border: 1px solid rgba(212,175,55,0.05);
+        border: 1px solid #efe9d8;
       }
 
       .po-vendas-control {
@@ -51,14 +51,14 @@
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 1px;
-        color: rgba(201,162,39,0.6);
+        color: #a08a3c;
         font-weight: 700;
       }
 
       .po-vendas-select {
-        background: #161c22;
-        border: 1px solid rgba(212,175,55,0.2);
-        color: #f4e7b2;
+        background: #ffffff;
+        border: 1px solid #d9cfae;
+        color: #2c3a47;
         padding: 6px 12px;
         border-radius: 6px;
         font-family: inherit;
@@ -69,7 +69,7 @@
       }
 
       .po-vendas-select:focus {
-        border-color: #ffd966;
+        border-color: #9a7b1c;
       }
 
       /* Tabela e Inputs */
@@ -85,13 +85,13 @@
       }
 
       .table-vendas thead th {
-        background: linear-gradient(90deg, rgba(212,175,55,0.06), rgba(255,215,0,0.02));
-        color: #f4e7b2;
+        background: #f6f1e3;
+        color: #2c3a47;
         font-weight: 700;
         font-size: 13px;
         padding: 12px;
         text-align: left;
-        border-bottom: 1px solid rgba(255,255,255,0.04);
+        border-bottom: 1px solid #e8e2d0;
       }
 
       .table-vendas thead th.center, .table-vendas tbody td.center {
@@ -105,20 +105,20 @@
       .table-vendas tbody td {
         padding: 8px 12px;
         font-size: 13px;
-        color: #e9e1b8;
-        border-bottom: 1px solid rgba(255,255,255,0.03);
+        color: #3a4a5a;
+        border-bottom: 1px solid #f0ece0;
       }
 
       .table-vendas tbody tr:hover td {
-        background: rgba(212,175,55,0.03);
-        color: #fff;
+        background: #faf6ea;
+        color: #1f2d3a;
       }
 
       /* Inputs de Edição */
       .po-vendas-input {
-        background: rgba(0, 0, 0, 0.2);
-        border: 1px solid rgba(212,175,55,0.15);
-        color: #fff;
+        background: #fdfcf8;
+        border: 1px solid #d9cfae;
+        color: #2c3a47;
         padding: 5px 8px;
         border-radius: 4px;
         width: 130px; /* Ajustado de 110px para 130px para acomodar a formatação de milhares com folga */
@@ -129,9 +129,9 @@
       }
 
       .po-vendas-input:focus {
-        background: #161c22;
-        border-color: #ffd966;
-        box-shadow: 0 0 8px rgba(255,217,102,0.2);
+        background: #ffffff;
+        border-color: #9a7b1c;
+        box-shadow: 0 0 0 3px rgba(201,162,39,0.15);
         outline: none;
       }
 
@@ -140,7 +140,7 @@
         padding: 4px 8px;
         border-radius: 999px;
         background: linear-gradient(90deg,#d4af37,#f4d35e);
-        color: #2b1f00;
+        color: #3a2c00;
         font-weight: 700;
         font-size: 12px;
       }
@@ -149,14 +149,14 @@
         display: inline-block;
         padding: 4px 8px;
         border-radius: 999px;
-        background: rgba(255,255,255,0.04);
-        color: #cfc6a0;
+        background: #f1eee4;
+        color: #8a8366;
         font-weight: 600;
         font-size: 12px;
       }
 
-      .result-good { color: #9be67a; font-weight:700; }
-      .result-bad  { color: #ff8a8a; font-weight:700; }
+      .result-good { color: #1e7d45; font-weight:700; }
+      .result-bad  { color: #c0392b; font-weight:700; }
 
       /* Ajuste responsivo básico */
       @media (max-width: 768px) {
@@ -242,6 +242,78 @@
   }
 
   // ============================================================
+  // ☁️ INTEGRAÇÃO SUPABASE — grava/recupera em painel_ouro_resultados
+  // ============================================================
+  const PO_SYNC_SLUG = "vendas";
+
+  function poMontarPayloadsSupabase() {
+    const payloads = [];
+    LISTA_LOJAS.forEach(loja => {
+      const reg = dbVendas[anoAtivo]?.[mesAtivo]?.[loja.codigo];
+      if (!reg) return;
+      const meta = Number(reg.meta) || 0;
+      const realizado = Number(reg.venda) || 0;
+      if (meta <= 0 && realizado <= 0) return;
+      const pts = (meta > 0 && (realizado / meta) * 100 >= 100) ? 20 : 0;
+      payloads.push({
+        loja_codigo: loja.codigo,
+        pontuacao_obtida: pts,
+        pontuacao_maxima: 20,
+        sub_resultados: [
+          { indicador: "meta", resultado: meta, peso: 0, pontos: 0 },
+          { indicador: "venda", resultado: realizado, peso: 20, pontos: pts },
+        ],
+      });
+    });
+    return payloads;
+  }
+
+  function poAplicarDadosRemotos(mapa) {
+    if (!mapa || !Object.keys(mapa).length) return false;
+    let aplicou = false;
+    Object.entries(mapa).forEach(([cod, subs]) => {
+      if (!dbVendas[anoAtivo]) dbVendas[anoAtivo] = {};
+      if (!dbVendas[anoAtivo][mesAtivo]) dbVendas[anoAtivo][mesAtivo] = {};
+      if (!dbVendas[anoAtivo][mesAtivo][cod]) dbVendas[anoAtivo][mesAtivo][cod] = { meta: 0, venda: 0 };
+      const reg = dbVendas[anoAtivo][mesAtivo][cod];
+      (subs || []).forEach(s => {
+        if (s.indicador === "meta")    { reg.meta = Number(s.resultado) || 0; aplicou = true; }
+        if (s.indicador === "venda") { reg.venda = Number(s.resultado) || 0; aplicou = true; }
+      });
+    });
+    if (aplicou) salvarNoStorage();
+    return aplicou;
+  }
+
+  async function poSincronizarRemoto() {
+    if (!window.poSync) return;
+    try {
+      const mapa = await window.poSync.carregar(PO_SYNC_SLUG, Number(anoAtivo), Number(mesAtivo) + 1);
+      if (poAplicarDadosRemotos(mapa)) atualizarTabelaCorpo();
+    } catch (e) {
+      console.error("☁️ Falha ao sincronizar com o banco:", e);
+    }
+  }
+
+  async function poSalvarRemoto(btn) {
+    if (!window.poSync) { alert("Módulo de sincronização indisponível."); return; }
+    const payloads = poMontarPayloadsSupabase();
+    if (!payloads.length) { window.poSync.toast("Nenhuma loja preenchida para salvar.", false); return; }
+    const txtOriginal = btn ? btn.innerHTML : "";
+    try {
+      if (btn) { btn.disabled = true; btn.innerHTML = "Salvando…"; }
+      const qtd = await window.poSync.salvar(PO_SYNC_SLUG, Number(anoAtivo), Number(mesAtivo) + 1, payloads);
+      window.poSync.toast(`✓ ${qtd} lojas salvas no banco!`, true);
+    } catch (err) {
+      console.error("☁️ Erro ao salvar no banco:", err);
+      window.poSync.toast(`Erro ao salvar: ${err.message || "tente novamente"}`, false);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = txtOriginal; }
+    }
+  }
+
+
+  // ============================================================
   // ⚡ COMPONENTES INTERNOS DE RENDERIZAÇÃO
   // ============================================================
   function criarFiltrosEstrutura() {
@@ -284,6 +356,7 @@
         salvarNoStorage();
       }
       atualizarTabelaCorpo();
+      poSincronizarRemoto();
     });
     divAno.appendChild(selectAno);
 
@@ -305,6 +378,7 @@
     selectMes.addEventListener("change", (e) => {
       mesAtivo = e.target.value;
       atualizarTabelaCorpo();
+      poSincronizarRemoto();
     });
     divMes.appendChild(selectMes);
 
@@ -443,6 +517,12 @@
 
     tableContainer.appendChild(table);
     wrapper.appendChild(tableContainer);
+
+    // Barra de salvamento no Supabase
+    if (window.poSync) {
+      wrapper.appendChild(window.poSync.criarBarraSalvar(poSalvarRemoto));
+    }
+
     return wrapper;
   }
 
@@ -467,16 +547,10 @@
 
     // Renderiza as linhas de lojas baseado nos filtros ativos
     atualizarTabelaCorpo();
+    poSincronizarRemoto();
   };
-
-  // Auto-render
-  document.addEventListener('DOMContentLoaded', () => {
-    const main = document.getElementById('conteudo');
-    if (main && (main.innerHTML.trim() === '' || main.innerHTML.includes('Carregando'))) {
-      main.innerHTML = '';
-      window.renderVendasTable(main);
-    }
-  });
+  // Auto-render no DOMContentLoaded removido: a tela é aberta apenas pelo Sidebar Ouro,
+  // evitando que a tabela sobrescreva o dashboard principal no carregamento da página.
 })();
 
 // Integração de escopo para execução via gatilho do Sidebar

@@ -1,892 +1,492 @@
 // ============================================================
-// 👑 PAINEL DE OURO — sidebar-painel-ouro.js
-// Gerencia a transição do sidebar padrão → sidebar ouro
-// e o loading screen premium ao entrar no modo ouro.
+// 👑 PAINEL DE OURO — app/painel-ouro/painel-ouro.js  (NÚCLEO)
+// Define a tela principal do painel (container #po-conteudo),
+// o estado compartilhado PO_STATE, os helpers (poFmt, poNomeMes,
+// poMostrarLoading, poErr, poLog), o sistema de abas (poTrocarAba)
+// e as visões de Ranking e Evolução.
 //
-// API pública exposta em window:
-//   entrarModoOuro()   — chamado pelo botão no sidebar padrão
-//   sairModoOuro()     — chamado pelo botão "Voltar" do sidebar ouro
+// Lê das mesmas tabelas usadas pelo restante do módulo:
+//   painel_ouro_lojas / painel_ouro_indicadores_config / painel_ouro_resultados
 // ============================================================
-console.log("✅ sidebar-painel-ouro.js carregado");
+console.log("✅ painel-ouro.js (núcleo) carregado");
 
-// ============================================================
-// 🎨 ESTILOS — injetados uma única vez
-// ============================================================
-(function poSbGarantirEstilos() {
-  if (document.getElementById("po-sb-styles")) return;
+// ---------- ESTADO COMPARTILHADO ----------
+window.PO_STATE = window.PO_STATE || {
+  ano: new Date().getFullYear(),
+  mes: new Date().getMonth() + 1,
+  abaAtiva: "ranking",
+  areaAtiva: "vendas",
+};
+const PO_STATE = window.PO_STATE;
+
+const PO_MESES = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+];
+
+// ---------- HELPERS GLOBAIS ----------
+window.poLog = function (m, d) { d != null ? console.log(`👑 PO | ${m}`, d) : console.log(`👑 PO | ${m}`); };
+window.poErr = function (m, d) { d != null ? console.error(`👑 PO | ${m}`, d) : console.error(`👑 PO | ${m}`); };
+const poLog = window.poLog, poErr = window.poErr;
+
+window.poNomeMes = function (mes) { return PO_MESES[Number(mes) - 1] || "—"; };
+const poNomeMes = window.poNomeMes;
+
+window.poFmt = function (n, casas = 0) {
+  const num = Number(n);
+  if (!isFinite(num)) return "–";
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
+};
+const poFmt = window.poFmt;
+
+window.poMostrarLoading = function (container) {
+  if (!container) return;
+  container.innerHTML = `<div class="po-loading-box"><div class="po-spin"></div> Carregando…</div>`;
+};
+const poMostrarLoading = window.poMostrarLoading;
+
+// ---------- ESTILOS DO NÚCLEO (paleta suave clara) ----------
+(function poNucleoEstilos() {
+  if (document.getElementById("po-nucleo-styles")) return;
   const s = document.createElement("style");
-  s.id = "po-sb-styles";
+  s.id = "po-nucleo-styles";
   s.textContent = `
+.po-wrap {
+  font-family: "Poppins", Inter, "Segoe UI", sans-serif;
+  color: #2c3a47;
+  background: transparent;
+  min-height: 100%;
+}
+.po-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; padding: 18px 28px 6px;
+}
+.po-topbar-titulo { display: flex; align-items: center; gap: 10px; }
+.po-topbar-titulo .po-coroa { font-size: 22px; }
+.po-topbar-titulo h1 {
+  margin: 0; font-size: 18px; font-weight: 800; letter-spacing: 0.2px;
+  background: linear-gradient(135deg, #f3d98a, #c9a227);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.25);
+}
+.po-topbar-titulo .po-coroa { font-size: 22px; filter: drop-shadow(0 1px 4px rgba(0,0,0,0.4)); }
+.po-topbar-titulo .po-sub { font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 1px; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+.po-periodo { display: flex; align-items: center; gap: 8px; }
+.po-periodo select {
+  height: 34px; padding: 0 12px; border: 1px solid rgba(201,162,39,0.5); border-radius: 8px;
+  background: rgba(255,255,255,0.92); color: #2c3a47; font-family: inherit; font-size: 12px;
+  font-weight: 600; cursor: pointer; outline: none; backdrop-filter: blur(4px);
+}
+.po-periodo select:focus { border-color: #c9a227; }
 
-/* ============================================================
-   LOADING SCREEN — tela de entrada premium
-   ============================================================ */
-#po-loading-screen {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  background: #080d14;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
+.po-tabs { display: flex; gap: 6px; padding: 12px 28px 0; flex-wrap: wrap; }
+.po-tab {
+  height: 34px; padding: 0 16px; border: 1px solid rgba(255,255,255,0.18); border-radius: 8px 8px 0 0;
+  background: rgba(20,16,8,0.42); color: rgba(255,255,255,0.7); font-family: inherit; font-size: 12px;
+  font-weight: 600; cursor: pointer; transition: all 0.15s; backdrop-filter: blur(6px);
 }
-#po-loading-screen.visivel {
-  opacity: 1;
-  pointer-events: all;
-}
+.po-tab:hover { background: rgba(40,32,14,0.5); color: #fff; }
+.po-tab.ativa { background: rgba(255,255,255,0.96); color: #9a7b1c; border-color: rgba(255,255,255,0.96); }
 
-/* Partículas de fundo */
-.po-ls-particles {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-.po-ls-particle {
-  position: absolute;
-  width: 2px;
-  height: 2px;
-  border-radius: 50%;
-  background: #c9a227;
-  opacity: 0;
-  animation: poParticle var(--dur, 3s) var(--delay, 0s) ease-in-out infinite;
-}
-@keyframes poParticle {
-  0%   { opacity: 0; transform: translateY(0) scale(1); }
-  20%  { opacity: 0.6; }
-  80%  { opacity: 0.3; }
-  100% { opacity: 0; transform: translateY(-80px) scale(0.4); }
-}
+#po-conteudo { padding: 16px 0 32px; background: transparent; min-height: 60vh; }
 
-/* Coroa central */
-.po-ls-crown-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100px;
-  height: 100px;
-  margin-bottom: 32px;
+.po-loading-box {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 60px; color: rgba(255,255,255,0.85); font-size: 13px;
 }
-.po-ls-crown-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 1.5px solid rgba(201,162,39,0.25);
-  animation: poRingPulse 2s ease-in-out infinite;
+.po-spin {
+  width: 22px; height: 22px; border: 2px solid #eee9da; border-top-color: #c9a227;
+  border-radius: 50%; animation: poSpin 0.7s linear infinite;
 }
-.po-ls-crown-ring:nth-child(2) {
-  inset: -12px;
-  border-color: rgba(201,162,39,0.12);
-  animation-delay: 0.4s;
-}
-.po-ls-crown-ring:nth-child(3) {
-  inset: -26px;
-  border-color: rgba(201,162,39,0.06);
-  animation-delay: 0.8s;
-}
-@keyframes poRingPulse {
-  0%, 100% { transform: scale(1);    opacity: 1; }
-  50%       { transform: scale(1.06); opacity: 0.6; }
-}
-.po-ls-crown-ico {
-  font-size: 44px;
-  line-height: 1;
-  filter: drop-shadow(0 0 18px rgba(201,162,39,0.55));
-  animation: poCrownFloat 3s ease-in-out infinite;
-}
-@keyframes poCrownFloat {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-6px); }
-}
+@keyframes poSpin { to { transform: rotate(360deg); } }
 
-/* Texto */
-.po-ls-titulo {
-  font-family: "Poppins", sans-serif;
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  background: linear-gradient(135deg, #e8c84a 0%, #f5e27a 40%, #c9a227 70%, #a07a15 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 6px;
-  opacity: 0;
-  transform: translateY(10px);
-  animation: poTextIn 0.5s 0.3s ease forwards;
+.po-empty {
+  text-align: center; padding: 50px 20px; color: rgba(255,255,255,0.85);
+  margin: 0 28px; background: rgba(20,16,8,0.4); border-radius: 14px;
+  backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.1);
 }
-.po-ls-subtitulo {
-  font-family: "Poppins", sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(255,255,255,0.35);
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  margin-bottom: 40px;
-  opacity: 0;
-  transform: translateY(8px);
-  animation: poTextIn 0.5s 0.5s ease forwards;
-}
-@keyframes poTextIn {
-  to { opacity: 1; transform: translateY(0); }
-}
+.po-empty-ico { font-size: 34px; margin-bottom: 10px; }
 
-/* Barra de progresso */
-.po-ls-progress-wrap {
-  width: 220px;
-  opacity: 0;
-  animation: poTextIn 0.4s 0.7s ease forwards;
+/* ----- LAYOUT DE CARTÕES (usado pela aba Áreas e Ranking) ----- */
+.po-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; padding: 0 28px; }
+.po-col-12 { grid-column: span 12; }
+.po-col-6  { grid-column: span 6; }
+.po-card {
+  background: #fff; border: 1px solid #e8edf2; border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(15,23,42,0.06); overflow: hidden;
 }
-.po-ls-progress-track {
-  height: 3px;
-  background: rgba(255,255,255,0.08);
-  border-radius: 10px;
-  overflow: hidden;
+.po-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 14px 18px; border-bottom: 1px solid #f0f3f6; flex-wrap: wrap;
 }
-.po-ls-progress-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #b8911f, #e8c84a, #b8911f);
-  background-size: 200% 100%;
-  border-radius: 10px;
-  transition: width 0.1s linear;
-  animation: poProgressShimmer 1.5s linear infinite;
+.po-card-titulo {
+  font-size: 12px; font-weight: 700; color: #9a7b1c;
+  text-transform: uppercase; letter-spacing: 0.5px;
 }
-@keyframes poProgressShimmer {
-  0%   { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
+.po-card-badge {
+  font-size: 10px; font-weight: 600; color: #7a8c9a;
+  background: #f6f1e3; padding: 3px 10px; border-radius: 10px;
 }
-.po-ls-progress-label {
-  margin-top: 10px;
-  font-family: "Poppins", sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.25);
-  text-align: center;
-  letter-spacing: 1px;
-  min-height: 16px;
-  transition: opacity 0.2s;
-}
+.po-card-body { padding: 16px 18px; }
 
-/* Linha separadora decorativa */
-.po-ls-divider {
-  width: 40px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(201,162,39,0.5), transparent);
-  margin: 28px auto 0;
-  opacity: 0;
-  animation: poTextIn 0.4s 0.9s ease forwards;
+/* ----- TABELAS ----- */
+.po-ranking-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.po-ranking-table thead th {
+  background: #f7f9fb; color: #5d6b78; font-size: 10px; font-weight: 700;
+  padding: 8px 10px; text-align: left; border-bottom: 1px solid #e8edf2; white-space: nowrap;
 }
+.po-ranking-table .txt-center { text-align: center; }
+.po-ranking-table tbody td {
+  padding: 8px 10px; border-bottom: 1px solid #f0f3f6; font-size: 12px; color: #23313f;
+}
+.po-ranking-table tbody tr { cursor: pointer; transition: background 0.12s; }
+.po-ranking-table tbody tr:hover td { background: #faf6ea; }
+.po-loja-nome { font-size: 12px; font-weight: 600; color: #0a3d62; }
+.po-loja-cod  { font-size: 9px; color: #9aabb7; font-weight: 500; }
 
+.po-pos {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 8px; font-weight: 800; font-size: 12px;
+  background: #f1eee4; color: #8a8366;
+}
+.po-pos.ouro   { background: linear-gradient(135deg,#f3d98a,#c9a227); color: #4a3700; }
+.po-pos.prata  { background: linear-gradient(135deg,#e8edf2,#c4cdd6); color: #3a4a5a; }
+.po-pos.bronze { background: linear-gradient(135deg,#e8c8a6,#b6804f); color: #4a2c10; }
 
-/* ============================================================
-   SIDEBAR MODO OURO
-   ============================================================ */
-.po-sidebar {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  padding: 16px 12px;
-  box-sizing: border-box;
-  position: relative;
-  overflow: hidden;
+.po-barra-bg { background: #eef1f5; border-radius: 6px; height: 8px; overflow: hidden; min-width: 90px; }
+.po-barra-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg,#e8c84a,#c9a227); }
 
-  /* fundo escuro quente — diferente do sidebar padrão (frio) */
-  background: linear-gradient(180deg,
-    #0e0c08 0%,
-    #140f06 40%,
-    #0e0b06 100%
-  );
+/* ----- DETALHE (modal lateral) ----- */
+.po-detalhe-overlay {
+  position: fixed; inset: 0; background: rgba(20,24,30,0.35);
+  z-index: 9200; display: flex; justify-content: flex-end;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.po-detalhe-overlay.aberto { opacity: 1; pointer-events: all; }
+.po-detalhe-painel {
+  width: min(460px, 92vw); background: #fff; height: 100%; overflow-y: auto;
+  box-shadow: -8px 0 30px rgba(15,23,42,0.12); transform: translateX(20px);
+  transition: transform 0.2s; padding: 22px;
+}
+.po-detalhe-overlay.aberto .po-detalhe-painel { transform: translateX(0); }
+.po-detalhe-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+.po-detalhe-fechar {
+  border: none; background: #f1eee4; width: 30px; height: 30px; border-radius: 8px;
+  cursor: pointer; color: #5d6b78; font-size: 14px;
+}
+.po-detalhe-area { margin-bottom: 14px; border: 1px solid #eee9da; border-radius: 10px; overflow: hidden; }
+.po-detalhe-area-top {
+  background: #f6f1e3; padding: 8px 12px; font-size: 11px; font-weight: 700; color: #9a7b1c;
+  display: flex; justify-content: space-between;
+}
+.po-detalhe-area table { width: 100%; border-collapse: collapse; }
+.po-detalhe-area td { padding: 6px 12px; font-size: 11px; border-bottom: 1px solid #f4f1e7; }
 
-  border-right: 1px solid rgba(201,162,39,0.14);
-  box-shadow: 8px 0 32px rgba(0,0,0,0.35);
+@media (max-width: 900px) {
+  .po-grid { padding: 0 16px; }
+  .po-topbar, .po-tabs { padding-left: 16px; padding-right: 16px; }
+  .po-col-6 { grid-column: span 12; }
 }
-
-/* Brilho de fundo sutil */
-.po-sidebar::before {
-  content: "";
-  position: absolute;
-  top: -60px;
-  left: -60px;
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, rgba(201,162,39,0.07) 0%, transparent 70%);
-  pointer-events: none;
-}
-.po-sidebar::after {
-  content: "";
-  position: absolute;
-  bottom: 80px;
-  right: -40px;
-  width: 140px;
-  height: 140px;
-  background: radial-gradient(circle, rgba(201,162,39,0.04) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-/* Cabeçalho do sidebar ouro */
-.po-sb-header {
-  margin-bottom: 16px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid rgba(201,162,39,0.12);
-}
-
-/* Botão voltar */
-.po-sb-voltar {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  padding: 7px 10px;
-  margin-bottom: 14px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 9px;
-  color: rgba(255,255,255,0.45);
-  font-family: "Poppins", sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-  letter-spacing: 0.3px;
-}
-.po-sb-voltar:hover {
-  background: rgba(255,255,255,0.07);
-  color: rgba(255,255,255,0.7);
-  border-color: rgba(255,255,255,0.14);
-}
-.po-sb-voltar i { font-size: 11px; }
-
-/* Logo / título do modo */
-.po-sb-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 2px 4px;
-}
-.po-sb-logo-ico {
-  font-size: 20px;
-  filter: drop-shadow(0 0 8px rgba(201,162,39,0.5));
-  animation: poCrownFloat 3s ease-in-out infinite;
-}
-.po-sb-logo-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.po-sb-logo-title {
-  font-family: "Poppins", sans-serif;
-  font-size: 14px;
-  font-weight: 800;
-  background: linear-gradient(135deg, #e8c84a 0%, #c9a227 60%, #a07a15 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  letter-spacing: 0.3px;
-  line-height: 1.2;
-}
-.po-sb-logo-sub {
-  font-family: "Poppins", sans-serif;
-  font-size: 9px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.22);
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-}
-
-/* Menu de navegação do ouro */
-.po-sb-nav {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 2px;
-}
-.po-sb-nav::-webkit-scrollbar { width: 4px; }
-.po-sb-nav::-webkit-scrollbar-thumb {
-  background: rgba(201,162,39,0.2);
-  border-radius: 10px;
-}
-
-.po-sb-secao-label {
-  font-family: "Poppins", sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  color: rgba(201,162,39,0.35);
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  padding: 12px 10px 6px;
-}
-
-.po-sb-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 38px;
-  padding: 8px 11px;
-  margin: 2px 0;
-  border-radius: 10px;
-  background: none;
-  border: 1px solid transparent;
-  color: rgba(255,255,255,0.45);
-  font-family: "Poppins", sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: left;
-  position: relative;
-}
-.po-sb-item i {
-  width: 16px;
-  min-width: 16px;
-  text-align: center;
-  font-size: 13px;
-  color: rgba(201,162,39,0.4);
-  transition: color 0.15s;
-}
-.po-sb-item:hover {
-  background: rgba(201,162,39,0.06);
-  border-color: rgba(201,162,39,0.1);
-  color: rgba(255,255,255,0.8);
-  transform: translateX(2px);
-}
-.po-sb-item:hover i {
-  color: rgba(201,162,39,0.8);
-}
-.po-sb-item.ativo {
-  background: linear-gradient(90deg,
-    rgba(201,162,39,0.14),
-    rgba(201,162,39,0.06)
-  );
-  border-color: rgba(201,162,39,0.2);
-  color: #f4e7b2;
-}
-.po-sb-item.ativo i {
-  color: #c9a227;
-  filter: drop-shadow(0 0 4px rgba(201,162,39,0.4));
-}
-.po-sb-item.ativo::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 20%;
-  bottom: 20%;
-  width: 2px;
-  background: linear-gradient(180deg, #e8c84a, #b8911f);
-  border-radius: 0 2px 2px 0;
-}
-
-/* Divisor entre seções */
-.po-sb-divider {
-  height: 1px;
-  background: linear-gradient(90deg,
-    transparent,
-    rgba(201,162,39,0.1),
-    transparent
-  );
-  margin: 8px 4px;
-}
-
-/* Rodapé do sidebar ouro */
-.po-sb-footer {
-  padding-top: 12px;
-  border-top: 1px solid rgba(201,162,39,0.1);
-}
-
-/* Card do usuário (mantém visual do sidebar original) */
-.po-sb-user-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(201,162,39,0.1);
-  margin-bottom: 10px;
-}
-.po-sb-user-nome {
-  font-family: "Poppins", sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.po-sb-user-funcao {
-  font-family: "Poppins", sans-serif;
-  font-size: 10px;
-  font-weight: 500;
-  color: rgba(201,162,39,0.5);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Botão sair */
-.po-sb-btn-sair {
-  width: 100%;
-  min-height: 40px;
-  border: none;
-  border-radius: 10px;
-  background: rgba(185,28,28,0.18);
-  border: 1px solid rgba(220,38,38,0.2);
-  color: rgba(251,113,133,0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  font-family: "Poppins", sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.po-sb-btn-sair:hover {
-  background: rgba(185,28,28,0.28);
-  border-color: rgba(220,38,38,0.35);
-  color: #fb7185;
-}
-
-/* ============================================================
-   TRANSIÇÃO DO SIDEBAR PRINCIPAL
-   ============================================================ */
-#sidebar {
-  transition: opacity 0.25s ease, transform 0.25s ease;
-}
-#sidebar.po-transitioning {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* ============================================================
-   RESPONSIVO
-   ============================================================ */
-@media (max-width: 768px) {
-  .po-sb-logo-title { font-size: 13px; }
-  .po-sb-item { min-height: 40px; padding: 9px 10px; }
-}
-
   `;
   document.head.appendChild(s);
 })();
 
+// ============================================================
+// 📡 DADOS
+// ============================================================
+async function poCarregarRanking(ano, mes) {
+  // soma a pontuação de todas as áreas por loja no período
+  const { data, error } = await window.db
+    .from("painel_ouro_resultados")
+    .select("loja_codigo, area_slug, pontuacao_obtida, pontuacao_maxima, painel_ouro_lojas(nome)")
+    .eq("ano", ano).eq("mes", mes).eq("ativo", true);
+  if (error) { poErr("Erro ao carregar ranking", error); return []; }
+
+  const mapa = {};
+  (data || []).forEach(r => {
+    const cod = r.loja_codigo;
+    if (!mapa[cod]) mapa[cod] = { codigo: cod, nome: r.painel_ouro_lojas?.nome || cod, obtido: 0, maximo: 0, areas: 0 };
+    mapa[cod].obtido += Number(r.pontuacao_obtida) || 0;
+    mapa[cod].maximo += Number(r.pontuacao_maxima) || 0;
+    mapa[cod].areas += 1;
+  });
+  return Object.values(mapa).sort((a, b) => b.obtido - a.obtido);
+}
+
+async function poCarregarEvolucao(ano) {
+  const { data, error } = await window.db
+    .from("painel_ouro_resultados")
+    .select("mes, pontuacao_obtida")
+    .eq("ano", ano).eq("ativo", true);
+  if (error) { poErr("Erro ao carregar evolução", error); return []; }
+  const porMes = new Array(12).fill(0);
+  (data || []).forEach(r => { porMes[Number(r.mes) - 1] += Number(r.pontuacao_obtida) || 0; });
+  return porMes;
+}
+
+async function poCarregarDetalheLoja(codigo, ano, mes) {
+  const { data, error } = await window.db
+    .from("painel_ouro_resultados")
+    .select("area_slug, pontuacao_obtida, pontuacao_maxima, sub_resultados, painel_ouro_lojas(nome)")
+    .eq("loja_codigo", codigo).eq("ano", ano).eq("mes", mes).eq("ativo", true);
+  if (error) { poErr("Erro ao carregar detalhe", error); return null; }
+  return data || [];
+}
 
 // ============================================================
-// 🌟 LOADING SCREEN
+// 🖼️ TELA PRINCIPAL — monta #po-conteudo dentro de #conteudo
 // ============================================================
-const PO_SB_MENSAGENS = [
-  "Carregando indicadores…",
-  "Buscando dados de performance…",
-  "Calculando pontuações…",
-  "Preparando ranking…",
-  "Quase lá…",
-];
+window.telaPainelOuro = async function () {
+  const host = document.getElementById("conteudo");
+  if (!host) { poErr("#conteudo não encontrado"); return; }
 
-function poSbCriarLoadingScreen() {
-  if (document.getElementById("po-loading-screen")) return;
+  const anoAtual = new Date().getFullYear();
+  const optAno = [];
+  for (let a = 2025; a <= anoAtual + 1; a++)
+    optAno.push(`<option value="${a}" ${a === PO_STATE.ano ? "selected" : ""}>${a}</option>`);
+  const optMes = PO_MESES.map((m, i) =>
+    `<option value="${i + 1}" ${i + 1 === PO_STATE.mes ? "selected" : ""}>${m}</option>`).join("");
 
-  // Gera partículas aleatórias
-  const particulas = Array.from({ length: 28 }, (_, i) => {
-    const x    = Math.random() * 100;
-    const y    = Math.random() * 100;
-    const dur  = (2.5 + Math.random() * 3).toFixed(1);
-    const del  = (Math.random() * 4).toFixed(1);
-    const size = (1 + Math.random() * 2.5).toFixed(1);
-    return `<div class="po-ls-particle" style="
-      left:${x}%; top:${y}%;
-      width:${size}px; height:${size}px;
-      --dur:${dur}s; --delay:${del}s;
-    "></div>`;
+  host.innerHTML = `
+    <div class="po-wrap">
+      <div class="po-topbar">
+        <div class="po-topbar-titulo">
+          <span class="po-coroa">👑</span>
+          <div>
+            <h1>Painel de Ouro</h1>
+            <div class="po-sub">Ranking de desempenho por loja</div>
+          </div>
+        </div>
+        <div class="po-periodo">
+          <select id="po-sel-ano" onchange="poAlterarPeriodo()">${optAno.join("")}</select>
+          <select id="po-sel-mes" onchange="poAlterarPeriodo()">${optMes}</select>
+        </div>
+      </div>
+
+      <div class="po-tabs">
+        <button type="button" class="po-tab ${PO_STATE.abaAtiva === "ranking" ? "ativa" : ""}" data-aba="ranking" onclick="poTrocarAba('ranking')">Ranking mensal</button>
+        <button type="button" class="po-tab ${PO_STATE.abaAtiva === "evolucao" ? "ativa" : ""}" data-aba="evolucao" onclick="poTrocarAba('evolucao')">Evolução anual</button>
+        <button type="button" class="po-tab ${PO_STATE.abaAtiva === "areas" ? "ativa" : ""}" data-aba="areas" onclick="poTrocarAba('areas')">Resultados por área</button>
+      </div>
+
+      <div id="po-conteudo"></div>
+    </div>`;
+
+  await window.poTrocarAba(PO_STATE.abaAtiva || "ranking");
+};
+
+window.poAlterarPeriodo = async function () {
+  const a = document.getElementById("po-sel-ano");
+  const m = document.getElementById("po-sel-mes");
+  if (a) PO_STATE.ano = Number(a.value);
+  if (m) PO_STATE.mes = Number(m.value);
+  await window.poTrocarAba(PO_STATE.abaAtiva || "ranking");
+};
+
+// ============================================================
+// 🗂️ SISTEMA DE ABAS
+// ============================================================
+window.poTrocarAba = async function (aba) {
+  PO_STATE.abaAtiva = aba;
+  document.querySelectorAll(".po-tab").forEach(t =>
+    t.classList.toggle("ativa", t.dataset.aba === aba));
+
+  const conteudo = document.getElementById("po-conteudo");
+  if (!conteudo) { // tela ainda não montada
+    if (typeof window.telaPainelOuro === "function") await window.telaPainelOuro();
+    return;
+  }
+
+  window.poDestruirChartsPub();
+
+  if (aba === "ranking")  return window.poRenderRanking(conteudo, PO_STATE.ano, PO_STATE.mes);
+  if (aba === "evolucao") return window.poRenderEvolucao(conteudo, PO_STATE.ano);
+  if (aba === "areas") {
+    if (typeof window.poRenderAreas === "function")
+      return window.poRenderAreas(conteudo, PO_STATE.ano, PO_STATE.mes, PO_STATE.areaAtiva);
+    conteudo.innerHTML = `<div class="po-empty"><div class="po-empty-ico">📊</div><p>Módulo de áreas não carregado.</p></div>`;
+  }
+};
+
+// ============================================================
+// 🏆 ABA RANKING
+// ============================================================
+async function poRenderRanking(container, ano, mes) {
+  poMostrarLoading(container);
+  const ranking = await poCarregarRanking(ano, mes);
+
+  if (!ranking.length) {
+    container.innerHTML = `<div class="po-empty"><div class="po-empty-ico">🏆</div>
+      <p>Sem lançamentos para ${poNomeMes(mes)}/${ano}.</p></div>`;
+    return;
+  }
+
+  const maxObtido = Math.max(...ranking.map(r => r.obtido), 1);
+
+  const linhas = ranking.map((r, i) => {
+    const pos = i + 1;
+    const cls = pos === 1 ? "ouro" : pos === 2 ? "prata" : pos === 3 ? "bronze" : "";
+    const pct = r.maximo > 0 ? Math.round((r.obtido / r.maximo) * 100) : 0;
+    const larg = Math.round((r.obtido / maxObtido) * 100);
+    return `
+      <tr onclick="poAbrirDetalhe('${r.codigo}')">
+        <td class="txt-center"><span class="po-pos ${cls}">${pos}</span></td>
+        <td>
+          <div class="po-loja-nome">${r.nome}</div>
+          <div class="po-loja-cod">#${r.codigo} · ${r.areas} áreas</div>
+        </td>
+        <td class="txt-center" style="font-weight:800;color:#9a7b1c">${poFmt(r.obtido)} / ${poFmt(r.maximo)}</td>
+        <td class="txt-center" style="font-weight:700;color:${pct >= 70 ? "#1e7d45" : pct >= 40 ? "#a07a15" : "#c0392b"}">${pct}%</td>
+        <td><div class="po-barra-bg"><div class="po-barra-fill" style="width:${larg}%"></div></div></td>
+      </tr>`;
   }).join("");
 
-  const el = document.createElement("div");
-  el.id = "po-loading-screen";
-  el.innerHTML = `
-    <div class="po-ls-particles">${particulas}</div>
-
-    <div class="po-ls-crown-wrap">
-      <div class="po-ls-crown-ring"></div>
-      <div class="po-ls-crown-ring"></div>
-      <div class="po-ls-crown-ring"></div>
-      <div class="po-ls-crown-ico">👑</div>
-    </div>
-
-    <div class="po-ls-titulo">Painel de Ouro</div>
-    <div class="po-ls-subtitulo">Regional NE · ${new Date().getFullYear()}</div>
-
-    <div class="po-ls-progress-wrap">
-      <div class="po-ls-progress-track">
-        <div class="po-ls-progress-fill" id="po-ls-fill"></div>
-      </div>
-      <div class="po-ls-progress-label" id="po-ls-label">Iniciando…</div>
-    </div>
-
-    <div class="po-ls-divider"></div>
-  `;
-  document.body.appendChild(el);
-}
-
-function poSbMostrarLoading() {
-  return new Promise(resolve => {
-    poSbCriarLoadingScreen();
-    const screen = document.getElementById("po-loading-screen");
-    const fill   = document.getElementById("po-ls-fill");
-    const label  = document.getElementById("po-ls-label");
-
-    // Mostra a tela
-    requestAnimationFrame(() => {
-      screen.classList.add("visivel");
-    });
-
-    // Anima a barra em ~1.2s
-    let progresso = 0;
-    let msgIdx    = 0;
-
-    const tick = setInterval(() => {
-      progresso += Math.random() * 18 + 8;
-      if (progresso > 95) progresso = 95;
-
-      fill.style.width = progresso + "%";
-
-      if (msgIdx < PO_SB_MENSAGENS.length && progresso > msgIdx * 20) {
-        label.textContent = PO_SB_MENSAGENS[msgIdx];
-        msgIdx++;
-      }
-    }, 180);
-
-    // Finaliza após 1.4s (tempo suficiente para o DOM do sidebar ouro carregar)
-    setTimeout(() => {
-      clearInterval(tick);
-      fill.style.width = "100%";
-      if (label) label.textContent = "Pronto!";
-      setTimeout(resolve, 200);
-    }, 1400);
-  });
-}
-
-function poSbEsconderLoading() {
-  return new Promise(resolve => {
-    const screen = document.getElementById("po-loading-screen");
-    if (!screen) { resolve(); return; }
-    screen.classList.remove("visivel");
-    setTimeout(resolve, 320);
-  });
-}
-
-
-// ============================================================
-// 🏗️ SIDEBAR OURO — montagem do HTML
-// ============================================================
-function poSbGetUsuario() {
-  try {
-    if (typeof window.getUsuarioLogado === "function") return window.getUsuarioLogado();
-    if (typeof window.getUsuarioLocal  === "function") return window.getUsuarioLocal();
-  } catch (_) {}
-  return null;
-}
-
-function poSbGetIniciais(usuario) {
-  if (!usuario) return "U";
-  const nome = usuario.nome || "";
-  const sob  = usuario.sobrenome || "";
-  if (nome && sob) return (nome[0] + sob[0]).toUpperCase();
-  if (nome)        return nome.slice(0, 2).toUpperCase();
-  return "U";
-}
-
-function poSbMontarSidebar() {
-  const usuario  = poSbGetUsuario();
-  const iniciais = poSbGetIniciais(usuario);
-  const nome     = usuario?.nome     || "Usuário";
-  const funcao   = usuario?.funcao   || usuario?.perfil || "";
-
-  // Detecta avatar salvo (mesmo sistema do sidebar padrão)
-  let avatarEstilo = "";
-  try {
-    const chaveFoto = typeof window.getChaveFotoPerfil === "function"
-      ? window.getChaveFotoPerfil()
-      : null;
-    if (chaveFoto) {
-      const foto = localStorage.getItem(chaveFoto);
-      if (foto) avatarEstilo = `background-image:url('${foto}');background-size:cover;background-position:center;color:transparent;`;
-    }
-  } catch (_) {}
-
-  return `
-    <div class="po-sidebar" id="po-sidebar-inner">
-
-      <!-- CABEÇALHO -->
-      <div class="po-sb-header">
-        <button class="po-sb-voltar" onclick="sairModoOuro()">
-          <i class="fas fa-arrow-left"></i>
-          Voltar ao menu
-        </button>
-        <div class="po-sb-logo">
-          <span class="po-sb-logo-ico">👑</span>
-          <div class="po-sb-logo-text">
-            <span class="po-sb-logo-title">Painel de Ouro</span>
-            <span class="po-sb-logo-sub">Desempenho · NE</span>
-          </div>
+  container.innerHTML = `
+    <div class="po-grid">
+      <div class="po-col-12 po-card">
+        <div class="po-card-header">
+          <span class="po-card-titulo">Ranking — ${poNomeMes(mes)} ${ano}</span>
+          <span class="po-card-badge">${ranking.length} lojas</span>
+        </div>
+        <div class="po-card-body" style="padding:0;overflow-x:auto;">
+          <table class="po-ranking-table">
+            <thead><tr>
+              <th class="txt-center" style="width:50px">#</th>
+              <th>Loja</th>
+              <th class="txt-center">Pontos</th>
+              <th class="txt-center">Aproveit.</th>
+              <th>Desempenho</th>
+            </tr></thead>
+            <tbody>${linhas}</tbody>
+          </table>
         </div>
       </div>
-
-      <!-- NAVEGAÇÃO -->
-      <nav class="po-sb-nav" id="po-sb-nav">
-
-        <div class="po-sb-secao-label">Visualizações</div>
-
-        <button class="po-sb-item ativo" id="po-sb-btn-ranking"
-          onclick="poSbNavegar('ranking')">
-          <i class="fas fa-list-ol"></i>
-          <span>Ranking mensal</span>
-        </button>
-
-        <button class="po-sb-item" id="po-sb-btn-evolucao"
-          onclick="poSbNavegar('evolucao')">
-          <i class="fas fa-chart-line"></i>
-          <span>Evolução anual</span>
-        </button>
-
-        <div class="po-sb-divider"></div>
-        <div class="po-sb-secao-label">Áreas avaliadas</div>
-
-        <button class="po-sb-item" onclick="poSbClicarArea('vendas', 'Vendas')">
-          <i class="fas fa-dollar-sign"></i>
-          <span>Vendas</span>
-        </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('quebras', 'Quebras')">
-          <i class="fas fa-box-open"></i>
-          <span>Quebras</span>
-        </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('frente_caixa', 'Frente de Caixa')">
-          <i class="fas fa-cash-register"></i>
-          <span>Frente de Caixa</span>
-        </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('passai', 'Passaí')">
-          <i class="fas fa-id-card"></i>
-          <span>Passaí</span>
-        </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('servicos_assai', 'Serviços Assaí')">
-          <i class="fas fa-store"></i>
-          <span>Serviços Assaí</span>
-        </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('rh', 'RH')">
-          <i class="fas fa-users"></i>
-          <span>RH</span>
-        </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('prevencao', 'Prevenção')">
-          <i class="fas fa-shield-alt"></i>
-          <span>Prevenção</span>
-        </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('ti_rub_rm', 'TI / RUB / RM')">
-          <i class="fas fa-barcode"></i>
-          <span>TI / RUB / RM</span>
-        </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('adm', 'ADM')">
-          <i class="fas fa-chart-pie"></i>
-          <span>ADM</span>
-        </button>
-
-      </nav>
-
-      <!-- RODAPÉ -->
-      <div class="po-sb-footer">
-        <div class="po-sb-user-card">
-          <div class="avatar" style="width:38px;height:38px;min-width:38px;font-size:13px;border-radius:10px;${avatarEstilo}">
-            ${avatarEstilo ? "" : iniciais}
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div class="po-sb-user-nome">${nome}</div>
-            <div class="po-sb-user-funcao">${funcao}</div>
-          </div>
-        </div>
-        <button class="po-sb-btn-sair" onclick="logMenu('logout'); logout();">
-          <i class="fas fa-right-from-bracket"></i>
-          Sair
-        </button>
-      </div>
-
     </div>`;
 }
-
+window.poRenderRanking = poRenderRanking;
 
 // ============================================================
-// 🔁 NAVEGAÇÃO INTERNA DO SIDEBAR OURO
+// 📈 ABA EVOLUÇÃO (gráfico Chart.js se disponível, senão barras CSS)
 // ============================================================
+let poChartEvolucao = null;
+window.poDestruirChartsPub = function () {
+  try { if (poChartEvolucao) { poChartEvolucao.destroy(); poChartEvolucao = null; } } catch (_) {}
+};
+const poDestruirChartsPub = window.poDestruirChartsPub;
 
-window.poSbClicarArea = function(areaSlug, areaNome) {
-  // Feedback visual no item do sidebar
-  document.querySelectorAll(".po-sb-nav .po-sb-item:not([id])").forEach(el => el.classList.remove("ativo"));
-  const alvo = [...document.querySelectorAll(".po-sb-nav .po-sb-item:not([id])")].find(el =>
-    el.getAttribute("onclick")?.includes(`'${areaSlug}'`)
-  );
-  if (alvo) alvo.classList.add("ativo");
+async function poRenderEvolucao(container, ano) {
+  poMostrarLoading(container);
+  const dados = await poCarregarEvolucao(ano);
+  const temDados = dados.some(v => v > 0);
 
-  // Mapa de áreas → função de tela de lançamento (cada área tem seu arquivo)
-  const FUNCOES_AREA = {
-    vendas:         "poLancVendas",
-    quebras:        "poLancQuebras",
-    frente_caixa:   "poLancFrenteCaixa",
-    passai:         "poLancPassai",
-    servicos_assai: "poLancServicosAssai",
-    rh:             "poLancRH",
-    prevencao:      "poLancPrevencao",
-    ti_rub_rm:      "poLancTiRubRm",
-    adm:            "poLancAdm",
+  if (!temDados) {
+    container.innerHTML = `<div class="po-empty"><div class="po-empty-ico">📈</div>
+      <p>Sem dados lançados em ${ano}.</p></div>`;
+    return;
+  }
+
+  const max = Math.max(...dados, 1);
+
+  if (window.Chart) {
+    container.innerHTML = `
+      <div class="po-grid"><div class="po-col-12 po-card">
+        <div class="po-card-header">
+          <span class="po-card-titulo">Evolução de pontos — ${ano}</span>
+          <span class="po-card-badge">total acumulado por mês</span>
+        </div>
+        <div class="po-card-body"><canvas id="po-canvas-evolucao" height="110"></canvas></div>
+      </div></div>`;
+    const ctx = document.getElementById("po-canvas-evolucao").getContext("2d");
+    poChartEvolucao = new window.Chart(ctx, {
+      type: "line",
+      data: {
+        labels: PO_MESES.map(m => m.slice(0, 3)),
+        datasets: [{
+          label: "Pontos", data: dados,
+          borderColor: "#c9a227", backgroundColor: "rgba(201,162,39,0.12)",
+          fill: true, tension: 0.3, pointBackgroundColor: "#a07a15",
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, grid: { color: "#f0ece0" } }, x: { grid: { display: false } } },
+      },
+    });
+    return;
+  }
+
+  // Fallback sem Chart.js — barras verticais em CSS
+  const barras = dados.map((v, i) => {
+    const h = Math.round((v / max) * 140);
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex:1">
+      <div style="font-size:9px;color:#8a8366;font-weight:700">${v > 0 ? poFmt(v) : ""}</div>
+      <div style="width:60%;height:${h}px;border-radius:6px 6px 0 0;background:linear-gradient(180deg,#e8c84a,#c9a227)"></div>
+      <div style="font-size:9px;color:#9aabb7">${PO_MESES[i].slice(0,3)}</div>
+    </div>`;
+  }).join("");
+  container.innerHTML = `
+    <div class="po-grid"><div class="po-col-12 po-card">
+      <div class="po-card-header"><span class="po-card-titulo">Evolução de pontos — ${ano}</span></div>
+      <div class="po-card-body"><div style="display:flex;align-items:flex-end;gap:4px;height:190px">${barras}</div></div>
+    </div></div>`;
+}
+window.poRenderEvolucao = poRenderEvolucao;
+
+// ============================================================
+// 🔍 DETALHE DA LOJA (modal lateral)
+// ============================================================
+window.poAbrirDetalhe = async function (codigo) {
+  let ov = document.getElementById("po-detalhe-overlay");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "po-detalhe-overlay";
+    ov.className = "po-detalhe-overlay";
+    ov.addEventListener("click", e => { if (e.target === ov) poFecharDetalhe(); });
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = `<div class="po-detalhe-painel"><div class="po-loading-box"><div class="po-spin"></div> Carregando…</div></div>`;
+  ov.classList.add("aberto");
+
+  const dados = await poCarregarDetalheLoja(codigo, PO_STATE.ano, PO_STATE.mes);
+  const nome = dados?.[0]?.painel_ouro_lojas?.nome || codigo;
+
+  const NOMES_AREA = {
+    vendas:"Vendas", quebras:"Quebras", frente_caixa:"Frente de Caixa", passai:"Passaí",
+    servicos_assai:"Serviços Assaí", rh:"RH", prevencao:"Prevenção", ti_rub_rm:"TI / RUB / RM", adm:"ADM",
   };
 
-  const usuario = typeof window.getUsuarioLogado === "function" ? window.getUsuarioLogado() : null;
-  const podeEditar = usuario && ["master", "admin"].includes(usuario.perfil);
+  let totGeral = 0, maxGeral = 0;
+  const blocos = (dados || []).map(d => {
+    const obt = Number(d.pontuacao_obtida) || 0, mx = Number(d.pontuacao_maxima) || 0;
+    totGeral += obt; maxGeral += mx;
+    const linhas = (d.sub_resultados || []).map(s => `
+      <tr>
+        <td style="color:#5d6b78">${s.indicador}</td>
+        <td style="text-align:right">${s.resultado == null ? "–" : s.resultado}</td>
+        <td style="text-align:right;font-weight:700;color:${Number(s.pontos) > 0 ? "#1e7d45" : "#c0392b"}">${poFmt(s.pontos)} / ${poFmt(s.peso)}</td>
+      </tr>`).join("");
+    return `<div class="po-detalhe-area">
+      <div class="po-detalhe-area-top"><span>${NOMES_AREA[d.area_slug] || d.area_slug}</span><span>${poFmt(obt)} / ${poFmt(mx)} pts</span></div>
+      <table>${linhas || `<tr><td colspan="3" style="color:#9aabb7">Sem indicadores</td></tr>`}</table>
+    </div>`;
+  }).join("");
 
-  if (podeEditar) {
-    // Abre a tela de lançamento da área (tela cheia dentro do painel)
-    const fn = FUNCOES_AREA[areaSlug];
-    if (fn && typeof window[fn] === "function") {
-      window[fn]();
-    } else {
-      console.error("❌ Função de lançamento não encontrada para:", areaSlug);
-    }
-  } else {
-    // Usuário sem permissão de edição → só visualiza
-    if (typeof window.poFiltrarPorArea === "function") window.poFiltrarPorArea(areaSlug);
-    else if (typeof window.poTrocarAba === "function") window.poTrocarAba("ranking");
-  }
+  ov.innerHTML = `
+    <div class="po-detalhe-painel">
+      <div class="po-detalhe-head">
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#0a3d62">${nome}</div>
+          <div style="font-size:11px;color:#9aabb7">#${codigo} · ${poNomeMes(PO_STATE.mes)}/${PO_STATE.ano}</div>
+          <div style="font-size:12px;font-weight:700;color:#9a7b1c;margin-top:6px">Total: ${poFmt(totGeral)} / ${poFmt(maxGeral)} pts</div>
+        </div>
+        <button type="button" class="po-detalhe-fechar" onclick="poFecharDetalhe()">✕</button>
+      </div>
+      ${blocos || `<div class="po-empty"><p>Sem lançamentos para esta loja no período.</p></div>`}
+    </div>`;
 };
 
-window.poSbNavegar = function(aba) {
-  // Atualiza estado visual dos botões
-  document.querySelectorAll(".po-sb-item[id^='po-sb-btn-']").forEach(btn => {
-    btn.classList.remove("ativo");
-  });
-  const btn = document.getElementById(`po-sb-btn-${aba}`);
-  if (btn) btn.classList.add("ativo");
-
-  // Chama a troca de aba no módulo principal
-  if (typeof window.poTrocarAba === "function") {
-    window.poTrocarAba(aba);
-  }
-};
-
-window.poSbFiltrarArea = function(areaSlug) {
-  // Remove ativo de itens de navegação
-  document.querySelectorAll(".po-sb-item[id^='po-sb-btn-']").forEach(btn => {
-    btn.classList.remove("ativo");
-  });
-
-  // Vai para o ranking e deixa o módulo principal filtrar por área
-  // (a ser implementado no painel-ouro.js conforme necessidade)
-  if (typeof window.poFiltrarPorArea === "function") {
-    window.poFiltrarPorArea(areaSlug);
-  } else if (typeof window.poTrocarAba === "function") {
-    window.poTrocarAba("ranking");
-  }
-
-  // Feedback visual no item clicado
-  const todos = document.querySelectorAll(".po-sb-nav .po-sb-item:not([id])");
-  todos.forEach(el => el.classList.remove("ativo"));
-  // encontra pelo onclick
-  const alvo = [...todos].find(el =>
-    el.getAttribute("onclick")?.includes(`'${areaSlug}'`)
-  );
-  if (alvo) alvo.classList.add("ativo");
-};
-
-
-// ============================================================
-// 🚪 ENTRAR / SAIR DO MODO OURO
-// ============================================================
-window.entrarModoOuro = async function() {
-  console.log("👑 Entrando no modo Painel de Ouro");
-
-  const sidebarEl = document.getElementById("sidebar");
-  if (!sidebarEl) return;
-
-  // 1. Fade out do sidebar atual
-  sidebarEl.classList.add("po-transitioning");
-
-  // 2. Mostra loading screen premium
-  await poSbMostrarLoading();
-
-  // 3. Substitui o conteúdo do sidebar pelo ouro
-  sidebarEl.innerHTML = poSbMontarSidebar();
-
-  // 4. Esconde loading → sidebar ouro aparece
-  await poSbEsconderLoading();
-  sidebarEl.classList.remove("po-transitioning");
-
-  // 5. Abre a tela do painel de ouro
-  if (typeof window.abrirTelaInterna === "function") {
-    await window.abrirTelaInterna("painel-ouro");
-  }
-
-  console.log("👑 Modo Painel de Ouro ativo");
-};
-
-window.sairModoOuro = async function() {
-  console.log("👑 Saindo do modo Painel de Ouro");
-
-  const sidebarEl = document.getElementById("sidebar");
-  if (!sidebarEl) return;
-
-  // 1. Destroi gráficos antes de sair
-  if (typeof window.poDestruirChartsPub === "function") {
-    window.poDestruirChartsPub();
-  }
-
-  // 2. Fade out
-  sidebarEl.classList.add("po-transitioning");
-  await new Promise(r => setTimeout(r, 200));
-
-  // 3. Busca o HTML do sidebar original diretamente via fetch
-  //    SEM usar carregarSidebar() — ela tem guard data-loaded que bloqueia
-  try {
-    const res  = await fetch("components/sidebar.html");
-    const html = await res.text();
-
-    // Injeta o HTML (inclui <style> + <div class="main_box">)
-    sidebarEl.innerHTML = html;
-
-    // Reseta o guard para que future chamadas ao carregarSidebar funcionem
-    sidebarEl.dataset.loaded = "true";
-
-  } catch (err) {
-    console.error("❌ Erro ao recarregar sidebar original", err);
-    // Fallback mínimo: remove o conteúdo ouro e avisa
-    sidebarEl.innerHTML = "<div style='padding:20px;color:#fff;font-size:12px'>Erro ao restaurar menu. Recarregue a página.</div>";
-  }
-
-  // 4. Restaura dados e permissões no sidebar recém-injetado
-  await new Promise(r => setTimeout(r, 30));
-
-  if (typeof window.preencherUsuario           === "function") window.preencherUsuario();
-  if (typeof window.montarMenuIndicadores       === "function") window.montarMenuIndicadores();
-  if (typeof window.aplicarPermissoesMenuPrincipal === "function") window.aplicarPermissoesMenuPrincipal();
-  if (typeof window.lerFotoPerfil               === "function") window.lerFotoPerfil();
-
-  // 5. Revincular botão logout (sidebar.html usa addEventListener no carregarSidebar original)
-  try {
-    const btnLogout = sidebarEl.querySelector(".btn-logout");
-    if (btnLogout && !btnLogout.getAttribute("onclick") && !btnLogout.dataset.bound) {
-      btnLogout.addEventListener("click", window.logout);
-      btnLogout.dataset.bound = "true";
-    }
-  } catch (_) {}
-
-  // 6. Remove fade
-  sidebarEl.classList.remove("po-transitioning");
-
-  // 7. Volta para a tela de análises
-  if (typeof window.abrirTelaInterna === "function") {
-    await window.abrirTelaInterna("analises");
-  }
-
-  console.log("👑 Modo Painel de Ouro encerrado");
+window.poFecharDetalhe = function () {
+  const ov = document.getElementById("po-detalhe-overlay");
+  if (ov) ov.classList.remove("aberto");
 };

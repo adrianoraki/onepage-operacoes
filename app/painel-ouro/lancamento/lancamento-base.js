@@ -55,8 +55,8 @@ function poLbErr(m, d) { d != null ? console.error(`👑 LANC | ${m}`, d) : cons
   color: #5d6b78; cursor: pointer; transition: all 0.15s;
 }
 .po-lb-voltar:hover { background: #e6ecf2; color: #0a3d62; }
-.po-lb-titulo { font-family:"Poppins",sans-serif; font-size: 16px; font-weight: 800; color: #0a3d62; }
-.po-lb-sub { font-family:"Poppins",sans-serif; font-size: 11px; color: #7a8c9a; margin-top: 1px; }
+.po-lb-titulo { font-family:"Poppins",sans-serif; font-size: 16px; font-weight: 800; color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,0.4); }
+.po-lb-sub { font-family:"Poppins",sans-serif; font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 1px; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
 
 .po-lb-controles { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .po-lb-select {
@@ -547,7 +547,13 @@ window.poLbSalvarTudo = async function() {
 
   try {
     const bin = poLbEhBinario();
-    const { data: { user } } = await window.supabaseClient.auth.getUser();
+    // BUGFIX: window.supabaseClient não é exposto globalmente pelo app.js —
+    // o cliente correto é window.db (mesmo objeto). Usar getUser de forma segura.
+    let user = null;
+    try {
+      const { data } = await window.db.auth.getUser();
+      user = data?.user || null;
+    } catch (e) { /* segue sem usuário */ }
     const agora = new Date().toISOString();
     const payloads = [];
 
