@@ -13,6 +13,8 @@ const PO_STATE = {
   mes:           new Date().getMonth() + 1, // 1-12
   lojaFoco:      null,   // código da loja no drill-down
   visao:         "ranking", // "ranking" | "evolucao" | "areas" | "detalhe"
+  visaoAnterior: "ranking", // para o botão "voltar" do detalhe
+  areaAtiva:     "vendas",  // área selecionada na aba "Resultados por Área"
   chartEvolucao: null,
   chartAreas:    null,
 };
@@ -1179,11 +1181,16 @@ function poTrocarAba(aba) {
     poRenderRanking(conteudo, PO_STATE.ano, PO_STATE.mes);
   } else if (aba === "evolucao") {
     poRenderEvolucao(conteudo, PO_STATE.ano);
+  } else if (aba === "areas") {
+    if (typeof window.poRenderAreas === "function") {
+      window.poRenderAreas(conteudo, PO_STATE.ano, PO_STATE.mes, PO_STATE.areaAtiva);
+    }
   }
 }
 
 window.poAbrirDetalhe = function(lojaCodigo) {
   PO_STATE.lojaFoco = lojaCodigo;
+  if (PO_STATE.visao !== "detalhe") PO_STATE.visaoAnterior = PO_STATE.visao;
   PO_STATE.visao    = "detalhe";
 
   document.querySelectorAll(".po-aba").forEach(el => el.classList.remove("ativa"));
@@ -1197,18 +1204,18 @@ window.poAbrirDetalhe = function(lojaCodigo) {
 
 window.poVoltarRanking = function() {
   PO_STATE.lojaFoco = null;
-  const aba = PO_STATE.visao === "detalhe" ? "ranking" : PO_STATE.visao;
-  poTrocarAba(aba);
+  const aba = PO_STATE.visao === "detalhe" ? PO_STATE.visaoAnterior : PO_STATE.visao;
+  poTrocarAba(aba || "ranking");
 };
 
 window.poAlterarMes = function(mes) {
   PO_STATE.mes = Number(mes);
-  poTrocarAba("ranking");
+  poTrocarAba(PO_STATE.visao === "detalhe" ? (PO_STATE.visaoAnterior || "ranking") : PO_STATE.visao);
 };
 
 window.poAlterarAno = function(ano) {
   PO_STATE.ano = Number(ano);
-  poTrocarAba("ranking");
+  poTrocarAba(PO_STATE.visao === "detalhe" ? (PO_STATE.visaoAnterior || "ranking") : PO_STATE.visao);
 };
 
 // ============================================================
@@ -1258,6 +1265,7 @@ window.telaPainelOuro = async function() {
       <div class="po-abas">
         <button class="po-aba ativa" data-aba="ranking"  onclick="poTrocarAba('ranking')">Ranking</button>
         <button class="po-aba"       data-aba="evolucao" onclick="poTrocarAba('evolucao')">Evolução anual</button>
+        <button class="po-aba"       data-aba="areas"    onclick="poTrocarAba('areas')">Resultados por Área</button>
       </div>
 
       <!-- CONTEÚDO DINÂMICO -->

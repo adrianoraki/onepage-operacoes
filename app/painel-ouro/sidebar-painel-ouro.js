@@ -658,39 +658,39 @@ function poSbMontarSidebar() {
         <div class="po-sb-divider"></div>
         <div class="po-sb-secao-label">Áreas avaliadas</div>
 
-        <button class="po-sb-item" onclick="poSbFiltrarArea('vendas')">
+        <button class="po-sb-item" onclick="poSbClicarArea('vendas', 'Vendas')">
           <i class="fas fa-dollar-sign"></i>
           <span>Vendas</span>
         </button>
-        <button class="po-sb-item" onclick="poSbFiltrarArea('quebras')">
+        <button class="po-sb-item" onclick="poSbClicarArea('quebras', 'Quebras')">
           <i class="fas fa-box-open"></i>
           <span>Quebras</span>
         </button>
-        <button class="po-sb-item" onclick="poSbFiltrarArea('frente_caixa')">
+        <button class="po-sb-item" onclick="poSbClicarArea('frente_caixa', 'Frente de Caixa')">
           <i class="fas fa-cash-register"></i>
           <span>Frente de Caixa</span>
         </button>
-        <button class="po-sb-item" onclick="poSbFiltrarArea('passai')">
+        <button class="po-sb-item" onclick="poSbClicarArea('passai', 'Passaí')">
           <i class="fas fa-id-card"></i>
           <span>Passaí</span>
         </button>
-        <button class="po-sb-item" onclick="poSbFiltrarArea('servicos_assai')">
+        <button class="po-sb-item" onclick="poSbClicarArea('servicos_assai', 'Serviços Assaí')">
           <i class="fas fa-store"></i>
           <span>Serviços Assaí</span>
         </button>
-        <button class="po-sb-item" onclick="poSbFiltrarArea('rh')">
+        <button class="po-sb-item" onclick="poSbClicarArea('rh', 'RH')">
           <i class="fas fa-users"></i>
           <span>RH</span>
         </button>
-        <button class="po-sb-item" onclick="poSbFiltrarArea('prevencao')">
+        <button class="po-sb-item" onclick="poSbClicarArea('prevencao', 'Prevenção')">
           <i class="fas fa-shield-alt"></i>
           <span>Prevenção</span>
         </button>
-        <button class="po-sb-item" onclick="poSbFiltrarArea('ti_rub_rm')">
+        <button class="po-sb-item" onclick="poSbClicarArea('ti_rub_rm', 'TI / RUB / RM')">
           <i class="fas fa-barcode"></i>
           <span>TI / RUB / RM</span>
         </button>
-        <button class="po-sb-item" onclick="poSbFiltrarArea('adm')">
+        <button class="po-sb-item" onclick="poSbClicarArea('adm', 'ADM')">
           <i class="fas fa-chart-pie"></i>
           <span>ADM</span>
         </button>
@@ -721,6 +721,27 @@ function poSbMontarSidebar() {
 // ============================================================
 // 🔁 NAVEGAÇÃO INTERNA DO SIDEBAR OURO
 // ============================================================
+
+window.poSbClicarArea = function(areaSlug, areaNome) {
+  // Feedback visual no item do sidebar
+  document.querySelectorAll(".po-sb-nav .po-sb-item:not([id])").forEach(el => el.classList.remove("ativo"));
+  const alvo = [...document.querySelectorAll(".po-sb-nav .po-sb-item:not([id])")].find(el =>
+    el.getAttribute("onclick")?.includes(`'${areaSlug}'`)
+  );
+  if (alvo) alvo.classList.add("ativo");
+
+  // Abre o modal de lançamento se master/admin, senão filtra
+  const usuario = typeof window.getUsuarioLogado === "function" ? window.getUsuarioLogado() : null;
+  if (usuario && ["master", "admin"].includes(usuario.perfil)) {
+    if (typeof window.poAbrirLancamento === "function") {
+      window.poAbrirLancamento(areaSlug, areaNome);
+    }
+  } else {
+    if (typeof window.poFiltrarPorArea === "function") window.poFiltrarPorArea(areaSlug);
+    else if (typeof window.poTrocarAba === "function") window.poTrocarAba("ranking");
+  }
+};
+
 window.poSbNavegar = function(aba) {
   // Atualiza estado visual dos botões
   document.querySelectorAll(".po-sb-item[id^='po-sb-btn-']").forEach(btn => {
