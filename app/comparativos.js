@@ -613,14 +613,33 @@ function getNumeroSemanaPorDataComparativo(data) {
 }
 
 /**
- * Regra correta:
- * A semana pertence ao mês quando a segunda-feira da semana está dentro do mês.
+ * Semanas de um mês. IMPORTANTE: usa o MESMO cálculo das tabelas de preenchimento
+ * (window.FiltroPeriodo), senão o número da semana pode divergir e os resultados
+ * gravados não casam com o que o comparativo procura. Só usa o cálculo ISO local
+ * como fallback caso o módulo compartilhado não esteja disponível.
  */
 function getSemanasDoMesPorMesComparativo(mes, ano = new Date().getFullYear()) {
   const mesNumero = Number(mes);
 
   if (!Number.isFinite(mesNumero) || mesNumero < 1 || mesNumero > 12) {
     return [];
+  }
+
+  // fonte da verdade: o mesmo módulo usado pelas tabelas ao salvar os resultados
+  if (
+    window.FiltroPeriodo &&
+    typeof window.FiltroPeriodo.getSemanasDoMes === "function"
+  ) {
+    try {
+      const semanas = window.FiltroPeriodo.getSemanasDoMes(mesNumero, ano) || [];
+      if (semanas.length) {
+        return semanas
+          .map((s) => normalizarSemanaComparativo(s))
+          .sort((a, b) => Number(a) - Number(b));
+      }
+    } catch (e) {
+      // cai para o cálculo local abaixo
+    }
   }
 
   const primeiroDia = new Date(ano, mesNumero - 1, 1);
@@ -741,6 +760,20 @@ function extrairSemanasDosResultadosComparativo(resultados = []) {
 // ==========================
 function getChaveLojaComparativo(loja) {
   return `${loja.codigo} - ${loja.nome}`;
+}
+
+// Resolve a regional da loja de forma resiliente: usa o campo "regional" do cadastro;
+// se vier vazio/diferente, cai para a ordem fixa NE1/NE2 pelo CÓDIGO da loja.
+function getRegionalLojaComparativo(loja) {
+  const reg = normalizarTextoComparativoUpper(loja?.regional || "");
+  if (reg === "NE1" || reg === "NE2") return reg;
+
+  const cod = String(loja?.codigo || "");
+  const idx = ORDEM_LOJAS_COMPARATIVO.indexOf(cod);
+  if (idx !== -1) return idx < 14 ? "NE1" : "NE2";
+
+  // mantém o que veio (mesmo que não seja NE1/NE2) para não sumir com a loja
+  return reg;
 }
 
 // restringe as lojas conforme o escopo do usuário (loja vinculada / regional)
@@ -1170,6 +1203,33 @@ function getVariantesSemanasComparativo(semanas = []) {
   return [...variantes].filter(Boolean);
 }
 
+// Supabase devolve no máximo ~1000 linhas por requisição. No "Mês inteiro"
+// (todos os indicadores × várias semanas) isso estoura facilmente e algumas
+// lojas/indicadores somem. Este helper pagina via .range() até trazer tudo.
+async function buscarTodasPaginasComparativo(montarQuery, tamanhoPagina = 1000) {
+  let todos = [];
+  let inicio = 0;
+
+  // trava de segurança para não loopar infinito (até 50k linhas)
+  for (let i = 0; i < 50; i++) {
+    const fim = inicio + tamanhoPagina - 1;
+
+    const { data, error } = await montarQuery().range(inicio, fim);
+
+    if (error) throw error;
+
+    const pagina = data || [];
+    todos = todos.concat(pagina);
+
+    // se voltou menos que uma página cheia, acabou
+    if (pagina.length < tamanhoPagina) break;
+
+    inicio += tamanhoPagina;
+  }
+
+  return todos;
+}
+
 async function buscarResultadosComparativoBase({
   anoReferencia,
   mesSelecionado,
@@ -1182,57 +1242,59 @@ async function buscarResultadosComparativoBase({
 
   const variantesSemana = getVariantesSemanasComparativo(semanasFiltro);
 
-  let query = window.db.from("resultados").select("*");
-
-  if (variantesSemana.length) {
-    query = query.in("semana", variantesSemana);
-  }
-
-  if (COMPARATIVO_STATE.indicador !== "TODOS") {
-    const indicadorBanco = getIndicadorBancoComparativo(
-      COMPARATIVO_STATE.indicador
-    );
-
-    query = query.eq("indicador", indicadorBanco);
-  }
-
-  if (COMPARATIVO_STATE.loja !== "TODAS") {
-    query = query.eq("loja", COMPARATIVO_STATE.loja);
-  }
-
-  const { data, error } = await query;
-
-  if (error) throw error;
-
-  let resultados = data || [];
-
-  resultados = resultados.filter((r) => {
-    const semanaRegistro = normalizarSemanaComparativo(r.semana);
-    return semanasFiltro.includes(semanaRegistro);
-  });
-
-  if (!resultados.length) {
-    let fallback = window.db.from("resultados").select("*");
+  // monta a query base (sem .range — a paginação cuida disso)
+  const montarQueryBase = () => {
+    let query = window.db.from("resultados").select("*");
 
     if (variantesSemana.length) {
-      fallback = fallback.in("semana", variantesSemana);
+      query = query.in("semana", variantesSemana);
     }
 
     if (COMPARATIVO_STATE.indicador !== "TODOS") {
       const indicadorBanco = getIndicadorBancoComparativo(
         COMPARATIVO_STATE.indicador
       );
-
-      fallback = fallback.eq("indicador", indicadorBanco);
+      query = query.eq("indicador", indicadorBanco);
     }
 
     if (COMPARATIVO_STATE.loja !== "TODAS") {
-      fallback = fallback.eq("loja", COMPARATIVO_STATE.loja);
+      query = query.eq("loja", COMPARATIVO_STATE.loja);
     }
 
-    const { data: fallbackData, error: fallbackError } = await fallback;
+    // ordem estável para a paginação não pular/repetir linhas
+    return query.order("id", { ascending: true });
+  };
 
-    if (fallbackError) throw fallbackError;
+  const data = await buscarTodasPaginasComparativo(montarQueryBase);
+
+  let resultados = (data || []).filter((r) => {
+    const semanaRegistro = normalizarSemanaComparativo(r.semana);
+    return semanasFiltro.includes(semanaRegistro);
+  });
+
+  if (!resultados.length) {
+    const montarFallback = () => {
+      let fallback = window.db.from("resultados").select("*");
+
+      if (variantesSemana.length) {
+        fallback = fallback.in("semana", variantesSemana);
+      }
+
+      if (COMPARATIVO_STATE.indicador !== "TODOS") {
+        const indicadorBanco = getIndicadorBancoComparativo(
+          COMPARATIVO_STATE.indicador
+        );
+        fallback = fallback.eq("indicador", indicadorBanco);
+      }
+
+      if (COMPARATIVO_STATE.loja !== "TODAS") {
+        fallback = fallback.eq("loja", COMPARATIVO_STATE.loja);
+      }
+
+      return fallback.order("id", { ascending: true });
+    };
+
+    const fallbackData = await buscarTodasPaginasComparativo(montarFallback);
 
     resultados = (fallbackData || []).filter((r) => {
       const semanaRegistro = normalizarSemanaComparativo(r.semana);
@@ -1257,6 +1319,11 @@ async function buscarResultadosComparativoBase({
     variantesSemana,
     registrosRetornados: resultados.length,
   });
+
+  // se o total se aproxima de múltiplos de 1000, a paginação está funcionando
+  console.log(
+    `📦 Comparativos: ${resultados.length} linha(s) carregada(s) (paginado, sem teto de 1000)`
+  );
 
   return resultados;
 }
@@ -1300,6 +1367,21 @@ async function carregarDadosComparativos() {
       semanaSel,
     });
 
+    // mapa código → regional, derivado do cadastro de lojas E da ordem fixa NE1/NE2.
+    // Serve de rede de segurança quando o campo "regional" da loja vem vazio/errado.
+    const mapaCodigoRegional = {};
+    (lojas || []).forEach((l) => {
+      const cod = String(l.codigo || "");
+      const reg = normalizarTextoComparativoUpper(l.regional || "");
+      if (cod && reg) mapaCodigoRegional[cod] = reg;
+    });
+    // completa com a ordem fixa (caso o cadastro não traga regional)
+    ORDEM_LOJAS_COMPARATIVO.forEach((cod, i) => {
+      if (mapaCodigoRegional[cod]) return;
+      // os 14 primeiros códigos são NE1; o restante, NE2 (ver ORDEM_LOJAS_COMPARATIVO)
+      mapaCodigoRegional[cod] = i < 14 ? "NE1" : "NE2";
+    });
+
     const resultadosNorm = (resultadosBrutos || []).map((r) => {
       const lojaCadastro = localizarLojaCadastroComparativo(lojas, r);
 
@@ -1312,9 +1394,12 @@ async function carregarDadosComparativos() {
         ? getChaveLojaComparativo(lojaCadastro)
         : r.loja;
 
+      // regional: 1º do cadastro; 2º do mapa por chave; 3º do mapa por CÓDIGO (rede de segurança)
       const regional =
         lojaCadastro?.regional ||
         mapaLojaRegional[r.loja] ||
+        mapaLojaRegional[lojaChaveCadastro] ||
+        mapaCodigoRegional[String(codigoLoja || "")] ||
         "";
 
       return {
@@ -1336,6 +1421,41 @@ async function carregarDadosComparativos() {
       ...new Set(resultadosNorm.map((r) => r.indicador).filter(Boolean)),
     ].sort();
     console.log("🏷️ Indicadores encontrados no banco:", indicadoresNoBanco);
+
+    // diagnóstico: resultados que NÃO conseguiram resolver a regional
+    // (causa clássica de "tem dado mas não aparece" no comparativo)
+    const semRegionalResolvida = resultadosNorm.filter(
+      (r) => r._regional !== "NE1" && r._regional !== "NE2"
+    );
+    if (semRegionalResolvida.length) {
+      const amostra = [
+        ...new Set(
+          semRegionalResolvida.map(
+            (r) => `${r._loja_codigo || "?"} | ${r.loja} | reg="${r._regional}"`
+          )
+        ),
+      ].slice(0, 30);
+      console.warn(
+        `⚠️ ${semRegionalResolvida.length} resultado(s) sem regional NE1/NE2 resolvida — não entram na matriz:`,
+        amostra
+      );
+    }
+
+    // diagnóstico: códigos de loja presentes nos resultados que não estão no cadastro
+    const codigosCadastro = new Set(lojas.map((l) => String(l.codigo || "")));
+    const codigosOrfaos = [
+      ...new Set(
+        resultadosNorm
+          .map((r) => String(r._loja_codigo || ""))
+          .filter((c) => c && !codigosCadastro.has(c))
+      ),
+    ];
+    if (codigosOrfaos.length) {
+      console.warn(
+        "⚠️ Códigos de loja nos resultados que NÃO existem no cadastro de lojas:",
+        codigosOrfaos
+      );
+    }
 
     const infoPeriodoHtml = semanaEspecifica
       ? `
@@ -1474,10 +1594,7 @@ function renderComparativoRegional(
   const isPercentual = tipoPercentualComparativo(tipoIndicador);
 
   const lojasRegional = (lojasData || [])
-    .filter(
-      (loja) =>
-        normalizarTextoComparativoUpper(loja.regional || "") === regionalUpper
-    )
+    .filter((loja) => getRegionalLojaComparativo(loja) === regionalUpper)
     .sort((a, b) => {
       const ca = String(a.codigo || "");
       const cb = String(b.codigo || "");
@@ -1494,9 +1611,11 @@ function renderComparativoRegional(
     });
 
   const mapaLojas = {};
+  const codigosRegional = new Set();
 
   lojasRegional.forEach((loja) => {
     const chave = getChaveLojaComparativo(loja);
+    codigosRegional.add(String(loja.codigo || ""));
 
     mapaLojas[chave] = {
       loja: chave,
@@ -1507,10 +1626,18 @@ function renderComparativoRegional(
   });
 
   resultadosNorm
-    .filter((r) => r._regional === regionalUpper)
+    .filter(
+      (r) =>
+        r._regional === regionalUpper ||
+        codigosRegional.has(String(r._loja_codigo || ""))
+    )
     .forEach((r) => {
       const lojaCadastro = localizarLojaCadastroComparativo(lojasData, r);
       const chave = lojaCadastro ? getChaveLojaComparativo(lojaCadastro) : r.loja;
+
+      // ignora resultados de lojas que não pertencem a esta regional
+      const codR = String(r._loja_codigo || (lojaCadastro?.codigo ?? ""));
+      if (codigosRegional.size && codR && !codigosRegional.has(codR)) return;
 
       if (!mapaLojas[chave]) {
         const partes = quebrarLojaComparativo(chave);
@@ -1853,10 +1980,7 @@ function renderMatrizRegional(
   const regionalUpper = normalizarTextoComparativoUpper(nomeRegional);
 
   const lojasRegional = (lojasData || [])
-    .filter(
-      (loja) =>
-        normalizarTextoComparativoUpper(loja.regional || "") === regionalUpper
-    )
+    .filter((loja) => getRegionalLojaComparativo(loja) === regionalUpper)
     .sort((a, b) => {
       const ca = String(a.codigo || "");
       const cb = String(b.codigo || "");
@@ -1885,26 +2009,36 @@ function renderMatrizRegional(
   }
 
   const lojas = {};
+  const codigosRegional = new Set();
 
   lojasRegional.forEach((loja) => {
     const chaveLoja = getChaveLojaComparativo(loja);
+    codigosRegional.add(String(loja.codigo || ""));
 
     lojas[chaveLoja] = {
       codigo: String(loja.codigo || ""),
       nome: loja.nome || "",
-      regional: normalizarTextoComparativoUpper(loja.regional || ""),
+      regional: regionalUpper,
       indicadores: {},
     };
   });
 
   resultadosNorm
-    .filter((r) => r._regional === regionalUpper)
+    .filter(
+      (r) =>
+        r._regional === regionalUpper ||
+        codigosRegional.has(String(r._loja_codigo || ""))
+    )
     .forEach((r) => {
       const lojaCadastro = localizarLojaCadastroComparativo(lojasData, r);
 
       const chaveLoja = lojaCadastro
         ? getChaveLojaComparativo(lojaCadastro)
         : r.loja;
+
+      // só inclui resultados de lojas desta regional (evita misturar NE1/NE2)
+      const codR = String(r._loja_codigo || (lojaCadastro?.codigo ?? ""));
+      if (codigosRegional.size && codR && !codigosRegional.has(codR)) return;
 
       if (!lojas[chaveLoja]) {
         const partes = quebrarLojaComparativo(chaveLoja);
