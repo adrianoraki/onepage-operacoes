@@ -2104,9 +2104,21 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
     const at = analiseAgregar(l.atual, tipo);
     const an = analiseAgregar(l.anterior, tipo);
     let variacao = null;
-    if (at !== null && an !== null && an !== 0) variacao = ((at - an) / Math.abs(an)) * 100;
+    let variacaoEhPP = false; // true = pontos percentuais, false = % relativa
+    if (at !== null && an !== null) {
+      if (analiseEhPercentual(tipo)) {
+        // Indicadores percentuais (ruptura, cancelamento, CNS...)
+        // Usa diferença absoluta em pontos percentuais (p.p.) — mais legível
+        // Ex: 1,00% → 2,58%: variação = 1,00 - 2,58 = -1,58 p.p.
+        variacao = at - an;
+        variacaoEhPP = true;
+      } else if (an !== 0) {
+        // Indicadores absolutos (moeda, inteiro) → variação relativa %
+        variacao = ((at - an) / Math.abs(an)) * 100;
+      }
+    }
     const melhora = variacao === null ? null : menorMelhor ? -variacao : variacao;
-    return { ...l, at, an, variacao, melhora };
+    return { ...l, at, an, variacao, melhora, variacaoEhPP };
   });
 
   // lojas com valor no período em foco (atual) → rankeadas
@@ -2141,7 +2153,9 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
       if (!ehSemResposta && l.melhora !== null) {
         const cls = l.melhora > 0.05 ? "analise-var-sobe" : l.melhora < -0.05 ? "analise-var-desce" : "analise-var-igual";
         const seta = l.melhora > 0.05 ? "▲" : l.melhora < -0.05 ? "▼" : "—";
-        varCell = `<span class="${cls}">${seta} ${Math.abs(l.melhora).toFixed(1).replace(".", ",")}%</span>`;
+        // sufixo: p.p. para percentuais, % para absolutos
+        const sufixo = l.variacaoEhPP ? " p.p." : "%";
+        varCell = `<span class="${cls}">${seta} ${Math.abs(l.melhora).toFixed(2).replace(".", ",")}${sufixo}</span>`;
       }
 
       const badge = ehSemResposta
@@ -2177,7 +2191,7 @@ async function renderAbaPeriodo({ lojasEscopoBase, lojasVisuaisSet }) {
             <th>Loja</th>
             <th>${capitalizarAnalise((periodos.modo === "semana" ? mesAtual : mesAnterior).rotulo)}</th>
             <th>${capitalizarAnalise((periodos.modo === "semana" ? mesAnterior : mesAtual).rotulo)}</th>
-            <th>Evolução</th>
+            <th>Evolução${analiseEhPercentual(tipo) ? ' <span style="font-size:10px;font-weight:500;color:var(--an-txt-soft);">(p.p.)</span>' : ''}</th>
           </tr>
         </thead>
         <tbody>${linhasHtml}</tbody>
