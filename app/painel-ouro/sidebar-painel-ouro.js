@@ -625,7 +625,7 @@ function poSbMontarSidebar() {
 
       <!-- CABEÇALHO -->
       <div class="po-sb-header">
-        <button class="po-sb-voltar" onclick="sairModoOuro()">
+        <button type="button" class="po-sb-voltar" onclick="sairModoOuro()">
           <i class="fas fa-arrow-left"></i>
           Voltar ao menu
         </button>
@@ -643,13 +643,13 @@ function poSbMontarSidebar() {
 
         <div class="po-sb-secao-label">Visualizações</div>
 
-        <button class="po-sb-item ativo" id="po-sb-btn-ranking"
+        <button type="button" class="po-sb-item ativo" id="po-sb-btn-ranking"
           onclick="poSbNavegar('ranking')">
           <i class="fas fa-list-ol"></i>
           <span>Ranking mensal</span>
         </button>
 
-        <button class="po-sb-item" id="po-sb-btn-evolucao"
+        <button type="button" class="po-sb-item" id="po-sb-btn-evolucao"
           onclick="poSbNavegar('evolucao')">
           <i class="fas fa-chart-line"></i>
           <span>Evolução anual</span>
@@ -658,39 +658,39 @@ function poSbMontarSidebar() {
         <div class="po-sb-divider"></div>
         <div class="po-sb-secao-label">Áreas avaliadas</div>
 
-        <button class="po-sb-item" onclick="poSbClicarArea('vendas', 'Vendas')">
+        <button type="button" class="po-sb-item" onclick="poSbClicarArea('vendas', 'Vendas')">
           <i class="fas fa-dollar-sign"></i>
           <span>Vendas</span>
         </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('quebras', 'Quebras')">
+        <button type="button" class="po-sb-item" onclick="poSbClicarArea('quebras', 'Quebras')">
           <i class="fas fa-box-open"></i>
           <span>Quebras</span>
         </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('frente_caixa', 'Frente de Caixa')">
+        <button type="button" class="po-sb-item" onclick="poSbClicarArea('frente_caixa', 'Frente de Caixa')">
           <i class="fas fa-cash-register"></i>
           <span>Frente de Caixa</span>
         </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('passai', 'Passaí')">
+        <button type="button" class="po-sb-item" onclick="poSbClicarArea('passai', 'Passaí')">
           <i class="fas fa-id-card"></i>
           <span>Passaí</span>
         </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('servicos_assai', 'Serviços Assaí')">
+        <button type="button" class="po-sb-item" onclick="poSbClicarArea('servicos_assai', 'Serviços Assaí')">
           <i class="fas fa-store"></i>
           <span>Serviços Assaí</span>
         </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('rh', 'RH')">
+        <button type="button" class="po-sb-item" onclick="poSbClicarArea('rh', 'RH')">
           <i class="fas fa-users"></i>
           <span>RH</span>
         </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('prevencao', 'Prevenção')">
+        <button type="button" class="po-sb-item" onclick="poSbClicarArea('prevencao', 'Prevenção')">
           <i class="fas fa-shield-alt"></i>
           <span>Prevenção</span>
         </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('ti_rub_rm', 'TI / RUB / RM')">
+        <button type="button" class="po-sb-item" onclick="poSbClicarArea('ti_rub_rm', 'TI / RUB / RM')">
           <i class="fas fa-barcode"></i>
           <span>TI / RUB / RM</span>
         </button>
-        <button class="po-sb-item" onclick="poSbClicarArea('adm', 'ADM')">
+        <button type="button" class="po-sb-item" onclick="poSbClicarArea('adm', 'ADM')">
           <i class="fas fa-chart-pie"></i>
           <span>ADM</span>
         </button>
@@ -708,7 +708,7 @@ function poSbMontarSidebar() {
             <div class="po-sb-user-funcao">${funcao}</div>
           </div>
         </div>
-        <button class="po-sb-btn-sair" onclick="logMenu('logout'); logout();">
+        <button type="button" class="po-sb-btn-sair" onclick="logMenu('logout'); logout();">
           <i class="fas fa-right-from-bracket"></i>
           Sair
         </button>
@@ -730,13 +730,32 @@ window.poSbClicarArea = function(areaSlug, areaNome) {
   );
   if (alvo) alvo.classList.add("ativo");
 
-  // Abre o modal de lançamento se master/admin, senão filtra
+  // Mapa de áreas → função de tela de lançamento (cada área tem seu arquivo)
+  const FUNCOES_AREA = {
+    vendas:         "renderVendasTable",
+    quebras:        "poLancQuebras",
+    frente_caixa:   "poLancFrenteCaixa",
+    passai:         "poLancPassai",
+    servicos_assai: "poLancServicosAssai",
+    rh:             "poLancRH",
+    prevencao:      "poLancPrevencao",
+    ti_rub_rm:      "poLancTiRubRm",
+    adm:            "poLancAdm",
+  };
+
   const usuario = typeof window.getUsuarioLogado === "function" ? window.getUsuarioLogado() : null;
-  if (usuario && ["master", "admin"].includes(usuario.perfil)) {
-    if (typeof window.poAbrirLancamento === "function") {
-      window.poAbrirLancamento(areaSlug, areaNome);
+  const podeEditar = usuario && ["master", "admin"].includes(usuario.perfil);
+
+  if (podeEditar) {
+    // Abre a tela de lançamento da área (tela cheia dentro do painel)
+    const fn = FUNCOES_AREA[areaSlug];
+    if (fn && typeof window[fn] === "function") {
+      window[fn]();
+    } else {
+      console.error("❌ Função de lançamento não encontrada para:", areaSlug);
     }
   } else {
+    // Usuário sem permissão de edição → só visualiza
     if (typeof window.poFiltrarPorArea === "function") window.poFiltrarPorArea(areaSlug);
     else if (typeof window.poTrocarAba === "function") window.poTrocarAba("ranking");
   }
@@ -784,26 +803,38 @@ window.poSbFiltrarArea = function(areaSlug) {
 // ============================================================
 // 🚪 ENTRAR / SAIR DO MODO OURO
 // ============================================================
+// Espera window.telaPainelOuro ficar disponível (scripts defer podem
+// não ter executado ainda). Tenta por até ~2 segundos.
+function poSbEsperarModulo(tentativas = 40) {
+  return new Promise(resolve => {
+    let n = 0;
+    const checar = () => {
+      if (typeof window.telaPainelOuro === "function") return resolve(true);
+      if (++n >= tentativas) {
+        console.warn("👑 telaPainelOuro não ficou disponível a tempo");
+        return resolve(false);
+      }
+      setTimeout(checar, 50);
+    };
+    checar();
+  });
+}
+
 window.entrarModoOuro = async function() {
   console.log("👑 Entrando no modo Painel de Ouro");
 
   const sidebarEl = document.getElementById("sidebar");
   if (!sidebarEl) return;
 
-  // 1. Fade out do sidebar atual
-  sidebarEl.classList.add("po-transitioning");
+  // Marca o modo ouro como ativo (persiste no refresh)
+  try { sessionStorage.setItem("po_modo_ouro", "1"); } catch (_) {}
 
-  // 2. Mostra loading screen premium
-  await poSbMostrarLoading();
-
-  // 3. Substitui o conteúdo do sidebar pelo ouro
+  // Substitui o sidebar pelo ouro (sem loading screen — silencioso)
   sidebarEl.innerHTML = poSbMontarSidebar();
 
-  // 4. Esconde loading → sidebar ouro aparece
-  await poSbEsconderLoading();
-  sidebarEl.classList.remove("po-transitioning");
+  // Garante que o módulo do painel está carregado antes de abrir
+  await poSbEsperarModulo();
 
-  // 5. Abre a tela do painel de ouro
   if (typeof window.abrirTelaInterna === "function") {
     await window.abrirTelaInterna("painel-ouro");
   }
@@ -817,14 +848,13 @@ window.sairModoOuro = async function() {
   const sidebarEl = document.getElementById("sidebar");
   if (!sidebarEl) return;
 
+  // Remove a marca do modo ouro (não restaura no próximo refresh)
+  try { sessionStorage.removeItem("po_modo_ouro"); } catch (_) {}
+
   // 1. Destroi gráficos antes de sair
   if (typeof window.poDestruirChartsPub === "function") {
     window.poDestruirChartsPub();
   }
-
-  // 2. Fade out
-  sidebarEl.classList.add("po-transitioning");
-  await new Promise(r => setTimeout(r, 200));
 
   // 3. Busca o HTML do sidebar original diretamente via fetch
   //    SEM usar carregarSidebar() — ela tem guard data-loaded que bloqueia
@@ -871,3 +901,44 @@ window.sairModoOuro = async function() {
 
   console.log("👑 Modo Painel de Ouro encerrado");
 };
+// ============================================================
+// 🔄 RESTAURAÇÃO AUTOMÁTICA APÓS REFRESH
+// Se o usuário recarregou a página enquanto estava no modo ouro,
+// reentra no painel automaticamente (silencioso, sem loading).
+// ============================================================
+(function poSbRestaurarModoOuro() {
+  let restaurado = false;
+
+  async function tentarRestaurar() {
+    if (restaurado) return;
+
+    let flag = null;
+    try { flag = sessionStorage.getItem("po_modo_ouro"); } catch (_) {}
+    if (flag !== "1") return;
+
+    // espera o app estar pronto: sidebar + função de entrar + módulo
+    const sidebarEl = document.getElementById("sidebar");
+    const pronto = sidebarEl
+      && typeof window.entrarModoOuro === "function"
+      && typeof window.telaPainelOuro === "function"
+      && typeof window.abrirTelaInterna === "function"
+      && window.db;
+
+    if (!pronto) return; // tenta de novo no próximo ciclo
+
+    restaurado = true;
+    console.log("👑 Restaurando modo Painel de Ouro após refresh");
+    try {
+      await window.entrarModoOuro();
+    } catch (e) {
+      console.error("👑 Falha ao restaurar modo ouro", e);
+    }
+  }
+
+  // tenta a cada 150ms por até ~10s (cobre o defer + login + carga do db)
+  let tentativas = 0;
+  const intervalo = setInterval(() => {
+    tentarRestaurar();
+    if (restaurado || ++tentativas >= 66) clearInterval(intervalo);
+  }, 150);
+})();

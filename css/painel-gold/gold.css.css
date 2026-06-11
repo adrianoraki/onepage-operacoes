@@ -1,0 +1,410 @@
+/* ==========================================================================
+   📌 MASTER STYLESHEET - PAINEL OURO (HIGH CONTRAST) - PARTE 1 DE 2
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   🎯 CLASSES COMPARTILHADAS & UTILITÁRIOS
+   -------------------------------------------------------------------------- */
+.result-good, .res-good { color: #9be67a !important; font-weight: 700; }
+.result-bad, .res-bad   { color: #ff8a8a !important; font-weight: 700; }
+.td-total-final         { font-weight: 800; color: #ffd966; text-align: center; background: rgba(212,175,55,0.05) !important; }
+
+/* --------------------------------------------------------------------------
+   🛒 1. MÓDULO: VENDAS / SERVIÇOS ASSAÍ
+   -------------------------------------------------------------------------- */
+.painel-vendas {
+  background: linear-gradient(180deg, #0f1418 0%, #12161a 100%);
+  color: #f4e7b2;
+  border: 1px solid rgba(212,175,55,0.12);
+  padding: 18px;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  margin: 18px 0;
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.painel-vendas h2 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  color: #ffd966;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.table-vendas {
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table-vendas thead th {
+  background: linear-gradient(90deg, rgba(212,175,55,0.06), rgba(255,215,0,0.02));
+  color: #f4e7b2;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.table-vendas tbody td {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #e9e1b8;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #4f522c;
+}
+
+.table-vendas tbody tr:hover td {
+  background: #1c242f !important;
+  color: #fff;
+}
+
+.badge-yes {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #d4af37, #f4d35e);
+  color: #2b1f00;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.badge-no {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  color: #cfc6a0;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   🛡️ 2. MÓDULO: PREVENÇÃO DE PERDAS
+   -------------------------------------------------------------------------- */
+.painel-prev {
+  background: linear-gradient(180deg, #0f1418 0%, #12161a 100%);
+  color: #f4e7b2;
+  border: 1px solid rgba(212,175,55,0.12);
+  padding: 18px;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  margin: 18px 0;
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.painel-prev h2 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  color: #ffd966;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.po-prev-filtros {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  background: rgba(255,255,255,0.02);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(212,175,55,0.05);
+}
+
+.po-prev-control { display: flex; flex-direction: column; gap: 6px; }
+.po-prev-control label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: rgba(201,162,39,0.6); font-weight: 700; }
+
+.po-prev-select {
+  background: #161c22;
+  border: 1px solid rgba(212,175,55,0.2);
+  color: #f4e7b2;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+}
+
+.table-prev-container { overflow-x: auto; border-radius: 8px; border: 1px solid rgba(212,175,55,0.1); }
+.table-prev { width: 100%; border-collapse: collapse; min-width: 1200px; }
+
+.table-prev thead th {
+  font-family: "Poppins", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 4px;
+  text-align: center;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.row-metas th { background: #e5cbb7; color: #1e293b; font-size: 12px !important; }
+.row-indicadores th { background: #2c3545; color: #fff; letter-spacing: 0.5px; }
+.row-subheaders th { background: #1a2432; color: #ffd966; font-size: 10px !important; }
+.th-fixa { background: #11161d !important; color: #ffd966 !important; }
+.th-total-pontos { background: #b25e10 !important; color: #fff !important; font-size: 12px !important; }
+
+.table-prev tbody td {
+  padding: 6px 8px;
+  font-size: 13px;
+  color: #f4e7b2;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #151b22;
+}
+
+.table-prev tbody tr:hover td {
+  background: #1c242f !important;
+  color: #fff;
+}
+
+.po-prev-input {
+  background: #212934;
+  border: 1px solid rgba(212,175,55,0.35);
+  color: #fff;
+  padding: 4px 6px;
+  border-radius: 4px;
+  width: 80px;
+  font-family: inherit;
+  font-size: 12px;
+  text-align: right;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.po-prev-input:focus {
+  background: #161c22;
+  border-color: #ffd966;
+  box-shadow: 0 0 6px rgba(255,217,102,0.3);
+  outline: none;
+}
+
+.badge-prev-pts {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 11px;
+  min-width: 20px;
+  text-align: center;
+}
+.badge-prev-pts.ganhou { background: #2e7d32; color: #fff; }
+.badge-prev-pts.perdeu { background: rgba(255,255,255,0.05); color: #888; }
+/* ==========================================================================
+   📌 MASTER STYLESHEET - PAINEL OURO (HIGH CONTRAST) - PARTE 2 DE 2
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   🧮 3. MÓDULO: FRENTE DE CAIXA
+   -------------------------------------------------------------------------- */
+.painel-fc {
+  background: linear-gradient(180deg, #0f1418 0%, #12161a 100%);
+  color: #f4e7b2;
+  border: 1px solid rgba(212,175,55,0.12);
+  padding: 18px;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  margin: 18px 0;
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.painel-fc h2 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  color: #ffd966;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.po-fc-filtros {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  background: rgba(255,255,255,0.02);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(212,175,55,0.05);
+}
+
+.po-fc-control { display: flex; flex-direction: column; gap: 6px; }
+.po-fc-control label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: rgba(201,162,39,0.6); font-weight: 700; }
+.po-fc-select { background: #161c22; border: 1px solid rgba(212,175,55,0.2); color: #f4e7b2; padding: 6px 12px; border-radius: 6px; font-family: inherit; font-size: 13px; cursor: pointer; outline: none; }
+
+.table-fc-container { overflow-x: auto; border-radius: 8px; border: 1px solid rgba(212,175,55,0.1); }
+.table-fc { width: 100%; border-collapse: collapse; min-width: 1100px; }
+
+.table-fc thead th {
+  font-family: "Poppins", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 4px;
+  text-align: center;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.table-fc tbody td {
+  padding: 6px 8px;
+  font-size: 13px;
+  color: #e9e1b8;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #151b22;
+}
+
+.table-fc tbody tr:hover td {
+  background: #1c242f !important;
+  color: #fff;
+}
+
+.po-fc-input {
+  background: #212934;
+  border: 1px solid rgba(212,175,55,0.35);
+  color: #fff;
+  padding: 4px 6px;
+  border-radius: 4px;
+  width: 85px;
+  font-family: inherit;
+  font-size: 12px;
+  text-align: right;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.po-fc-input:focus {
+  background: #161c22;
+  border-color: #ffd966;
+  box-shadow: 0 0 6px rgba(255,217,102,0.3);
+  outline: none;
+}
+
+.badge-fc-pts {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 11px;
+  min-width: 20px;
+  text-align: center;
+}
+.badge-fc-pts.ganhou { background: #2e7d32; color: #fff; }
+.badge-fc-pts.perdeu { background: rgba(255,255,255,0.05); color: #888; }
+
+/* --------------------------------------------------------------------------
+   📂 4. MÓDULO: ADMINISTRATIVO / RH
+   -------------------------------------------------------------------------- */
+.painel-adm {
+  background: linear-gradient(180deg, #0f1418 0%, #12161a 100%);
+  color: #f4e7b2;
+  border: 1px solid rgba(212,175,55,0.12);
+  padding: 18px;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  margin: 18px 0;
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.painel-adm h2 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  color: #ffd966;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.po-adm-filtros {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  background: rgba(255,255,255,0.02);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(212,175,55,0.05);
+}
+
+.po-adm-control { display: flex; flex-direction: column; gap: 6px; }
+.po-adm-control label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: rgba(201,162,39,0.6); font-weight: 700; }
+.po-adm-select { background: #161c22; border: 1px solid rgba(212,175,55,0.2); color: #f4e7b2; padding: 6px 12px; border-radius: 6px; font-family: inherit; font-size: 13px; cursor: pointer; outline: none; }
+
+.table-adm-container { overflow-x: auto; border-radius: 8px; border: 1px solid rgba(212,175,55,0.1); }
+.table-adm { width: 100%; border-collapse: collapse; min-width: 1100px; }
+
+.table-adm thead th {
+  font-family: "Poppins", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 4px;
+  text-align: center;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.table-adm tbody td {
+  padding: 6px 8px;
+  font-size: 13px;
+  color: #e9e1b8;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #151b22;
+}
+
+.table-adm tbody tr:hover td {
+  background: #1c242f !important;
+  color: #fff;
+}
+
+.po-adm-input {
+  background: #212934;
+  border: 1px solid rgba(212,175,55,0.35);
+  color: #fff;
+  padding: 4px 6px;
+  border-radius: 4px;
+  width: 85px;
+  font-family: inherit;
+  font-size: 12px;
+  text-align: right;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.po-adm-input:focus {
+  background: #161c22;
+  border-color: #ffd966;
+  box-shadow: 0 0 6px rgba(255,217,102,0.3);
+  outline: none;
+}
+
+.badge-adm-pts {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 11px;
+  min-width: 20px;
+  text-align: center;
+}
+.badge-adm-pts.ganhou { background: #2e7d32; color: #fff; }
+.badge-adm-pts.perdeu { background: rgba(255,255,255,0.05); color: #888; }
+
+/* --------------------------------------------------------------------------
+   📱 DISPOSITIVOS MÓVEIS (RESPONSIVIDADE PADRÃO CARD)
+   -------------------------------------------------------------------------- */
+@media (max-width: 880px) {
+  .table-vendas thead { display: none; }
+  .table-vendas, .table-vendas tbody, .table-vendas tr, .table-vendas td { display: block; width: 100%; }
+  .table-vendas tr { margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+  .table-vendas td { text-align: right; padding-left: 50%; position: relative; }
+  .table-vendas td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 12px;
+    width: calc(50% - 24px);
+    text-align: left;
+    color: #cfc6a0;
+    font-weight: 700;
+  }
+}
