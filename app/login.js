@@ -3,7 +3,7 @@
 // ==========================
 const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co";
 const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY";
+  "sb_publishable_CbkVXGXd1IZO6iF4yRry2Q_UjBxjna7";
 
 const { createClient } = window.supabase;
 const supabaseLogin = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -149,7 +149,7 @@ function salvarUsuarioLocal(perfil) {
 
   localStorage.setItem("usuario", JSON.stringify(usuario));
 
-  console.log("✅ Perfil salvo localmente:", usuario);
+  console.log("✅ Perfil salvo localmente:", window.maskPII ? window.maskPII(usuario) : "[perfil]");
   return usuario;
 }
 
@@ -157,7 +157,7 @@ function salvarUsuarioLocal(perfil) {
 // 🔎 BUSCAR PERFIL POR AUTH ID
 // ==========================
 async function buscarPerfilPorAuthId(authUserId) {
-  console.log("🔎 Buscando perfil por auth_user_id:", authUserId);
+  console.log("🔎 Buscando perfil por auth_user_id.");
 
   const { data: perfil, error } = await supabaseLogin
     .from("usuarios")
@@ -178,7 +178,7 @@ async function buscarPerfilPorAuthId(authUserId) {
 // fallback para usuários criados manualmente
 // ==========================
 async function buscarPerfilPorEmail(email) {
-  console.log("🔎 Buscando perfil por e-mail:", email);
+  console.log("🔎 Buscando perfil por e-mail:", window.maskEmail ? window.maskEmail(email) : "***");
 
   const { data: perfil, error } = await supabaseLogin
     .from("usuarios")
@@ -187,7 +187,7 @@ async function buscarPerfilPorEmail(email) {
     .single();
 
   if (error || !perfil) {
-    console.warn("⚠️ Perfil não encontrado por e-mail:", error);
+    console.warn("⚠️ Perfil não encontrado por e-mail.");
     return null;
   }
 
@@ -206,7 +206,7 @@ async function vincularAuthUserIdAoPerfil(perfil, authUser) {
     }
 
     if (perfil.auth_user_id) {
-      console.log("ℹ️ Perfil já possui auth_user_id:", perfil.auth_user_id);
+      console.log("ℹ️ Perfil já possui auth_user_id.");
       return perfil;
     }
 
@@ -363,19 +363,33 @@ async function fazerLogin() {
     return;
   }
 
-  const email = emailInput.value.trim().toLowerCase();
+  const identificador = emailInput.value.trim().toLowerCase();
   const senha = senhaInput.value.trim();
 
   setErro("");
 
-  if (!email || !senha) {
-    setErro("⚠️ Preencha e-mail e senha");
+  if (!identificador || !senha) {
+    setErro("⚠️ Preencha matrícula e senha");
     return;
   }
 
-  if (!emailValido(email)) {
-    setErro("⚠️ Digite um e-mail válido");
-    return;
+  // Resolve o e-mail interno usado no Auth:
+  //  - se o usuário digitou um e-mail (tem "@"), usa direto
+  //  - se digitou matrícula (só dígitos/texto), busca o e-mail no cadastro;
+  //    se não achar, monta o e-mail interno padrão: matricula@onepage.sys
+  const DOMINIO_INTERNO = "onepage.sys";
+  let email = identificador;
+
+  if (identificador.indexOf("@") < 0) {
+    // é matrícula → resolve o e-mail via função segura (RPC), que não
+    // expõe o resto do cadastro. Se não achar, usa o e-mail interno padrão.
+    try {
+      const { data: emailResolvido } = await supabaseLogin
+        .rpc("email_por_matricula", { p_matricula: identificador });
+      email = emailResolvido || `${identificador}@${DOMINIO_INTERNO}`;
+    } catch (_) {
+      email = `${identificador}@${DOMINIO_INTERNO}`;
+    }
   }
 
   try {

@@ -724,26 +724,10 @@
          🔻 RODAPÉ
     =========================== -->
     <div class="bottom-area">
-      <!-- ==========================
-           👤 USUÁRIO
-      =========================== -->
+      <!-- 👤 Perfil agora fica no HEADER do topo. Aqui mantemos só o popover
+           (acionado pelo header) e o botão Sair. -->
       <div class="user-footer">
-        <!-- card compacto: avatar + nome/sobrenome + função -->
-        <div class="user-card">
-          <button
-            type="button"
-            class="avatar"
-            id="avatar"
-            onclick="abrirPerfilPopover(event)"
-            title="Ver dados e trocar foto"
-          ></button>
-          <div class="user-main">
-            <div class="user-nome" id="nomeUsuario"></div>
-            <div class="user-funcao" id="funcaoUsuario"></div>
-          </div>
-        </div>
-
-        <!-- popover transparente com todos os dados -->
+        <!-- popover transparente com todos os dados (acionado pelo header) -->
         <div class="perfil-popover" id="perfilPopover" hidden>
           <div class="perfil-pop-top">
             <div class="avatar avatar-pop" id="avatarPop"></div>
@@ -782,7 +766,7 @@
           </div>
         </div>
 
-        <!-- ações: engrenagem + sair (compactos) -->
+        <!-- ações: configurações + sair -->
         <div class="footer-acoes">
           <button
             type="button"

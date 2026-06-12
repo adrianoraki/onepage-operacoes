@@ -72,7 +72,7 @@ async function registrarLog(dados) {
 
     if (error) throw error;
 
-    console.log("📊 LOG gravado com sucesso:", payload);
+    console.log("📊 LOG gravado com sucesso.");
   } catch (e) {
     console.error("❌ erro ao registrar log:", e);
   }

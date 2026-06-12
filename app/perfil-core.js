@@ -315,8 +315,8 @@ function getUsuarioLogado() {
     ];
 
     console.log("👤 Usuário logado normalizado:", {
-      nome: usuarioLogado.nome,
-      email: usuarioLogado.email,
+      nome: window.maskPII ? "***" : usuarioLogado.nome,
+      email: window.maskEmail ? window.maskEmail(usuarioLogado.email) : "***",
       perfil: usuarioLogado.perfil,
       tipo_visao: usuarioLogado.tipo_visao,
       loja_codigo: usuarioLogado.loja_codigo,

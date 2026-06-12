@@ -1,17 +1,40 @@
 console.log("✅ perfil-usuarios-ui.js carregado");
 
-// ==========================
-// 🔐 SUPABASE ADMIN (service_role)
-// ⚠️ Substitua pelo valor em: Supabase → Settings → API → service_role (secret)
-// ==========================
-const SUPABASE_ADMIN_URL = "https://fnsplftfxvmyiqbigobh.supabase.co";
-const SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTg1NjI1NywiZXhwIjoyMDk1NDMyMjU3fQ.IZWbY4WPJ6DAsEhseatEeFj9UrYIWcv2Lc4BT_VWJqE";
+// ============================================================
+// 🔐 ADMINISTRAÇÃO DE USUÁRIOS — via Edge Function (servidor)
+// ------------------------------------------------------------
+// A chave service_role NUNCA fica no frontend. As operações de
+// criar/excluir usuários no Auth são feitas por uma Edge Function
+// protegida no Supabase, que valida o JWT do solicitante e só
+// executa se ele for master/admin.
+//
+// Configure a URL da function em window.EDGE_ADMIN_URL (ver edge-functions/).
+// ============================================================
+const EDGE_ADMIN_URL =
+  (window.EDGE_ADMIN_URL) ||
+  "https://fnsplftfxvmyiqbigobh.supabase.co/functions/v1/admin-usuarios";
 
-function getSupabaseAdmin() {
-  if (!window.supabase?.createClient) throw new Error("supabase.js não carregado");
-  return window.supabase.createClient(SUPABASE_ADMIN_URL, SUPABASE_SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
+// Envia a requisição autenticada com o token do PRÓPRIO usuário logado
+// (a Edge Function valida no servidor se ele tem permissão de admin).
+async function chamarEdgeAdmin(acao, payload) {
+  let token = "";
+  try {
+    const { data } = await window.db.auth.getSession();
+    token = data?.session?.access_token || "";
+  } catch (_) {}
+  if (!token) throw new Error("Sessão inválida. Faça login novamente.");
+
+  const resp = await fetch(EDGE_ADMIN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token,
+    },
+    body: JSON.stringify({ acao, ...payload }),
   });
+  const json = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(json.error || "Falha na operação administrativa.");
+  return json;
 }
 
 function gerarSenhaAleatoria(tamanho = 12) {
@@ -22,19 +45,15 @@ function gerarSenhaAleatoria(tamanho = 12) {
 }
 
 async function criarAuthUser(email, senha) {
-  const { data, error } = await getSupabaseAdmin().auth.admin.createUser({
-    email,
-    password: senha,
-    email_confirm: true,
-  });
-  if (error) throw error;
-  return data.user;
+  const r = await chamarEdgeAdmin("criar", { email, senha });
+  if (!r.user) throw new Error(r.error || "Não foi possível criar o usuário.");
+  return r.user;
 }
 
 async function deletarAuthUser(authUserId) {
   try {
-    await getSupabaseAdmin().auth.admin.deleteUser(authUserId);
-    console.log("🗑️ Auth user removido no rollback:", authUserId);
+    await chamarEdgeAdmin("excluir", { authUserId });
+    console.log("🗑️ Auth user removido no rollback.");
   } catch (e) {
     console.warn("⚠️ Rollback do Auth falhou:", e);
   }
@@ -633,18 +652,13 @@ function novoUsuario() {
         </div>
 
         <div class="campo">
+          <label>Sobrenome</label>
+          <input id="novo_sobrenome" placeholder="Digite o sobrenome">
+        </div>
+
+        <div class="campo">
           <label>Matrícula *</label>
-          <input id="novo_matricula" placeholder="Digite a matrícula">
-        </div>
-
-        <div class="campo">
-          <label>E-mail *</label>
-          <input id="novo_email" placeholder="Digite o e-mail usado no Auth">
-        </div>
-
-        <div class="campo">
-          <label>Função *</label>
-          <input id="novo_funcao" placeholder="Ex.: Gerente, Subgerente, Consultor Regional">
+          <input id="novo_matricula" placeholder="Digite a matrícula (usada no login)">
         </div>
 
         ${
@@ -686,21 +700,21 @@ function novoUsuario() {
 // ==========================
 async function salvarNovoUsuario() {
   const nome = document.getElementById("novo_nome")?.value.trim();
+  const sobrenome = document.getElementById("novo_sobrenome")?.value.trim() || "";
   const matricula = document.getElementById("novo_matricula")?.value.trim();
-  const email = document.getElementById("novo_email")?.value.trim().toLowerCase();
-  const funcao = document.getElementById("novo_funcao")?.value.trim();
   const perfil = document.getElementById("novo_perfil")?.value?.trim() || "usuario";
   const resultadoEl = document.getElementById("resultado-novo-usuario");
 
-  console.log("💾 Criando usuário...", { nome, matricula, email, funcao, perfil });
+  // 🔒 LGPD (minimização): não coletamos e-mail nem função.
+  // O Auth do Supabase exige um e-mail interno — geramos a partir da matrícula.
+  // O usuário NUNCA vê nem usa esse e-mail; o login é por matrícula.
+  const DOMINIO_INTERNO = "onepage.sys";
+  const email = matricula ? `${matricula.toLowerCase()}@${DOMINIO_INTERNO}` : "";
 
-  if (!nome || !matricula || !email || !funcao) {
-    if (resultadoEl) resultadoEl.innerHTML = `<div class="msg-erro">⚠️ Nome, matrícula, e-mail e função são obrigatórios.</div>`;
-    return;
-  }
+  console.log("💾 Criando usuário...", window.maskPII ? window.maskPII({ nome, sobrenome, matricula, perfil }) : "[dados]");
 
-  if (!email.includes("@") || !email.includes(".")) {
-    if (resultadoEl) resultadoEl.innerHTML = `<div class="msg-erro">⚠️ Informe um e-mail válido. Ex.: usuario@empresa.com</div>`;
+  if (!nome || !matricula) {
+    if (resultadoEl) resultadoEl.innerHTML = `<div class="msg-erro">⚠️ Nome e matrícula são obrigatórios.</div>`;
     return;
   }
 
@@ -738,10 +752,9 @@ async function salvarNovoUsuario() {
     const payload = {
       auth_user_id: authUser.id,
       nome,
-      sobrenome: "",
+      sobrenome,
       matricula,
       email,
-      funcao,
       perfil,
       tipo_visao: "regional",
       loja_codigo: null,
@@ -812,10 +825,10 @@ async function salvarNovoUsuario() {
       `;
     }
 
-    document.getElementById("novo_nome").value = "";
-    document.getElementById("novo_matricula").value = "";
-    document.getElementById("novo_email").value = "";
-    document.getElementById("novo_funcao").value = "";
+    const limparCampo = (id) => { const el = document.getElementById(id); if (el) el.value = ""; };
+    limparCampo("novo_nome");
+    limparCampo("novo_sobrenome");
+    limparCampo("novo_matricula");
 
   } catch (erro) {
     console.error("❌ Erro ao criar usuário:", erro);

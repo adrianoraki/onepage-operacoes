@@ -746,3 +746,115 @@ body.po-modo-ouro .rodape-fixo .link-autor {
     font-size: 15px;
   }
 }
+/* ============================================================
+   🧭 APP HEADER — faixa horizontal no topo do conteúdo
+   ============================================================ */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 18px;
+  margin-bottom: 24px;
+  border-radius: 16px;
+
+  background: linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.05) 100%);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+}
+
+.app-header .ah-esq { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.app-header .ah-titulo {
+  font-size: clamp(16px, 1.8vw, 22px);
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.2px;
+  line-height: 1.1;
+}
+.app-header .ah-saud {
+  font-size: 12.5px;
+  color: #aebccb;
+  font-weight: 500;
+}
+
+.app-header .ah-dir { display: flex; align-items: center; gap: 12px; }
+
+.app-header .ah-icon-btn {
+  width: 42px; height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: #cdd8e4;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s ease;
+}
+.app-header .ah-icon-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.app-header .ah-perfil {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 14px 6px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.app-header .ah-perfil:hover {
+  background: rgba(255,255,255,0.12);
+  transform: translateY(-1px);
+}
+.app-header .ah-avatar {
+  width: 38px; height: 38px; min-width: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5a94e0, #2d7bb5);
+  background-size: cover; background-position: center;
+  color: #fff; font-weight: 800; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(45,123,181,0.35);
+}
+.app-header .ah-perfil-txt { display: flex; flex-direction: column; line-height: 1.15; text-align: left; }
+.app-header .ah-nome { font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.app-header .ah-funcao { font-size: 11px; color: #9fb0c2; font-weight: 500; }
+
+/* 👑 Tema Painel de Ouro: header dourado */
+body.po-modo-ouro .app-header {
+  background: linear-gradient(135deg, rgba(40,30,8,0.55) 0%, rgba(28,20,5,0.45) 100%);
+  border: 1px solid rgba(201,162,39,0.32);
+  box-shadow: 0 8px 24px rgba(120,90,20,0.22);
+}
+body.po-modo-ouro .app-header .ah-titulo { color: #f5e6b8; }
+body.po-modo-ouro .app-header .ah-saud { color: #cbb87e; }
+body.po-modo-ouro .app-header .ah-avatar {
+  background: linear-gradient(135deg, #e8c84a, #c9a227);
+  box-shadow: 0 4px 12px rgba(201,162,39,0.4);
+  color: #3a2c08;
+}
+body.po-modo-ouro .app-header .ah-perfil,
+body.po-modo-ouro .app-header .ah-icon-btn {
+  border-color: rgba(201,162,39,0.3);
+  background: rgba(201,162,39,0.08);
+  color: #e8d9a8;
+}
+body.po-modo-ouro .app-header .ah-perfil:hover,
+body.po-modo-ouro .app-header .ah-icon-btn:hover {
+  background: rgba(201,162,39,0.16);
+}
+body.po-modo-ouro .app-header .ah-nome { color: #f5e6b8; }
+body.po-modo-ouro .app-header .ah-funcao { color: #cbb87e; }
+
+/* Responsivo: em telas estreitas, esconde a saudação e o texto do perfil */
+@media (max-width: 640px) {
+  .app-header .ah-saud { display: none; }
+  .app-header .ah-perfil-txt { display: none; }
+  .app-header { padding: 10px 12px; margin-bottom: 12px; }
+}

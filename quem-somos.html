@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quem Somos — MetricaOne</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --azul-1: #5a94e0;
+      --azul-2: #2d7bb5;
+      --azul-3: #155a8a;
+      --tinta: #1f2a37;
+      --tinta-soft: #5b6b7d;
+      --linha: #e6ebf1;
+      --bg: #f4f7fb;
+      --card: #ffffff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Poppins", system-ui, sans-serif; background: var(--bg); color: var(--tinta); line-height: 1.65; }
+    .hero {
+      background: linear-gradient(135deg, var(--azul-1) 0%, var(--azul-2) 55%, var(--azul-3) 100%);
+      color: #fff; padding: 64px 24px 56px; text-align: center; position: relative; overflow: hidden;
+    }
+    .hero::after {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(circle at 80% 20%, rgba(255,255,255,0.12), transparent 40%);
+    }
+    .hero .marca { font-size: 13px; letter-spacing: 3px; opacity: 0.9; font-weight: 600; text-transform: uppercase; position: relative; }
+    .hero h1 { font-size: clamp(30px, 5vw, 48px); font-weight: 800; margin: 10px 0 12px; position: relative; }
+    .hero .sub { font-size: clamp(15px, 2vw, 18px); opacity: 0.95; max-width: 620px; margin: 0 auto; position: relative; }
+    .wrap { max-width: 920px; margin: -32px auto 60px; padding: 0 20px; }
+    .card {
+      background: var(--card); border: 1px solid var(--linha); border-radius: 20px;
+      padding: clamp(28px, 4vw, 48px); box-shadow: 0 14px 44px rgba(45, 123, 181, 0.10);
+    }
+    .secao { margin-bottom: 36px; }
+    .secao:last-child { margin-bottom: 0; }
+    h2 { font-size: 22px; font-weight: 700; color: var(--azul-3); margin-bottom: 12px; }
+    p { color: var(--tinta-soft); font-size: 15px; margin-bottom: 12px; }
+    strong { color: var(--tinta); font-weight: 600; }
+    .historia {
+      background: linear-gradient(135deg, #f0f7ff, #eaf2fb);
+      border-radius: 16px; padding: 26px 28px; margin: 8px 0 4px;
+      border: 1px solid #dceaf8;
+    }
+    .historia .aspas { font-size: 40px; color: var(--azul-1); line-height: 0.5; opacity: 0.5; }
+    .pilares { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 18px; }
+    .pilar {
+      background: #f9fbfe; border: 1px solid var(--linha); border-radius: 14px; padding: 22px;
+    }
+    .pilar .ico {
+      width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, var(--azul-1), var(--azul-2)); font-size: 20px; margin-bottom: 12px;
+    }
+    .pilar h3 { font-size: 15px; color: var(--tinta); margin-bottom: 6px; font-weight: 700; }
+    .pilar p { font-size: 13px; margin: 0; }
+    .lgpd-box {
+      display: flex; gap: 16px; align-items: flex-start;
+      background: #f0fbf4; border: 1px solid #cdeed8; border-radius: 16px; padding: 22px 24px; margin-top: 14px;
+    }
+    .lgpd-box .selo {
+      flex-shrink: 0; width: 52px; height: 52px; border-radius: 14px;
+      background: linear-gradient(135deg, #34d399, #10b981); display: flex; align-items: center; justify-content: center; font-size: 24px;
+    }
+    .lgpd-box h3 { font-size: 16px; color: #0f7a45; margin-bottom: 4px; }
+    .lgpd-box p { font-size: 13.5px; margin: 0; }
+    .lgpd-box a { color: var(--azul-2); font-weight: 600; text-decoration: none; }
+    .rodape { text-align: center; padding: 28px 20px; color: var(--tinta-soft); font-size: 13px; }
+    .rodape a { color: var(--azul-2); text-decoration: none; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div class="marca">MetricaOne</div>
+    <h1>Métricas que cabem em um só lugar</h1>
+    <p class="sub">Nascido para transformar planilhas confusas em decisões claras.</p>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+
+      <div class="secao">
+        <h2>Nossa história</h2>
+        <div class="historia">
+          <div class="aspas">"</div>
+          <p style="font-size:16px;color:var(--tinta);">
+            O MetricaOne nasceu de uma dor real. O acompanhamento de indicadores das lojas
+            vivia espalhado em planilhas de Excel — difícil de consolidar, fácil de errar e
+            uma verdadeira dor de cabeça a cada fechamento.
+          </p>
+          <p style="margin-bottom:0;">
+            A partir dessa necessidade, surgiu um projeto de criação própria: reunir tudo
+            em <strong>uma única plataforma</strong>, com lançamento organizado, pontuação
+            automática e visão clara do desempenho de cada unidade. O que começou como uma
+            solução para um problema do dia a dia virou uma ferramenta completa de gestão.
+          </p>
+        </div>
+      </div>
+
+      <div class="secao">
+        <h2>O que fazemos</h2>
+        <p>
+          O MetricaOne centraliza os indicadores operacionais de todas as lojas em um só
+          ambiente. Cada área — vendas, quebras, frente de caixa, prevenção, RH e mais —
+          tem seu lançamento, e o sistema calcula a pontuação automaticamente, gerando
+          rankings e comparativos que antes levavam horas para montar na mão.
+        </p>
+        <div class="pilares">
+          <div class="pilar">
+            <div class="ico">📊</div>
+            <h3>Tudo num lugar</h3>
+            <p>Indicadores de todas as lojas centralizados, sem planilhas soltas.</p>
+          </div>
+          <div class="pilar">
+            <div class="ico">⚡</div>
+            <h3>Cálculo automático</h3>
+            <p>Pontuação e rankings gerados na hora, sem erro de fórmula.</p>
+          </div>
+          <div class="pilar">
+            <div class="ico">🏆</div>
+            <h3>Visão de desempenho</h3>
+            <p>Comparativos e Painel de Ouro para enxergar quem se destaca.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="secao">
+        <h2>Compromisso com seus dados</h2>
+        <p>
+          Levamos a privacidade a sério. O MetricaOne foi construído seguindo o princípio de
+          <strong>privacidade desde a concepção (Privacy by Design)</strong>: coletamos apenas
+          o necessário, protegemos com criptografia e damos a você controle sobre seus dados.
+        </p>
+        <div class="lgpd-box">
+          <div class="selo">🛡️</div>
+          <div>
+            <h3>Em conformidade com a LGPD</h3>
+            <p>
+              Seguimos a Lei Geral de Proteção de Dados (Lei nº 13.709/2018). Saiba exatamente
+              quais dados tratamos e quais são os seus direitos na nossa
+              <a href="privacidade.html">Política de Privacidade</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="rodape">
+    © 2026 MetricaOne · Plataforma de Indicadores Operacionais ·
+    <a href="privacidade.html">Política de Privacidade</a>
+  </div>
+</body>
+</html>

@@ -6,10 +6,10 @@
      acesso(azul) edição(verde) administração(roxo) escopo(ciano)
 ========================================================== */
 :root {
-  --cfg-page: #0a1020;
-  --cfg-card: #121d33;
-  --cfg-card2: #0e1830;
-  --cfg-line: rgba(148, 163, 184, 0.14);
+  --cfg-page: transparent;
+  --cfg-card: rgba(18, 29, 51, 0.55);
+  --cfg-card2: rgba(14, 24, 48, 0.50);
+  --cfg-line: rgba(148, 163, 184, 0.16);
   --cfg-txt: #f1f5f9;
   --cfg-soft: #8e9cb3;
   --cfg-accent: #3a82ff;
@@ -55,7 +55,7 @@
   padding: 13px 18px;
   border-radius: 12px;
   border: 1px solid var(--cfg-line);
-  background: linear-gradient(180deg, #16243f, #101a30);
+  background: linear-gradient(180deg, rgba(22,36,63,0.55), rgba(16,26,48,0.50));
   color: var(--cfg-txt);
   font-weight: 700;
   font-size: 13.5px;
@@ -82,7 +82,9 @@
   padding: 22px;
   border-radius: 16px;
   border: 1px solid var(--cfg-line);
-  box-shadow: none;
+  backdrop-filter: blur(12px) saturate(115%);
+  -webkit-backdrop-filter: blur(12px) saturate(115%);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
 }
 .config-box h3 {
   margin-bottom: 16px;
@@ -416,7 +418,7 @@
 
 /* tabs (Todos / Alterações / ...) */
 .config-full .btn-filtro-regional {
-  background: linear-gradient(180deg, #16243f, #101a30);
+  background: linear-gradient(180deg, rgba(22,36,63,0.55), rgba(16,26,48,0.50));
   border: 1px solid var(--cfg-line);
   color: var(--cfg-soft);
   border-radius: 9px;
@@ -455,3 +457,31 @@
 .config-full pre { color: var(--cfg-soft); }
 .config-full .btn-secundario { background: transparent; border: 1px solid var(--cfg-line); color: var(--cfg-txt); }
 .config-full .info-pagina-logs { color: var(--cfg-txt); }
+
+/* ============================================================
+   👑 CONFIGURAÇÃO DENTRO DO PAINEL DE OURO — tema dourado
+   ============================================================ */
+body.po-modo-ouro {
+  --cfg-card: rgba(40, 30, 8, 0.55);
+  --cfg-card2: rgba(28, 20, 5, 0.50);
+  --cfg-line: rgba(201, 162, 39, 0.22);
+  --cfg-txt: #f5e6b8;
+  --cfg-soft: #cbb87e;
+  --cfg-accent: #e8c84a;
+}
+body.po-modo-ouro .config-box {
+  box-shadow: 0 8px 24px rgba(120, 90, 20, 0.22);
+}
+body.po-modo-ouro .config-input,
+body.po-modo-ouro .config-box input,
+body.po-modo-ouro .config-box select {
+  background: linear-gradient(180deg, rgba(48,36,10,0.55), rgba(34,25,7,0.50)) !important;
+  border-color: rgba(201,162,39,0.25) !important;
+  color: #f5e6b8 !important;
+}
+body.po-modo-ouro .config-input:focus,
+body.po-modo-ouro .config-box input:focus,
+body.po-modo-ouro .config-box select:focus {
+  border-color: #e8c84a !important;
+  box-shadow: 0 0 0 2px rgba(201,162,39,0.25) !important;
+}

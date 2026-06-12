@@ -858,7 +858,6 @@ async function telaAnalises() {
 
         <div class="dashboard-topo">
           <div class="dashboard-titulos">
-            <h2 class="dashboard-titulo">Análises</h2>
             <p class="dashboard-subtitulo">
               Visão analítica de performance, ranking e amplitude dos resultados
             </p>
@@ -1160,10 +1159,10 @@ function garantirEstilosAbasAnalise() {
   style.textContent = `
     /* paleta profissional — deep navy + electric blue (dashboards SaaS/analytics) */
     :root {
-      --an-page: #0a1020;
-      --an-card: #121d33;
-      --an-card-2: #0e1830;
-      --an-line: rgba(148,163,184,0.12);
+      --an-page: transparent;
+      --an-card: rgba(18, 29, 51, 0.55);
+      --an-card-2: rgba(14, 24, 48, 0.50);
+      --an-line: rgba(148,163,184,0.16);
       --an-txt: #f1f5f9;
       --an-txt-soft: #8e9cb3;
       --an-accent: #3a82ff;
@@ -1237,6 +1236,9 @@ function garantirEstilosAbasAnalise() {
     #analiseConteudo .dashboard-card {
       background: var(--an-card); border: 1px solid var(--an-line);
       border-radius: 16px; padding: 22px 24px;
+      backdrop-filter: blur(12px) saturate(115%);
+      -webkit-backdrop-filter: blur(12px) saturate(115%);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     }
     #analiseConteudo h3 { font-size: 16px; color: var(--an-txt); letter-spacing: 0.2px; }
 

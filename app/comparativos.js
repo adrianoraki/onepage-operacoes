@@ -113,7 +113,7 @@ function garantirEstilosComparativo() {
       margin: 10px 0 14px;
       padding: 10px 12px;
       border-radius: 10px;
-      background: #0f1f2e;
+      background: rgba(15, 31, 46, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
       border: 1px solid rgba(148, 163, 184, 0.18);
       color: #dbeafe;
       font-size: 12px;
@@ -152,7 +152,7 @@ function garantirEstilosComparativo() {
     #comparativoContainer.comparativo-container {
       margin-left: calc(-1 * clamp(15px, 2vw, 25px)) !important;
       margin-right: calc(-1 * clamp(15px, 2vw, 25px)) !important;
-      margin-top: calc(-1 * clamp(15px, 2vw, 25px)) !important;
+      margin-top: 0 !important;
       padding: 12px 2px !important;
       border-radius: 0 !important;
       border-left: none !important;
@@ -224,7 +224,7 @@ function garantirEstilosComparativo() {
     /* destaque da linha MÉDIA / TOTAL */
     .matriz-linha-resumo .matriz-resumo-cel,
     .matriz-linha-resumo .matriz-th-loja {
-      background: #16466b !important;
+      background: rgba(22, 70, 107, 0.6) !important;
       color: #ffffff !important;
       border-bottom: 3px solid #f0b429 !important;
       font-size: 14px !important;
@@ -925,7 +925,6 @@ async function telaComparativos() {
 
         <div class="comparativo-topo">
           <div class="comparativo-titulos">
-            <h2 class="comparativo-titulo">Comparativos Regionais</h2>
             <p class="comparativo-subtitulo">Ranking de lojas por indicador — NE1 e NE2</p>
           </div>
 
@@ -2207,7 +2206,7 @@ function renderMatrizRegional(
 
       if (!vals.length) {
         return `
-          <th class="matriz-resumo-cel" style="background:#0d1622;color:#7f8da3;font-weight:600;">
+          <th class="matriz-resumo-cel" style="background:rgba(13, 22, 34, 0.6);color:#7f8da3;font-weight:600;">
             —
           </th>
         `;
@@ -2219,7 +2218,7 @@ function renderMatrizRegional(
       const valor = ehPct ? soma / vals.length : soma;
 
       return `
-        <th class="matriz-resumo-cel" style="background:#0d1622;color:#eaf2ff;font-weight:700;white-space:nowrap;">
+        <th class="matriz-resumo-cel" style="background:rgba(13, 22, 34, 0.6);color:#eaf2ff;font-weight:700;white-space:nowrap;">
           ${formatarCelulaMatriz(valor, ind.tipo)}
         </th>
       `;
@@ -2237,7 +2236,7 @@ function renderMatrizRegional(
         <table class="matriz-tabela">
           <thead>
             <tr class="matriz-linha-resumo">
-              <th class="matriz-th-loja" style="background:#0d1622;color:#9db4d6;font-weight:700;">
+              <th class="matriz-th-loja" style="background:rgba(13, 22, 34, 0.6);color:#9db4d6;font-weight:700;">
                 📊 Média / Total
               </th>
               ${tdsResumo}

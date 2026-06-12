@@ -6,12 +6,12 @@
 
 /* ---------- Paleta dark + tokens fluidos ---------- */
 .comparativo-container {
-  --hm-bg: #0a1622;
-  --hm-card: #11202f;
-  --hm-card-2: #16273a;
-  --hm-card-3: #050d16;
+  --hm-bg: transparent;
+  --hm-card: rgba(17, 32, 47, 0.55);
+  --hm-card-2: rgba(22, 39, 58, 0.55);
+  --hm-card-3: rgba(5, 13, 22, 0.5);
   --hm-head-ind: #13405f;
-  --hm-borda: rgba(255,255,255,0.07);
+  --hm-borda: rgba(255,255,255,0.10);
   --hm-txt: #eaf2f9;
   --hm-txt-2: #8aa0b4;
   --hm-azul: #2d7bb5;
@@ -233,7 +233,9 @@
   border: 1px solid var(--hm-borda);
   border-radius: var(--hm-radius);
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+  backdrop-filter: blur(12px) saturate(115%);
+  -webkit-backdrop-filter: blur(12px) saturate(115%);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
 }
 .matriz-scroll { overflow-x: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
 .matriz-scroll::-webkit-scrollbar { height: 8px; }

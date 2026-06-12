@@ -403,6 +403,30 @@ console.log("✅ sidebar-painel-ouro.js carregado");
 .po-sb-footer {
   padding-top: 12px;
   border-top: 1px solid rgba(201,162,39,0.1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Botão de configurações (engrenagem) ao lado do Sair */
+.po-sb-btn-config {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(201,162,39,0.10);
+  border: 1px solid rgba(201,162,39,0.25);
+  color: #e8d9a8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.po-sb-btn-config:hover {
+  background: rgba(201,162,39,0.20);
+  color: #f5e6b8;
 }
 
 /* Card do usuário (mantém visual do sidebar original) */
@@ -437,7 +461,7 @@ console.log("✅ sidebar-painel-ouro.js carregado");
 
 /* Botão sair */
 .po-sb-btn-sair {
-  width: 100%;
+  flex: 1;
   min-height: 40px;
   border: none;
   border-radius: 10px;
@@ -704,15 +728,9 @@ function poSbMontarSidebar() {
 
       <!-- RODAPÉ -->
       <div class="po-sb-footer">
-        <div class="po-sb-user-card">
-          <div class="avatar" style="width:38px;height:38px;min-width:38px;font-size:13px;border-radius:10px;${avatarEstilo}">
-            ${avatarEstilo ? "" : iniciais}
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div class="po-sb-user-nome">${nome}</div>
-            <div class="po-sb-user-funcao">${funcao}</div>
-          </div>
-        </div>
+        <button type="button" class="po-sb-btn-config" title="Configurações" onclick="logMenu('configuracoes'); abrirConfiguracoesMenu();">
+          <i class="fas fa-gear"></i>
+        </button>
         <button type="button" class="po-sb-btn-sair" onclick="logMenu('logout'); logout();">
           <i class="fas fa-right-from-bracket"></i>
           Sair

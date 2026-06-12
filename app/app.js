@@ -3,7 +3,7 @@
 // ==========================
 const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co";
 const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuc3BsZnRmeHZteWlxYmlnb2JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NTYyNTcsImV4cCI6MjA5NTQzMjI1N30.tLhsb0sI1uNgPAc7Yhvxk85cWitrp-ahOoBEpJCqzPY";
+  "sb_publishable_CbkVXGXd1IZO6iF4yRry2Q_UjBxjna7";
 
 let supabaseClient = null;
 
@@ -497,7 +497,7 @@ async function buscarPerfilPorAuthIdApp(authUserId) {
 // ==========================
 async function buscarPerfilPorEmailApp(email) {
   try {
-    appLogInfo("Buscando perfil por e-mail", { email });
+    appLogInfo("Buscando perfil por e-mail", window.maskPII ? window.maskPII({ email }) : {});
 
     const { data, error } = await window.db
       .from("usuarios")
@@ -1170,7 +1170,10 @@ function preencherUsuario() {
     window._iniciaisUsuario = iniciais;
     aplicarFotoAvatar(lerFotoPerfil());
 
-    appLogInfo("Usuário preenchido na sidebar", { nomeCompleto, funcao });
+    // atualiza o header do topo com os dados do usuário
+    try { if (window.atualizarAppHeader) window.atualizarAppHeader(); } catch (_) {}
+
+    appLogInfo("Usuário preenchido na sidebar", { funcao });
   } catch (erro) {
     appLogError("Erro ao preencher usuário na sidebar", erro);
   }
@@ -1530,6 +1533,9 @@ function definirTelaAtiva(tela, extras = {}) {
     document.body.className = document.body.className.replace(/\btela-\S+/g, "").trim();
     if (APP_STATE.telaAtiva) document.body.classList.add("tela-" + APP_STATE.telaAtiva);
   } catch (_) {}
+
+  // Atualiza o header do topo (título + perfil)
+  try { if (window.atualizarAppHeader) window.atualizarAppHeader(); } catch (_) {}
 
   if (extras.indicador !== undefined) {
     APP_STATE.indicadorAtivo = extras.indicador;
