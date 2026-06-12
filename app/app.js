@@ -1525,6 +1525,12 @@ function logMenu(acao) {
 function definirTelaAtiva(tela, extras = {}) {
   APP_STATE.telaAtiva = tela || "dashboard";
 
+  // Marca no body a tela ativa (usado pelo CSS p/ clarear o overlay na tela inicial)
+  try {
+    document.body.className = document.body.className.replace(/\btela-\S+/g, "").trim();
+    if (APP_STATE.telaAtiva) document.body.classList.add("tela-" + APP_STATE.telaAtiva);
+  } catch (_) {}
+
   if (extras.indicador !== undefined) {
     APP_STATE.indicadorAtivo = extras.indicador;
   }

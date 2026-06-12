@@ -251,5 +251,38 @@ console.log("✅ supabase-sync.js carregado");
     }, 400);
   }
 
-  window.poSync = { salvar, carregar, toast, criarBarraSalvar, salvarUmaLoja };
+  /**
+   * Exclui o registro de UMA loja do banco (quando todos os campos foram
+   * apagados). Sem isso, apagar tudo de uma loja deixava o registro órfão
+   * no banco e os valores "voltavam" ao recarregar.
+   */
+  async function _excluirLinha(slug, ano, mes, lojaCodigo) {
+    if (!clienteDisponivel()) throw new Error("Banco indisponível");
+    const { error } = await window.db
+      .from("painel_ouro_resultados")
+      .delete()
+      .eq("area_slug", slug)
+      .eq("ano", Number(ano))
+      .eq("mes", Number(mes))
+      .eq("loja_codigo", lojaCodigo);
+    if (error) throw error;
+  }
+
+  function excluirUmaLoja(slug, ano, mes, lojaCodigo) {
+    if (!lojaCodigo) return;
+    const chave = `${slug}|${ano}|${mes}|${lojaCodigo}`;
+    clearTimeout(_filaAuto[chave]);
+    _filaAuto[chave] = setTimeout(async () => {
+      try {
+        statusAuto("salvando");
+        await _excluirLinha(slug, ano, mes, lojaCodigo);
+        statusAuto("salvo");
+      } catch (err) {
+        console.error("☁️ exclusão falhou", err);
+        statusAuto("erro");
+      }
+    }, 400);
+  }
+
+  window.poSync = { salvar, carregar, toast, criarBarraSalvar, salvarUmaLoja, excluirUmaLoja };
 })();

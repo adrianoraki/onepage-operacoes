@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="/css/painel-gold/gold.css.css" />
 
   <!-- Ícones -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
 
 <body>
@@ -57,7 +57,7 @@
   <script src="app/filtro-periodo.js" defer></script>
 
   <!-- TABELAS / LANÇAMENTOS -->
-  <script src="app/tabela.js?v=202606120226" defer></script>
+  <script src="app/tabela.js?v=20260612095515" defer></script>
   <script src="app/tabela2.js" defer></script>
   <script src="app/tabela-rh.js" defer></script>
   <script src="app/faixa-horas.js" defer></script>
@@ -82,29 +82,26 @@
   <script src="app/comparativos.js" defer></script>
 
   <!-- APP PRINCIPAL - SEMPRE POR ÚLTIMO -->
-  <script src="app/app.js" defer></script>
+  <script src="app/app.js?v=20260612095515" defer></script>
 
   <!-- 👑 PAINEL DE OURO (carregado após app.js) -->
-  <script src="app/painel-ouro/painel-ouro.js" defer></script>
-  <script src="app/painel-ouro/painel-ouro-areas.js" defer></script>
-  <script src="app/painel-ouro/sidebar-painel-ouro.js" defer></script>
+  <script src="app/painel-ouro/painel-ouro.js?v=20260612095515" defer></script>
+  <script src="app/painel-ouro/painel-ouro-areas.js?v=20260612095515" defer></script>
+  <script src="app/painel-ouro/sidebar-painel-ouro.js?v=20260612095515" defer></script>
 
-  <!-- 👑 LANÇAMENTO POR ÁREA — base e sync primeiro, depois cada área -->
-
-  <script src="app/painel-ouro/lancamento/lancamento-base.js" defer></script>
-  <script src="app/painel-ouro/lancamento/supabase-sync.js" defer></script>
-  <script src="app/painel-ouro/lancamento/vendas.js" defer></script>
-  <script src="app/painel-ouro/lancamento/quebras.js" defer></script>
-  <script src="app/painel-ouro/lancamento/frente-caixa.js" defer></script>
-  <script src="app/painel-ouro/lancamento/passai.js?" defer></script>
-  <script src="app/painel-ouro/lancamento/servicos-assai.js" defer></script>
-  <script src="app/painel-ouro/lancamento/rh.js" defer></script>
-  <script src="app/painel-ouro/lancamento/prevencao.js" defer></script>
-  <script src="app/painel-ouro/lancamento/adm.js" defer></script>
-  <script src="app/painel-ouro/lancamento/ti-rub-rm.js" defer></script>
-
-  
-  <script src="app/painel-ouro/calculosvendas.js" defer></script>
+  <!-- 👑 LANÇAMENTO POR ÁREA — calculos primeiro, depois base/sync, depois cada área -->
+  <script src="app/painel-ouro/calculosvendas.js?v=20260612095515" defer></script>
+  <script src="app/painel-ouro/lancamento/lancamento-base.js?v=20260612095515" defer></script>
+  <script src="app/painel-ouro/lancamento/supabase-sync.js?v=20260612095515" defer></script>
+  <script src="app/painel-ouro/lancamento/vendas.js?v=20260612095515" defer></script>
+  <script src="app/painel-ouro/lancamento/quebras.js?v=20260612095515" defer></script>
+  <script src="app/painel-ouro/lancamento/frente-caixa.js?v=20260612095515" defer></script>
+  <script src="app/painel-ouro/lancamento/passai.js?v=20260612095515" defer></script>
+  <script src="app/painel-ouro/lancamento/servicos-assai.js?v=20260612095515" defer></script>
+  <script src="app/painel-ouro/lancamento/rh.js?v=20260612095515" defer></script>
+  <script src="app/painel-ouro/lancamento/prevencao.js?v=20260612095515" defer></script>
+  <script src="app/painel-ouro/lancamento/adm.js?v=20260612095515" defer></script>
+  <script src="app/painel-ouro/lancamento/ti-rub-rm.js?v=20260612095515" defer></script>
 
 </body>
 

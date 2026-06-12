@@ -289,7 +289,16 @@
         const ano = Number(anoAtivo);
         const mes = Number(mesAtivo) + 1;
         const payloads = poMontarPayloadsSupabase();
+        const comDados = new Set(payloads.map(p => p.loja_codigo));
         payloads.forEach(p => window.poSync.salvarUmaLoja(PO_SYNC_SLUG, ano, mes, p));
+        LISTA_LOJAS.forEach(loja => {
+          const reg = dbVendas[anoAtivo]?.[mesAtivo]?.[loja.codigo];
+          const meta = Number(reg?.meta) || 0;
+          const realizado = Number(reg?.venda) || 0;
+          if (meta <= 0 && realizado <= 0 && !comDados.has(loja.codigo) && window.poSync.excluirUmaLoja) {
+            window.poSync.excluirUmaLoja(PO_SYNC_SLUG, ano, mes, loja.codigo);
+          }
+        });
       } catch (err) { console.error("auto-save blur falhou", err); }
     }, true); // captura: pega o blur de inputs filhos
   }
@@ -450,8 +459,8 @@
       tr.innerHTML = `
         <td>${loja.codigo}</td>
         <td>${loja.nome}</td>
-        <td class="right"><input type="text" class="po-vendas-input input-meta" value="${valorMetaExibir}" placeholder="0,00"></td>
-        <td class="right"><input type="text" class="po-vendas-input input-venda" value="${valorVendaExibir}" placeholder="0,00"></td>
+        <td class="right"><input type="text" class="po-vendas-input input-meta" value="${valorMetaExibir}" placeholder="R$ 0,00"></td>
+        <td class="right"><input type="text" class="po-vendas-input input-venda" value="${valorVendaExibir}" placeholder="R$ 0,00"></td>
         <td class="right td-resultado">---</td>
         <td class="center td-pontos">---</td>
       `;

@@ -117,7 +117,7 @@
         color: #2c3a47;
         padding: 4px 6px;
         border-radius: 4px;
-        width: 85px;
+        width: 110px;
         font-family: inherit;
         font-size: 12px;
         text-align: right;
@@ -199,6 +199,12 @@
   };
 
   const PESOS = { contas_ger: 2.5, hora_extra: 2.5, energia: 2.5, agua: 2.5 };
+  const TIPOS = {
+    contas_ger: "percent",
+    hora_extra: "moeda",
+    energia: "percent",
+    agua: "percent",
+  };
 
   // Metas PADRÃO (editáveis na tela, salvas no banco, valem p/ todas as lojas)
   const METAS_PADRAO = {
@@ -322,7 +328,15 @@
         const ano = Number(anoAtivo);
         const mes = Number(mesAtivo) + 1;
         const payloads = poMontarPayloadsSupabase();
+        const comDados = new Set(payloads.map(p => p.loja_codigo));
         payloads.forEach(p => window.poSync.salvarUmaLoja(PO_SYNC_SLUG, ano, mes, p));
+        LISTA_LOJAS.forEach(loja => {
+          const reg = dbAdm[anoAtivo]?.[mesAtivo]?.[loja.codigo];
+          const temAlgo = reg && INDICADORES.some(ind => String(reg[ind] ?? "").trim() !== "");
+          if (!temAlgo && !comDados.has(loja.codigo) && window.poSync.excluirUmaLoja) {
+            window.poSync.excluirUmaLoja(PO_SYNC_SLUG, ano, mes, loja.codigo);
+          }
+        });
       } catch (err) { console.error("auto-save blur falhou", err); }
     }, true); // captura: pega o blur de inputs filhos
   }
@@ -481,7 +495,9 @@
       `;
 
       INDICADORES.forEach(ind => {
-        const valAtual = registroLoja[ind] || "";
+        const valBruto = registroLoja[ind] || "";
+        const valAtual = (valBruto !== "" && window.poCalculos && window.poCalculos.formatarValorCampo)
+          ? window.poCalculos.formatarValorCampo(valBruto, TIPOS[ind]) : valBruto;
         htmlInputs += `
           <td style="text-align:right;">
             <input type="text" class="po-adm-input in-adm-${ind}" value="${valAtual}" placeholder="0,00%">
@@ -511,18 +527,18 @@
             const alcancou = indicadorAtingiu(ind, nValor);
 
             if (alcancou) {
-              inputEl.className = "po-adm-input res-good";
-              badgeEl.className = "badge-adm-pts ganhou";
+              inputEl.classList.remove("res-bad"); inputEl.classList.add("res-good");
+              badgeEl.classList.remove("perdeu"); badgeEl.classList.add("ganhou");
               badgeEl.textContent = String(PESOS[ind]).replace(".", ",");
               totalPontosLoja += PESOS[ind];
             } else {
-              inputEl.className = "po-adm-input res-bad";
-              badgeEl.className = "badge-adm-pts perdeu";
+              inputEl.classList.remove("res-good"); inputEl.classList.add("res-bad");
+              badgeEl.classList.remove("ganhou"); badgeEl.classList.add("perdeu");
               badgeEl.textContent = "0";
             }
           } else {
-            inputEl.className = "po-adm-input";
-            badgeEl.className = "badge-adm-pts perdeu";
+            inputEl.classList.remove("res-good", "res-bad");
+            badgeEl.classList.remove("ganhou"); badgeEl.classList.add("perdeu");
             badgeEl.textContent = "-";
           }
         });
@@ -532,7 +548,17 @@
       };
 
       INDICADORES.forEach(ind => {
-        const _inp = tr.querySelector(`.in-adm-${ind}`); if (_inp) _inp.addEventListener("input", processarCalculoLinha);
+        const _inp = tr.querySelector(`.in-adm-${ind}`);
+        if (_inp) {
+          _inp.addEventListener("input", processarCalculoLinha);
+          _inp.addEventListener("blur", () => {
+            if (window.poCalculos && window.poCalculos.formatarValorCampo) {
+              const fmt = window.poCalculos.formatarValorCampo(_inp.value, TIPOS[ind]);
+              if (fmt !== "") _inp.value = fmt;
+            }
+            processarCalculoLinha();
+          });
+        }
       });
 
       try { processarCalculoLinha(); } catch (e) { console.error("⚠️ Erro cálculo adm.js:", e); }
@@ -558,7 +584,7 @@
 
     const thead = document.createElement('thead');
     const metaCels = INDICADORES.map(ind =>
-      `<th colspan="2"><input type="text" class="po-adm-meta in-meta-${ind}" value="${METAS_ATIVAS[ind]}" title="Meta editável — vale para todas as lojas"></th>`
+      `<th colspan="2"><input type="text" class="po-adm-meta in-meta-${ind}" value="${(window.poCalculos && window.poCalculos.formatarValorCampo) ? window.poCalculos.formatarValorCampo(METAS_ATIVAS[ind], TIPOS[ind]) : METAS_ATIVAS[ind]}" title="Meta editável — vale para todas as lojas"></th>`
     ).join("");
     const nomeCels = INDICADORES.map(ind => `<th colspan="2">${ROTULOS[ind]}</th>`).join("");
     const subCels  = INDICADORES.map(() => `<th>RESULTADO</th><th>Ponto</th>`).join("");

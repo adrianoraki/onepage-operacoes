@@ -117,7 +117,7 @@
         color: #2c3a47;
         padding: 4px 6px;
         border-radius: 4px;
-        width: 85px;
+        width: 110px;
         font-family: inherit;
         font-size: 12px;
         text-align: right;
@@ -195,6 +195,12 @@
     cancelamento: 3,
     faixa_hora: 4,
     descontos: 3,
+  };
+  // Tipo de cada campo para formatação automática ao sair: "moeda" (R$) ou "percent" (%)
+  const TIPOS = {
+    cancelamento: "moeda",
+    faixa_hora: "percent",
+    descontos: "moeda",
   };
   const ROTULOS = {
     cancelamento: "CANCELAMENTO_ITEM",
@@ -311,7 +317,16 @@
         const ano = Number(anoAtivo);
         const mes = Number(mesAtivo) + 1;
         const payloads = poMontarPayloadsSupabase();
+        const comDados = new Set(payloads.map(p => p.loja_codigo));
         payloads.forEach(p => window.poSync.salvarUmaLoja(PO_SYNC_SLUG, ano, mes, p));
+        // Lojas que ficaram VAZIAS (apagadas) → exclui do banco para não voltarem.
+        LISTA_LOJAS.forEach(loja => {
+          const reg = dbFc[anoAtivo]?.[mesAtivo]?.[loja.codigo];
+          const temAlgo = reg && INDICADORES.some(ind => String(reg[ind] ?? "").trim() !== "");
+          if (!temAlgo && !comDados.has(loja.codigo) && window.poSync.excluirUmaLoja) {
+            window.poSync.excluirUmaLoja(PO_SYNC_SLUG, ano, mes, loja.codigo);
+          }
+        });
       } catch (err) { console.error("auto-save blur falhou", err); }
     }, true); // captura: pega o blur de inputs filhos
   }
@@ -470,8 +485,10 @@
       `;
 
       INDICADORES.forEach(ind => {
-        const valAtual = registroLoja[ind] || "";
-        const placeholderText = ind === "faixa_hora" ? "0,00%" : "R$ 0,00";
+        const valBruto = registroLoja[ind] || "";
+        const valAtual = (valBruto !== "" && window.poCalculos && window.poCalculos.formatarValorCampo)
+          ? window.poCalculos.formatarValorCampo(valBruto, TIPOS[ind]) : valBruto;
+        const placeholderText = TIPOS[ind] === "percent" ? "0,00%" : "R$ 0,00";
         htmlInputs += `
           <td style="text-align:right;">
             <input type="text" class="po-fc-input in-fc-${ind}" value="${valAtual}" placeholder="${placeholderText}">
@@ -491,6 +508,7 @@
         INDICADORES.forEach(ind => {
           const inputEl = tr.querySelector(`.in-fc-${ind}`);
           const badgeEl = tr.querySelector(`.pts-fc-${ind}`);
+          if (!inputEl || !badgeEl) return;
 
           // Salva string digitada em tempo de execução
           registroLoja[ind] = inputEl.value;
@@ -500,18 +518,18 @@
             const alcancou = indicadorAtingiu(ind, nValor);
 
             if (alcancou) {
-              inputEl.className = "po-fc-input res-good";
-              badgeEl.className = "badge-fc-pts ganhou";
+              inputEl.classList.remove("res-bad"); inputEl.classList.add("res-good");
+              badgeEl.classList.remove("perdeu"); badgeEl.classList.add("ganhou");
               badgeEl.textContent = String(PESOS[ind]).replace(".", ",");
               totalPontosLoja += PESOS[ind];
             } else {
-              inputEl.className = "po-fc-input res-bad";
-              badgeEl.className = "badge-fc-pts perdeu";
+              inputEl.classList.remove("res-good"); inputEl.classList.add("res-bad");
+              badgeEl.classList.remove("ganhou"); badgeEl.classList.add("perdeu");
               badgeEl.textContent = "0";
             }
           } else {
-            inputEl.className = "po-fc-input";
-            badgeEl.className = "badge-fc-pts perdeu";
+            inputEl.classList.remove("res-good", "res-bad");
+            badgeEl.classList.remove("ganhou"); badgeEl.classList.add("perdeu");
             badgeEl.textContent = "-";
           }
         });
@@ -522,7 +540,17 @@
 
       INDICADORES.forEach(ind => {
         const inp = tr.querySelector(`.in-fc-${ind}`);
-        if (inp) inp.addEventListener("input", processarCalculoLinha);
+        if (inp) {
+          inp.addEventListener("input", processarCalculoLinha);
+          // Ao SAIR do campo: formata o valor (R$ / %) e recalcula
+          inp.addEventListener("blur", () => {
+            if (window.poCalculos && window.poCalculos.formatarValorCampo) {
+              const fmt = window.poCalculos.formatarValorCampo(inp.value, TIPOS[ind]);
+              if (fmt !== "") inp.value = fmt;
+            }
+            processarCalculoLinha();
+          });
+        }
       });
 
       // Executa batimento de carga inicial
@@ -552,9 +580,11 @@
     table.className = 'table-fc';
 
     const thead = document.createElement('thead');
-    const metaCels = INDICADORES.map(ind =>
-      `<th colspan="2"><input type="text" class="po-fc-meta in-meta-${ind}" value="${METAS_ATIVAS[ind]}" title="Meta editável — vale para todas as lojas"></th>`
-    ).join("");
+    const metaCels = INDICADORES.map(ind => {
+      const metaFmt = (window.poCalculos && window.poCalculos.formatarValorCampo)
+        ? window.poCalculos.formatarValorCampo(METAS_ATIVAS[ind], TIPOS[ind]) : METAS_ATIVAS[ind];
+      return `<th colspan="2"><input type="text" class="po-fc-meta in-meta-${ind}" value="${metaFmt}" title="Meta editável — vale para todas as lojas"></th>`;
+    }).join("");
     const nomeCels = INDICADORES.map(ind => `<th colspan="2">${ROTULOS[ind]}</th>`).join("");
     const subCels  = INDICADORES.map(() => `<th>RESULTADO</th><th>Ponto</th>`).join("");
     thead.innerHTML = `

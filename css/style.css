@@ -46,7 +46,7 @@ body.po-modo-ouro .main_box {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: linear-gradient(180deg, rgba(13, 27, 42, 0.38) 0%, rgba(10, 22, 36, 0.46) 100%);
   z-index: 0;
   transition: background 0.3s ease;
 }
@@ -54,6 +54,22 @@ body.po-modo-ouro .main_box {
 /* No modo ouro o overlay fica mais leve e quente para a foto aparecer */
 body.po-modo-ouro .main_box::before {
   background: linear-gradient(180deg, rgba(8,6,3,0.34) 0%, rgba(12,9,4,0.42) 100%);
+}
+
+/* 🖼️ Tela inicial (Análises): overlay bem leve para a imagem de fundo aparecer */
+body.tela-analises:not(.po-modo-ouro) .main_box::before {
+  background: linear-gradient(180deg, rgba(13, 27, 42, 0.18) 0%, rgba(10, 22, 36, 0.26) 100%);
+}
+
+/* 👑 Footer no modo ouro: tom escuro-dourado translúcido combinando com o painel */
+body.po-modo-ouro .rodape-fixo {
+  background: linear-gradient(90deg, rgba(20,14,4,0.92) 0%, rgba(34,24,6,0.92) 50%, rgba(20,14,4,0.92) 100%);
+  border-top: 1px solid rgba(201, 162, 39, 0.35);
+  color: #e8d9a8;
+  box-shadow: 0 -2px 16px rgba(120, 90, 20, 0.25);
+}
+body.po-modo-ouro .rodape-fixo .link-autor {
+  color: #e8c84a;
 }
 
 /* ==========================
@@ -79,7 +95,7 @@ body.po-modo-ouro .main_box::before {
   display: flex;
   flex-direction: column;
 
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.13);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 
@@ -174,7 +190,7 @@ body.po-modo-ouro .main_box::before {
 
 .menu ul li.ativo {
   background: rgba(63, 123, 204, 0.28);
-  border-left-color: #3f7bcc;
+  border-left-color: #5a94e0;
 }
 
 /* ==========================
@@ -266,7 +282,7 @@ body.po-modo-ouro .main_box::before {
   height: clamp(42px, 4.4vw, 58px);
 
   border-radius: 50%;
-  background: linear-gradient(135deg, #3f7bcc, #1e6091);
+  background: linear-gradient(135deg, #5a94e0, #2d7bb5);
 
   display: flex;
   align-items: center;
@@ -391,7 +407,7 @@ body.po-modo-ouro .main_box::before {
   height: 48px;
   border-radius: 10px;
   border: none;
-  background: linear-gradient(90deg, #1e6091, #0a3d62);
+  background: linear-gradient(90deg, #2d7bb5, #155a8a);
   color: white;
   font-weight: 600;
   cursor: pointer;
@@ -421,7 +437,7 @@ body.po-modo-ouro .main_box::before {
 }
 
 .icon-dashboard {
-  color: #3f7bcc;
+  color: #5a94e0;
 }
 
 

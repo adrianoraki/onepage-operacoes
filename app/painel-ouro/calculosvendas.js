@@ -6,8 +6,8 @@
      * Formata um número float puro para string de moeda brasileira (Ex: 1500.5 -> "1.500,50")
      */
     formatarMoeda: function (valor) {
-      if (isNaN(valor) || valor === null || valor === undefined) return "0,00";
-      return new Intl.NumberFormat('pt-BR', {
+      if (isNaN(valor) || valor === null || valor === undefined) return "R$ 0,00";
+      return "R$ " + new Intl.NumberFormat('pt-BR', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       }).format(valor);
@@ -33,8 +33,8 @@
      */
     converterParaNumero: function (stringMoeda) {
       if (!stringMoeda) return 0;
-      // Remove todos os pontos de milhar e substitui a vírgula por ponto decimal
-      let limpo = stringMoeda.replace(/\./g, "").replace(",", ".");
+      // Remove R$, espaços, pontos de milhar e troca vírgula por ponto decimal
+      let limpo = String(stringMoeda).replace(/R\$/gi, "").replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
       return parseFloat(limpo) || 0;
     },
 
@@ -97,7 +97,11 @@
      */
     atingiuMeta: function (operacao, n, meta) {
       if (n === null || n === undefined || isNaN(n)) return false;
-      const m = Number(meta);
+      // meta pode vir como número OU string formatada ("R$ 200.000,00", "70%").
+      // Normaliza usando o mesmo parser dos valores.
+      let m = meta;
+      if (typeof m === "string") m = window.poCalculos.parseValorBR(m);
+      m = Number(m);
       if (isNaN(m)) return false;
       return operacao === "maior_igual" ? (n >= m) : (n <= m);
     },
@@ -106,7 +110,33 @@
      * Retorna os pontos do indicador: peso cheio se atingiu, senão 0.
      */
     pontosIndicador: function (operacao, n, meta, peso) {
-      return this.atingiuMeta(operacao, n, meta) ? Number(peso) : 0;
+      return window.poCalculos.atingiuMeta(operacao, n, meta) ? Number(peso) : 0;
+    },
+
+    /**
+     * Formata um número para exibição conforme o tipo do campo.
+     *  tipo "moeda" → "R$ 250.000,00"  | "-R$ 5.000,00"
+     *  tipo "percent" → "1,01%" | "-2,80%"
+     *  tipo "numero" → "150" | "1.234,5"
+     * Recebe o texto digitado (ou número) e devolve a string formatada.
+     * Se vazio/inválido, devolve "" (não força nada).
+     */
+    formatarValorCampo: function (texto, tipo) {
+      const n = window.poCalculos.parseValorBR(texto);
+      if (n === null) return "";
+      const abs = Math.abs(n);
+      const sinal = n < 0 ? "-" : "";
+      if (tipo === "moeda") {
+        const s = abs.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return `${sinal}R$ ${s}`;
+      }
+      if (tipo === "percent") {
+        // mantém até 2 casas, mas sem zeros desnecessários além de 2
+        const s = abs.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return `${sinal}${s}%`;
+      }
+      // número simples
+      return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
     }
   };
   console.log("📐 Módulo calculos.js carregado com sucesso! [v2 — parseValorBR + atingiuMeta ativos]");

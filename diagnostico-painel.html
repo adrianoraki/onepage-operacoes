@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Diagnóstico Painel de Ouro</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 30px auto; padding: 0 16px; background:#1a1a1a; color:#eee; }
+    h1 { color: #d4af37; }
+    .test { padding: 10px 14px; margin: 8px 0; border-radius: 8px; border-left: 4px solid #555; background:#262626; }
+    .ok { border-color: #2ea062; }
+    .fail { border-color: #e74c3c; }
+    .label { font-weight: 700; }
+    .detail { font-size: 13px; color: #aaa; margin-top: 4px; font-family: monospace; white-space: pre-wrap; }
+    code { background:#333; padding:1px 5px; border-radius:3px; }
+  </style>
+</head>
+<body>
+  <h1>👑 Diagnóstico do Painel de Ouro</h1>
+  <p>Esta página testa os módulos de cálculo isoladamente. Abra-a no mesmo servidor onde roda o painel
+     (ex.: <code>http://localhost:porta/diagnostico-painel.html</code>) e veja o resultado abaixo.</p>
+  <div id="resultados"></div>
+
+  <!-- carrega só o motor de cálculo -->
+  <script src="app/painel-ouro/calculosvendas.js"></script>
+  <script>
+    const out = document.getElementById("resultados");
+    function teste(nome, condicao, detalhe="") {
+      const div = document.createElement("div");
+      div.className = "test " + (condicao ? "ok" : "fail");
+      div.innerHTML = `<span class="label">${condicao ? "✓" : "✗"} ${nome}</span>` +
+                      (detalhe ? `<div class="detail">${detalhe}</div>` : "");
+      out.appendChild(div);
+    }
+
+    // 1. poCalculos existe?
+    teste("window.poCalculos existe", typeof window.poCalculos === "object",
+          "tipo: " + typeof window.poCalculos);
+
+    // 2. parseValorBR existe e funciona?
+    const temParse = window.poCalculos && typeof window.poCalculos.parseValorBR === "function";
+    teste("parseValorBR existe (motor novo carregado)", temParse,
+          temParse ? "" : "⚠️ Se isto falhar, o calculosvendas.js está em CACHE ANTIGO. Force Ctrl+Shift+R.");
+
+    if (temParse) {
+      const p = window.poCalculos.parseValorBR;
+      const casos = [["199000",199000],["69",69],["1800",1800],["R$ 2.150",2150],["-2,80%",-2.8],["98,00",98]];
+      let okParse = true; let det = "";
+      casos.forEach(([t,e]) => {
+        const g = p(t);
+        const pass = Math.abs(g-e) < 0.001;
+        if (!pass) okParse = false;
+        det += `parse("${t}") = ${g} ${pass?"✓":"✗ esperado "+e}\n`;
+      });
+      teste("parseValorBR converte valores corretamente", okParse, det);
+    }
+
+    // 3. atingiuMeta existe e funciona?
+    const temAtingiu = window.poCalculos && typeof window.poCalculos.atingiuMeta === "function";
+    teste("atingiuMeta existe", temAtingiu);
+    if (temAtingiu) {
+      const a = window.poCalculos.atingiuMeta;
+      let det = "";
+      det += `cancelamento 199000 <= 200000? ${a("menor_igual",199000,200000)} (deve ser true)\n`;
+      det += `faixa_hora 69 >= 70? ${a("maior_igual",69,70)} (deve ser false)\n`;
+      det += `descontos 1800 <= 1500? ${a("menor_igual",1800,1500)} (deve ser false)\n`;
+      const ok = a("menor_igual",199000,200000)===true && a("maior_igual",69,70)===false;
+      teste("atingiuMeta decide pontos corretamente", ok, det);
+    }
+
+    // 4. window.db (Supabase) existe?
+    teste("window.db (cliente Supabase) existe", !!(window.db && typeof window.db.from === "function"),
+          window.db ? "Conectado" : "⚠️ Não conectado AINDA — pode ser que você precise estar logado, ou o app.js não inicializou o Supabase. O salvamento depende disto.");
+
+    // 5. localStorage acessível?
+    let lsOk = false; let lsDet = "";
+    try {
+      localStorage.setItem("__teste__","1"); localStorage.removeItem("__teste__"); lsOk = true;
+      const chaves = Object.keys(localStorage).filter(k => k.startsWith("po_"));
+      lsDet = "Chaves do painel no localStorage: " + (chaves.length ? chaves.join(", ") : "(nenhuma)");
+    } catch(e){ lsDet = "Erro: " + e.message; }
+    teste("localStorage acessível", lsOk, lsDet);
+
+    // veredito
+    const div = document.createElement("div");
+    div.style.cssText = "margin-top:20px;padding:14px;border-radius:8px;background:#2d2d2d;";
+    div.innerHTML = "<b>Se algum item acima estiver ✗ vermelho, me mande um print desta tela.</b><br>" +
+      "Os mais importantes: <code>parseValorBR existe</code> (se ✗ = cache) e <code>window.db existe</code> (se ✗ = salvamento não funciona).";
+    out.appendChild(div);
+  </script>
+</body>
+</html>

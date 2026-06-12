@@ -121,7 +121,7 @@
         color: #2c3a47;
         padding: 4px 6px;
         border-radius: 4px;
-        width: 75px;
+        width: 90px;
         font-family: inherit;
         font-size: 12px;
         text-align: right;
@@ -297,7 +297,16 @@
         const ano = Number(anoAtivo);
         const mes = Number(mesAtivo) + 1;
         const payloads = poMontarPayloadsSupabase();
+        const comDados = new Set(payloads.map(p => p.loja_codigo));
         payloads.forEach(p => window.poSync.salvarUmaLoja(PO_SYNC_SLUG, ano, mes, p));
+        LISTA_LOJAS.forEach(loja => {
+          const reg = dbServicos[anoAtivo]?.[mesAtivo]?.[loja.codigo];
+          const temAlgo = reg && DEPARTAMENTOS.some(d =>
+            String(reg[d]?.vendas ?? "").trim() !== "" || String(reg[d]?.quebras ?? "").trim() !== "");
+          if (!temAlgo && !comDados.has(loja.codigo) && window.poSync.excluirUmaLoja) {
+            window.poSync.excluirUmaLoja(PO_SYNC_SLUG, ano, mes, loja.codigo);
+          }
+        });
       } catch (err) { console.error("auto-save blur falhou", err); }
     }, true); // captura: pega o blur de inputs filhos
   }
@@ -469,8 +478,10 @@
 
       // Monta as colunas iterando dinamicamente pelos departamentos da imagem
       DEPARTAMENTOS.forEach(d => {
-        const valVendas = registroLoja[d]?.vendas || "";
-        const valQuebras = registroLoja[d]?.quebras || "";
+        const vbVendas = registroLoja[d]?.vendas || "";
+        const vbQuebras = registroLoja[d]?.quebras || "";
+        const valVendas = (vbVendas !== "" && window.poCalculos && window.poCalculos.formatarValorCampo) ? window.poCalculos.formatarValorCampo(vbVendas, "percent") : vbVendas;
+        const valQuebras = (vbQuebras !== "" && window.poCalculos && window.poCalculos.formatarValorCampo) ? window.poCalculos.formatarValorCampo(vbQuebras, "percent") : vbQuebras;
 
         htmlInputs += `
           <td style="text-align:right;">
@@ -510,18 +521,18 @@
           // 1. Processamento de Vendas (Meta >= 100%)
           if (nVendas !== null) {
             if (nVendas >= METAS_REFERENCIA[d].vendas) {
-              inputVendas.className = "po-servicos-input res-good";
-              badgeVendas.className = "badge-pts ganhou";
+              inputVendas.classList.remove("res-bad"); inputVendas.classList.add("res-good");
+              badgeVendas.classList.remove("perdeu"); badgeVendas.classList.add("ganhou");
               badgeVendas.textContent = "1";
               totalPontosLoja += 1;
             } else {
-              inputVendas.className = "po-servicos-input res-bad";
-              badgeVendas.className = "badge-pts perdeu";
+              inputVendas.classList.remove("res-good"); inputVendas.classList.add("res-bad");
+              badgeVendas.classList.remove("ganhou"); badgeVendas.classList.add("perdeu");
               badgeVendas.textContent = "0";
             }
           } else {
-            inputVendas.className = "po-servicos-input";
-            badgeVendas.className = "badge-pts perdeu";
+            inputVendas.classList.remove("res-good", "res-bad");
+            badgeVendas.classList.remove("ganhou"); badgeVendas.classList.add("perdeu");
             badgeVendas.textContent = "-";
           }
 
@@ -529,18 +540,18 @@
           // Exemplo: Se a meta é -2.00%, um resultado de -1.50% é superior (respeitou o teto). -2.50% estourou.
           if (nQuebras !== null) {
             if (nQuebras >= METAS_REFERENCIA[d].quebras) {
-              inputQuebras.className = "po-servicos-input res-good";
-              badgeQuebras.className = "badge-pts ganhou";
+              inputQuebras.classList.remove("res-bad"); inputQuebras.classList.add("res-good");
+              badgeQuebras.classList.remove("perdeu"); badgeQuebras.classList.add("ganhou");
               badgeQuebras.textContent = "1";
               totalPontosLoja += 1;
             } else {
-              inputQuebras.className = "po-servicos-input res-bad";
-              badgeQuebras.className = "badge-pts perdeu";
+              inputQuebras.classList.remove("res-good"); inputQuebras.classList.add("res-bad");
+              badgeQuebras.classList.remove("ganhou"); badgeQuebras.classList.add("perdeu");
               badgeQuebras.textContent = "0";
             }
           } else {
-            inputQuebras.className = "po-servicos-input";
-            badgeQuebras.className = "badge-pts perdeu";
+            inputQuebras.classList.remove("res-good", "res-bad");
+            badgeQuebras.classList.remove("ganhou"); badgeQuebras.classList.add("perdeu");
             badgeQuebras.textContent = "-";
           }
         });
@@ -552,8 +563,28 @@
 
       // Adiciona ouvintes reativos de input para cada célula digitável da linha
       DEPARTAMENTOS.forEach(d => {
-        tr.querySelector(`.in-${d}-vendas`).addEventListener("input", processarCalculoLinha);
-        tr.querySelector(`.in-${d}-quebras`).addEventListener("input", processarCalculoLinha);
+        const _iv = tr.querySelector(`.in-${d}-vendas`);
+        const _iq = tr.querySelector(`.in-${d}-quebras`);
+        if (_iv) {
+          _iv.addEventListener("input", processarCalculoLinha);
+          _iv.addEventListener("blur", () => {
+            if (window.poCalculos && window.poCalculos.formatarValorCampo) {
+              const fmt = window.poCalculos.formatarValorCampo(_iv.value, "percent");
+              if (fmt !== "") _iv.value = fmt;
+            }
+            processarCalculoLinha();
+          });
+        }
+        if (_iq) {
+          _iq.addEventListener("input", processarCalculoLinha);
+          _iq.addEventListener("blur", () => {
+            if (window.poCalculos && window.poCalculos.formatarValorCampo) {
+              const fmt = window.poCalculos.formatarValorCampo(_iq.value, "percent");
+              if (fmt !== "") _iq.value = fmt;
+            }
+            processarCalculoLinha();
+          });
+        }
       });
 
       // Executa uma primeira passada para colorir/pontuar dados já pré-existentes
