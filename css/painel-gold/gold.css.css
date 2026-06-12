@@ -5,8 +5,16 @@
 /* --------------------------------------------------------------------------
    🎯 CLASSES COMPARTILHADAS & UTILITÁRIOS
    -------------------------------------------------------------------------- */
-.result-good, .res-good { color: #1e7d45 !important; font-weight: 700; }
-.result-bad, .res-bad   { color: #c0392b !important; font-weight: 700; }
+.result-good, .res-good {
+  color: #1e7d45 !important; font-weight: 700;
+  background: #e8f5ec !important;
+  border-color: #b7dcc4 !important;
+}
+.result-bad, .res-bad {
+  color: #b5483b !important; font-weight: 700;
+  background: #fbeae7 !important;
+  border-color: #e8c3bc !important;
+}
 .td-total-final         { font-weight: 800; color: #9a7b1c; text-align: center; background: rgba(201,162,39,0.10) !important; }
 
 /* --------------------------------------------------------------------------

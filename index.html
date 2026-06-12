@@ -1,110 +1,111 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OnePage Expert | Central de Indicadores Operacionais</title>
-    <link rel="icon" type="image/jpeg" href="assets/fave.png" />
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="/css/style.css" />
-    <link rel="stylesheet" href="/css/tabela.css" />
-    <link rel="stylesheet" href="/css/config.css" />
-    <link rel="stylesheet" href="/css/heatmap.css" />
-    <link rel="stylesheet" href="/css/painel-gold/gold.css.css" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OnePage Expert | Central de Indicadores Operacionais</title>
+  <link rel="icon" type="image/jpeg" href="assets/fave.png" />
 
-    <!-- Ícones -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css"
-    />
-  </head>
+  <!-- CSS -->
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/tabela.css" />
+  <link rel="stylesheet" href="/css/config.css" />
+  <link rel="stylesheet" href="/css/heatmap.css" />
+  <link rel="stylesheet" href="/css/painel-gold/gold.css.css" />
 
-  <body>
-    <!-- Mobile: botão hambúrguer -->
-    <button class="btn-hamburger" id="btn-hamburger" aria-label="Abrir menu">
-      <i class="fas fa-bars"></i>
-    </button>
+  <!-- Ícones -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css" />
+</head>
 
-    <!-- Mobile: overlay para fechar o menu -->
-    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+<body>
+  <!-- Mobile: botão hambúrguer -->
+  <button class="btn-hamburger" id="btn-hamburger" aria-label="Abrir menu">
+    <i class="fas fa-bars"></i>
+  </button>
 
-    <div class="main_box">
-      <!-- ✅ SIDEBAR DINÂMICO -->
-      <div id="sidebar"></div>
+  <!-- Mobile: overlay para fechar o menu -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
-      <!-- ✅ CONTEÚDO -->
-      <main id="conteudo" class="conteudo">
-        <h2>Carregando...</h2>
-      </main>
-    </div>
+  <div class="main_box">
+    <!-- ✅ SIDEBAR DINÂMICO -->
+    <div id="sidebar"></div>
 
-    <footer class="rodape-fixo">
-        <p>&copy; 2026 OnePage Expert. Desenvolvido por Luis Adriano. Todos os direitos reservados.</p>
+    <!-- ✅ CONTEÚDO -->
+    <main id="conteudo" class="conteudo">
+      <h2>Carregando...</h2>
+    </main>
+  </div>
 
-    </footer>
+  <footer class="rodape-fixo">
+    <p>&copy; 2026 OnePage Expert. Desenvolvido por Luis Adriano. Todos os direitos reservados.</p>
 
-    <!-- 🪵 LOGGER CENTRAL (precisa ser o primeiro, síncrono) -->
-    <script src="app/logger.js"></script>
+  </footer>
 
-    <!-- ✅ SUPABASE -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <!-- 🪵 LOGGER CENTRAL (precisa ser o primeiro, síncrono) -->
+  <script src="app/logger.js"></script>
 
-    <!-- ✅ CHART.JS -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <!-- ✅ SUPABASE -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
-    <!-- ✅ JS -->
-    <!-- CONFIGURAÇÕES BASE -->
-    <script src="app/indicadores-config.js" defer></script>
-    <script src="app/filtro-periodo.js" defer></script>
+  <!-- ✅ CHART.JS -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-     <!-- TABELAS / LANÇAMENTOS -->
-    <script src="app/tabela.js" defer></script>
-    <script src="app/tabela2.js" defer></script>
-    <script src="app/tabela-rh.js" defer></script>
-    <script src="app/faixa-horas.js" defer></script>
+  <!-- ✅ JS -->
+  <!-- CONFIGURAÇÕES BASE -->
+  <script src="app/indicadores-config.js" defer></script>
+  <script src="app/filtro-periodo.js" defer></script>
+
+  <!-- TABELAS / LANÇAMENTOS -->
+  <script src="app/tabela.js?v=202606120226" defer></script>
+  <script src="app/tabela2.js" defer></script>
+  <script src="app/tabela-rh.js" defer></script>
+  <script src="app/faixa-horas.js" defer></script>
 
 
-    <!-- PERFIS / PERMISSÕES -->
-    <script src="app/perfil-core.js" defer></script>
-    <script src="app/perfil-escopo.js" defer></script>
-    <script src="app/perfil-edicao.js" defer></script>
-    <script src="app/perfil-usuarios-ui.js" defer></script>
-    <script src="app/perfil-auditoria.js" defer></script>
+  <!-- PERFIS / PERMISSÕES -->
+  <script src="app/perfil-core.js" defer></script>
+  <script src="app/perfil-escopo.js" defer></script>
+  <script src="app/perfil-edicao.js" defer></script>
+  <script src="app/perfil-usuarios-ui.js" defer></script>
+  <script src="app/perfil-auditoria.js" defer></script>
 
 
-    <!-- LOG / SESSÃO -->
-    <script src="app/log.js" defer></script>
-    <script src="app/idle.js" defer></script>
+  <!-- LOG / SESSÃO -->
+  <script src="app/log.js" defer></script>
+  <script src="app/idle.js" defer></script>
 
-      <!-- CONTEXTO DE ACESSO (usado pelas Análises) -->
+  <!-- CONTEXTO DE ACESSO (usado pelas Análises) -->
 
-     <!-- ANÁLISES / COMPARATIVOS -->
-    <script src="app/analise.js" defer></script>
-    <script src="app/comparativos.js" defer></script>
+  <!-- ANÁLISES / COMPARATIVOS -->
+  <script src="app/analise.js" defer></script>
+  <script src="app/comparativos.js" defer></script>
 
- <!-- APP PRINCIPAL - SEMPRE POR ÚLTIMO -->
-    <script src="app/app.js" defer></script>
+  <!-- APP PRINCIPAL - SEMPRE POR ÚLTIMO -->
+  <script src="app/app.js" defer></script>
 
-    <!-- 👑 PAINEL DE OURO (carregado após app.js) -->
-    <script src="app/painel-ouro/painel-ouro.js" defer></script>
-    <script src="app/painel-ouro/painel-ouro-areas.js" defer></script>
-    <script src="app/painel-ouro/sidebar-painel-ouro.js" defer></script>
+  <!-- 👑 PAINEL DE OURO (carregado após app.js) -->
+  <script src="app/painel-ouro/painel-ouro.js" defer></script>
+  <script src="app/painel-ouro/painel-ouro-areas.js" defer></script>
+  <script src="app/painel-ouro/sidebar-painel-ouro.js" defer></script>
 
-    <!-- 👑 LANÇAMENTO POR ÁREA — base e sync primeiro, depois cada área -->
-    <script src="app/painel-ouro/lancamento/lancamento-base.js" defer></script>
-    <script src="app/painel-ouro/lancamento/supabase-sync.js" defer></script>
-    <script src="app/painel-ouro/lancamento/vendas.js" defer></script>
-    <script src="app/painel-ouro/lancamento/quebras.js" defer></script>
-    <script src="app/painel-ouro/lancamento/frente-caixa.js" defer></script>
-    <script src="app/painel-ouro/lancamento/passai.js" defer></script>
-    <script src="app/painel-ouro/lancamento/servicos-assai.js" defer></script>
-    <script src="app/painel-ouro/lancamento/rh.js" defer></script>
-    <script src="app/painel-ouro/lancamento/prevencao.js" defer></script>
-    <script src="app/painel-ouro/lancamento/adm.js" defer></script>
-    <script src="app/painel-ouro/lancamento/ti-rub-rm.js" defer></script>
+  <!-- 👑 LANÇAMENTO POR ÁREA — base e sync primeiro, depois cada área -->
 
-    <!-- 👑 Calculos Tabelas -->
-    <script src="app/painel-ouro/calculosvendas.js"></script>
-  </body>
+  <script src="app/painel-ouro/lancamento/lancamento-base.js" defer></script>
+  <script src="app/painel-ouro/lancamento/supabase-sync.js" defer></script>
+  <script src="app/painel-ouro/lancamento/vendas.js" defer></script>
+  <script src="app/painel-ouro/lancamento/quebras.js" defer></script>
+  <script src="app/painel-ouro/lancamento/frente-caixa.js" defer></script>
+  <script src="app/painel-ouro/lancamento/passai.js?" defer></script>
+  <script src="app/painel-ouro/lancamento/servicos-assai.js" defer></script>
+  <script src="app/painel-ouro/lancamento/rh.js" defer></script>
+  <script src="app/painel-ouro/lancamento/prevencao.js" defer></script>
+  <script src="app/painel-ouro/lancamento/adm.js" defer></script>
+  <script src="app/painel-ouro/lancamento/ti-rub-rm.js" defer></script>
+
+  
+  <script src="app/painel-ouro/calculosvendas.js" defer></script>
+
+</body>
+
 </html>

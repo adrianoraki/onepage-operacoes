@@ -1612,8 +1612,19 @@ async function processarAutoSalvarCampoTabela(input, botao = null) {
     return true;
   }
 
-  // ✅ exigência de justificativa só para Auditoria
-  if (usaJustificativa && valorLimpo === null && !justificativaSelecionada) {
+  // Detecta se o usuário está APAGANDO um valor que já existia (limpar a célula).
+  // Nesse caso, permitir salvar vazio (null) sem exigir justificativa.
+  const estaApagandoValorExistente =
+    valorLimpo === null && String(valorOriginal).trim() !== "";
+
+  // ✅ exigência de justificativa só para Auditoria — mas NÃO quando se está
+  // apenas apagando um valor já lançado (o usuário tem direito de limpar a célula).
+  if (
+    usaJustificativa &&
+    valorLimpo === null &&
+    !justificativaSelecionada &&
+    !estaApagandoValorExistente
+  ) {
     tabelaLogWarn(
       "Campo sem valor e sem justificativa. Salvamento bloqueado.",
       {

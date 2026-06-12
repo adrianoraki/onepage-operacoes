@@ -131,6 +131,17 @@
         outline: none;
       }
 
+      .po-adm-meta {
+        width: 80px; background: rgba(255,255,255,0.9);
+        border: 1px dashed #c9a227; color: #8a6d1f; font-weight: 700;
+        font-size: 11px; text-align: center; padding: 3px 4px;
+        border-radius: 5px; font-family: inherit;
+      }
+      .po-adm-meta:focus {
+        outline: none; background: #fff; border-style: solid;
+        box-shadow: 0 0 0 3px rgba(201,162,39,0.2);
+      }
+
       .badge-adm-pts {
         display: inline-block;
         padding: 2px 6px;
@@ -171,25 +182,64 @@
     { codigo: "333", nome: "Mossoró" }
   ];
 
-  const INDICADORES = ["turnover", "absenteismo", "treinamento"];
+  const INDICADORES = ["contas_ger", "hora_extra", "energia", "agua"];
 
-  // Configuração das metas do pilar administrativo e RH
-  const METAS_ADM = {
-    turnover:    { operacao: "menor_igual", target: 3.50, peso: 3 }, // Alvo: Até 3,50% | Peso 3
-    absenteismo: { operacao: "menor_igual", target: 2.50, peso: 3 }, // Alvo: Até 2,50% | Peso 3
-    treinamento: { operacao: "maior_igual", target: 95.0, peso: 4 }  // Alvo: Mínimo 95%  | Peso 4
+  const ROTULOS = {
+    contas_ger: "CONTAS GERENCIÁVEIS",
+    hora_extra: "HORA EXTRA",
+    energia:    "ENERGIA",
+    agua:       "ÁGUA",
   };
+
+  const OPERACAO = {
+    contas_ger: "maior_igual", // >= 70%
+    hora_extra: "menor_igual", // <= R$ 2.150
+    energia:    "menor_igual", // <= 100%
+    agua:       "menor_igual", // <= 100%
+  };
+
+  const PESOS = { contas_ger: 2.5, hora_extra: 2.5, energia: 2.5, agua: 2.5 };
+
+  // Metas PADRÃO (editáveis na tela, salvas no banco, valem p/ todas as lojas)
+  const METAS_PADRAO = {
+    contas_ger: 70,    // 70%
+    hora_extra: 2150,  // R$ 2.150,00
+    energia: 100,      // 100%
+    agua: 100,         // 100%
+  };
+  let METAS_ATIVAS = { ...METAS_PADRAO };
+
+  function indicadorAtingiu(ind, n) {
+    const meta = Number(METAS_ATIVAS[ind]);
+    if (window.poCalculos && typeof window.poCalculos.atingiuMeta === "function") {
+      return window.poCalculos.atingiuMeta(OPERACAO[ind], n, meta);
+    }
+    if (n === null) return false;
+    return OPERACAO[ind] === "maior_igual" ? (n >= meta) : (n <= meta);
+  }
+  function salvarMetasNoStorage() {
+    localStorage.setItem("po_metas_adm_ne", JSON.stringify(METAS_ATIVAS));
+  }
 
   const MESES = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
   ];
 
-  let anoAtivo = "2025";
-  let mesAtivo = "0";
+  let anoAtivo = String(new Date().getFullYear()); // abre no ano atual
+  let mesAtivo = String(new Date().getMonth()); // abre no mês atual
   let dbAdm = {};
 
   function inicializarDados() {
+    // 🔄 Versionamento de schema: se a versão salva for diferente, descarta
+    // dados antigos (indicadores mudaram) para evitar estrutura incompatível.
+    const SCHEMA_VERSAO = "3";
+    const chaveVersao = "po_db_adm_ne__schema";
+    if (localStorage.getItem(chaveVersao) !== SCHEMA_VERSAO) {
+      localStorage.removeItem("po_db_adm_ne");
+      localStorage.removeItem("po_metas_adm_ne");
+      localStorage.setItem(chaveVersao, SCHEMA_VERSAO);
+    }
     const salvos = localStorage.getItem("po_db_adm_ne");
     if (salvos) {
       dbAdm = JSON.parse(salvos);
@@ -207,6 +257,10 @@
         });
       });
       salvarNoStorage();
+    }
+    const metasSalvas = localStorage.getItem("po_metas_adm_ne");
+    if (metasSalvas) {
+      try { METAS_ATIVAS = { ...METAS_PADRAO, ...JSON.parse(metasSalvas) }; } catch (_) {}
     }
   }
 
@@ -230,17 +284,18 @@
 
       let pontuacao = 0;
       const subs = INDICADORES.map(ind => {
-        const cfg = METAS_ADM[ind];
-        const peso = cfg ? cfg.peso : 0;
+        const peso = PESOS[ind];
         const n = converterInputParaNumero(reg[ind]);
-        let pts = 0;
-        if (n !== null && cfg) {
-          const ok = cfg.operacao === "maior_igual" ? (n >= cfg.target) : (n <= cfg.target);
-          pts = ok ? peso : 0;
-        }
+        const pts = indicadorAtingiu(ind, n) ? peso : 0;
         pontuacao += pts;
         const valor = String(reg[ind] ?? "").trim();
-        return { indicador: ind, resultado: valor === "" ? null : valor, Ponto: peso, pontos: pts };
+        return {
+          indicador: ind,
+          resultado: valor === "" ? null : valor,
+          meta: Number(METAS_ATIVAS[ind]),
+          Ponto: peso,
+          pontos: pts,
+        };
       });
 
       payloads.push({
@@ -275,6 +330,7 @@
   function poAplicarDadosRemotos(mapa) {
     if (!mapa || !Object.keys(mapa).length) return false;
     let aplicou = false;
+    let metasRemotas = null;
     Object.entries(mapa).forEach(([cod, subs]) => {
       if (!dbAdm[anoAtivo]) dbAdm[anoAtivo] = {};
       if (!dbAdm[anoAtivo][mesAtivo]) dbAdm[anoAtivo][mesAtivo] = {};
@@ -284,9 +340,18 @@
         if (INDICADORES.includes(s.indicador)) {
           reg[s.indicador] = s.resultado == null ? "" : String(s.resultado);
           aplicou = true;
+          if (s.meta != null) { if (!metasRemotas) metasRemotas = {}; metasRemotas[s.indicador] = Number(s.meta); }
         }
       });
     });
+    if (metasRemotas) {
+      METAS_ATIVAS = { ...METAS_ATIVAS, ...metasRemotas };
+      salvarMetasNoStorage();
+      INDICADORES.forEach(ind => {
+        const el = document.querySelector(`.in-meta-${ind}`);
+        if (el && metasRemotas[ind] != null) el.value = metasRemotas[ind];
+      });
+    }
     if (aplicou) salvarNoStorage();
     return aplicou;
   }
@@ -295,7 +360,18 @@
     if (!window.poSync) return;
     try {
       const mapa = await window.poSync.carregar(PO_SYNC_SLUG, Number(anoAtivo), Number(mesAtivo) + 1);
-      if (poAplicarDadosRemotos(mapa)) atualizarTabelaCorpo();
+      // 🏦 Banco é a fonte da verdade: zera o período local e preenche só com o que veio do banco.
+      if (mapa) {
+        if (!dbAdm[anoAtivo]) dbAdm[anoAtivo] = {};
+        dbAdm[anoAtivo][mesAtivo] = {};
+        LISTA_LOJAS.forEach(loja => {
+          dbAdm[anoAtivo][mesAtivo][loja.codigo] = {};
+          INDICADORES.forEach(ind => { dbAdm[anoAtivo][mesAtivo][loja.codigo][ind] = ""; });
+        });
+        poAplicarDadosRemotos(mapa);
+        salvarNoStorage();
+        atualizarTabelaCorpo();
+      }
     } catch (e) {
       console.error("☁️ Falha ao sincronizar com o banco:", e);
     }
@@ -320,13 +396,17 @@
 
 
   function converterInputParaNumero(valorStr) {
-    if (!valorStr || valorStr.trim() === "") return null;
-    let limpo = valorStr.replace("R$", "").replace("%", "").replace(/\s/g, "");
-    if (limpo.includes(",")) {
-      limpo = limpo.replace(/\./g, "").replace(",", ".");
+    if (window.poCalculos && typeof window.poCalculos.parseValorBR === "function") {
+      return window.poCalculos.parseValorBR(valorStr);
     }
+    if (!valorStr || String(valorStr).trim() === "") return null;
+    let limpo = String(valorStr).replace("R$", "").replace("%", "").replace(/\s/g, "");
+    const neg = /^-/.test(limpo);
+    limpo = limpo.replace(/^-/, "");
+    if (limpo.includes(",")) limpo = limpo.replace(/\./g, "").replace(",", ".");
     let num = parseFloat(limpo);
-    return isNaN(num) ? null : num;
+    if (isNaN(num)) return null;
+    return neg ? -num : num;
   }
 
   // ============================================================
@@ -426,21 +506,15 @@
           registroLoja[ind] = inputEl.value;
 
           const nValor = converterInputParaNumero(inputEl.value);
-          const metaConfig = METAS_ADM[ind];
 
           if (nValor !== null) {
-            let alcancou = false;
-            if (metaConfig.operacao === "maior_igual") {
-              alcancou = (nValor >= metaConfig.target);
-            } else if (metaConfig.operacao === "menor_igual") {
-              alcancou = (nValor <= metaConfig.target);
-            }
+            const alcancou = indicadorAtingiu(ind, nValor);
 
             if (alcancou) {
               inputEl.className = "po-adm-input res-good";
               badgeEl.className = "badge-adm-pts ganhou";
-              badgeEl.textContent = metaConfig.peso;
-              totalPontosLoja += metaConfig.peso;
+              badgeEl.textContent = String(PESOS[ind]).replace(".", ",");
+              totalPontosLoja += PESOS[ind];
             } else {
               inputEl.className = "po-adm-input res-bad";
               badgeEl.className = "badge-adm-pts perdeu";
@@ -453,15 +527,15 @@
           }
         });
 
-        tr.querySelector(`.total-adm-${loja.codigo}`).textContent = totalPontosLoja;
+        tr.querySelector(`.total-adm-${loja.codigo}`).textContent = Number.isInteger(totalPontosLoja) ? totalPontosLoja : String(totalPontosLoja).replace(".", ",");
         salvarNoStorage();
       };
 
       INDICADORES.forEach(ind => {
-        tr.querySelector(`.in-adm-${ind}`).addEventListener("input", processarCalculoLinha);
+        const _inp = tr.querySelector(`.in-adm-${ind}`); if (_inp) _inp.addEventListener("input", processarCalculoLinha);
       });
 
-      processarCalculoLinha();
+      try { processarCalculoLinha(); } catch (e) { console.error("⚠️ Erro cálculo adm.js:", e); }
     });
   }
 
@@ -483,27 +557,36 @@
     table.className = 'table-adm';
 
     const thead = document.createElement('thead');
+    const metaCels = INDICADORES.map(ind =>
+      `<th colspan="2"><input type="text" class="po-adm-meta in-meta-${ind}" value="${METAS_ATIVAS[ind]}" title="Meta editável — vale para todas as lojas"></th>`
+    ).join("");
+    const nomeCels = INDICADORES.map(ind => `<th colspan="2">${ROTULOS[ind]}</th>`).join("");
+    const subCels  = INDICADORES.map(() => `<th>RESULTADO</th><th>Ponto</th>`).join("");
+
     thead.innerHTML = `
       <tr class="row-metas">
         <th rowspan="3" class="th-fixa" style="font-size:12px;">CÓDIGO</th>
         <th rowspan="3" class="th-fixa" style="font-size:12px; text-align:left; padding-left:10px;">LOJA</th>
-        <th colspan="2">3,50%</th>
-        <th colspan="2">2,50%</th>
-        <th colspan="2">95%</th>
+        ${metaCels}
         <th rowspan="3" class="th-total-pontos">TOTAL PONTOS</th>
       </tr>
-      <tr class="row-indicadores">
-        <th colspan="2">TURNOVER GLOBAL</th>
-        <th colspan="2">ABSENTEÍSMO TOTAL</th>
-        <th colspan="2">CONCLUSÃO DE TREINAMENTOS</th>
-      </tr>
-      <tr class="row-subheaders">
-        <th>RESULTADO</th><th>Ponto</th>
-        <th>RESULTADO</th><th>Ponto</th>
-        <th>RESULTADO</th><th>Ponto</th>
-      </tr>
+      <tr class="row-indicadores">${nomeCels}</tr>
+      <tr class="row-subheaders">${subCels}</tr>
     `;
     table.appendChild(thead);
+
+    setTimeout(() => {
+      INDICADORES.forEach(ind => {
+        const el = thead.querySelector(`.in-meta-${ind}`);
+        if (!el) return;
+        const aplicar = () => {
+          const n = converterInputParaNumero(el.value);
+          if (n !== null) { METAS_ATIVAS[ind] = n; salvarMetasNoStorage(); atualizarTabelaCorpo(); }
+        };
+        el.addEventListener("change", aplicar);
+        el.addEventListener("blur", aplicar);
+      });
+    }, 0);
 
     const tbody = document.createElement('tbody');
     tbody.id = "po-adm-tbody";

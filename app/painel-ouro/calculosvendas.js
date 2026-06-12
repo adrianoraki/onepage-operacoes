@@ -51,7 +51,63 @@
      */
     calcularPontos: function (percentual) {
       return percentual >= 100 ? 20 : 0;
+    },
+
+    // ============================================================
+    // 🎯 MOTOR DE PONTUAÇÃO POR META (Painel de Ouro — áreas)
+    // Centraliza parse pt-BR (R$, %, milhar, vírgula, negativos) e
+    // a decisão de ponto por operação. NÃO afeta vendas/quebras.
+    // ============================================================
+
+    /**
+     * Converte texto digitado em número, reconhecendo R$, %, separador de
+     * milhar (.), decimal (,) e sinal negativo. Ex: "-R$ 5.000,01" -> -5000.01
+     * "-2,80%" -> -2.8 | "1.500,50" -> 1500.5
+     * Retorna null se vazio/ inválido.
+     */
+    parseValorBR: function (texto) {
+      if (texto === null || texto === undefined) return null;
+      let s = String(texto).trim();
+      if (s === "") return null;
+      const negativo = /^-/.test(s) || /^\(.*\)$/.test(s); // -x ou (x)
+      s = s.replace(/r\$/i, "").replace(/%/g, "").replace(/[()]/g, "").replace(/\s/g, "");
+      s = s.replace(/^-/, "");
+      if (s.includes(",")) {
+        // tem vírgula: vírgula é decimal, pontos são milhar
+        s = s.replace(/\./g, "").replace(",", ".");
+      } else if (s.includes(".")) {
+        // só pontos, sem vírgula: decidir se é milhar ou decimal
+        const partes = s.split(".");
+        const ultima = partes[partes.length - 1];
+        // vários pontos OU último grupo com 3 dígitos => separador de milhar
+        if (partes.length > 2 || ultima.length === 3) {
+          s = s.replace(/\./g, "");
+        }
+        // senão (ex.: "2.5", "100.50") trata como decimal — mantém o ponto
+      }
+      let n = parseFloat(s);
+      if (isNaN(n)) return null;
+      return negativo ? -n : n;
+    },
+
+    /**
+     * Decide se o valor atinge a meta segundo a operação.
+     *  "maior_igual" -> n >= meta
+     *  "menor_igual" -> n <= meta
+     */
+    atingiuMeta: function (operacao, n, meta) {
+      if (n === null || n === undefined || isNaN(n)) return false;
+      const m = Number(meta);
+      if (isNaN(m)) return false;
+      return operacao === "maior_igual" ? (n >= m) : (n <= m);
+    },
+
+    /**
+     * Retorna os pontos do indicador: peso cheio se atingiu, senão 0.
+     */
+    pontosIndicador: function (operacao, n, meta, peso) {
+      return this.atingiuMeta(operacao, n, meta) ? Number(peso) : 0;
     }
   };
-  console.log("📐 Módulo calculos.js carregado com sucesso!");
+  console.log("📐 Módulo calculos.js carregado com sucesso! [v2 — parseValorBR + atingiuMeta ativos]");
 })();

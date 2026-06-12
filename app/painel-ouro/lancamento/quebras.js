@@ -188,11 +188,18 @@
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
   ];
 
-  let anoAtivo = "2025";
-  let mesAtivo = "0";
+  let anoAtivo = String(new Date().getFullYear()); // abre no ano atual
+  let mesAtivo = String(new Date().getMonth()); // abre no mês atual
   let dbQuebras = {}; // Banco de dados isolado para quebras
 
   function inicializarDados() {
+    // 🔄 Versionamento de schema: limpa dados de teste antigos incompatíveis.
+    const SCHEMA_VERSAO = "3";
+    const chaveVersao = "po_db_quebras__schema";
+    if (localStorage.getItem(chaveVersao) !== SCHEMA_VERSAO) {
+      localStorage.removeItem("po_db_quebras");
+      localStorage.setItem(chaveVersao, SCHEMA_VERSAO);
+    }
     const salvos = localStorage.getItem("po_db_quebras");
     if (salvos) {
       dbQuebras = JSON.parse(salvos);
@@ -281,7 +288,15 @@
     if (!window.poSync) return;
     try {
       const mapa = await window.poSync.carregar(PO_SYNC_SLUG, Number(anoAtivo), Number(mesAtivo) + 1);
-      if (poAplicarDadosRemotos(mapa)) atualizarTabelaCorpo();
+      // 🏦 Banco é a fonte da verdade: zera o período local e preenche só com o banco.
+      if (mapa) {
+        if (!dbQuebras[anoAtivo]) dbQuebras[anoAtivo] = {};
+        dbQuebras[anoAtivo][mesAtivo] = {};
+        LISTA_LOJAS.forEach(loja => { dbQuebras[anoAtivo][mesAtivo][loja.codigo] = { meta: 0, realizado: 0 }; });
+        poAplicarDadosRemotos(mapa);
+        salvarNoStorage();
+        atualizarTabelaCorpo();
+      }
     } catch (e) {
       console.error("☁️ Falha ao sincronizar com o banco:", e);
     }

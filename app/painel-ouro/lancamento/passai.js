@@ -131,6 +131,17 @@
         outline: none;
       }
 
+      .po-passai-meta {
+        width: 80px; background: rgba(255,255,255,0.9);
+        border: 1px dashed #c9a227; color: #8a6d1f; font-weight: 700;
+        font-size: 11px; text-align: center; padding: 3px 4px;
+        border-radius: 5px; font-family: inherit;
+      }
+      .po-passai-meta:focus {
+        outline: none; background: #fff; border-style: solid;
+        box-shadow: 0 0 0 3px rgba(201,162,39,0.2);
+      }
+
       .badge-passai-pts {
         display: inline-block;
         padding: 2px 6px;
@@ -174,22 +185,60 @@
   const INDICADORES = ["originacao", "cns", "participacao"];
 
   // Configuração das metas e pesos extraídos diretamente da imagem image_db3ec9.png
-  const METAS_PASSAI = {
-    originacao:   { operacao: "maior_igual", target: 3.0, peso: 3 },  // Alvo: 3% | Peso: 3
-    cns:          { operacao: "maior_igual", target: 100.0, peso: 4 }, // Alvo: 100% | Peso: 4
-    participacao: { operacao: "maior_igual", target: 8.0, peso: 3 }   // Alvo: 8% | Peso: 3
+  // Configuração de metas EDITÁVEIS (salvas em storage + banco)
+  const OPERACAO = {
+    originacao: "maior_igual",
+    cns: "maior_igual",
+    participacao: "maior_igual",
   };
+  const PESOS = {
+    originacao: 3,
+    cns: 4,
+    participacao: 3,
+  };
+  const ROTULOS = {
+    originacao: "ORIGINAÇÃO",
+    cns: "CNS",
+    participacao: "PARTICIPAÇÃO",
+  };
+  const METAS_PADRAO = {
+    originacao: 3.0,
+    cns: 100.0,
+    participacao: 8.0,
+  };
+  let METAS_ATIVAS = { ...METAS_PADRAO };
+
+  function indicadorAtingiu(ind, n) {
+    const meta = Number(METAS_ATIVAS[ind]);
+    if (window.poCalculos && typeof window.poCalculos.atingiuMeta === "function") {
+      return window.poCalculos.atingiuMeta(OPERACAO[ind], n, meta);
+    }
+    if (n === null) return false;
+    return OPERACAO[ind] === "maior_igual" ? (n >= meta) : (n <= meta);
+  }
+  function salvarMetasNoStorage() {
+    localStorage.setItem("po_metas_passai_ne", JSON.stringify(METAS_ATIVAS));
+  }
 
   const MESES = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
   ];
 
-  let anoAtivo = "2025";
-  let mesAtivo = "0";
+  let anoAtivo = String(new Date().getFullYear()); // abre no ano atual
+  let mesAtivo = String(new Date().getMonth()); // abre no mês atual
   let dbPassai = {};
 
   function inicializarDados() {
+    // 🔄 Versionamento de schema: se a versão salva for diferente, descarta
+    // dados antigos (indicadores mudaram) para evitar estrutura incompatível.
+    const SCHEMA_VERSAO = "3";
+    const chaveVersao = "po_db_passai_ne__schema";
+    if (localStorage.getItem(chaveVersao) !== SCHEMA_VERSAO) {
+      localStorage.removeItem("po_db_passai_ne");
+      localStorage.removeItem("po_metas_passai_ne");
+      localStorage.setItem(chaveVersao, SCHEMA_VERSAO);
+    }
     const salvos = localStorage.getItem("po_db_passai_ne");
     if (salvos) {
       dbPassai = JSON.parse(salvos);
@@ -230,17 +279,12 @@
 
       let pontuacao = 0;
       const subs = INDICADORES.map(ind => {
-        const cfg = METAS_PASSAI[ind];
-        const peso = cfg ? cfg.peso : 0;
+        const peso = PESOS[ind];
         const n = converterInputParaNumero(reg[ind]);
-        let pts = 0;
-        if (n !== null && cfg) {
-          const ok = cfg.operacao === "maior_igual" ? (n >= cfg.target) : (n <= cfg.target);
-          pts = ok ? peso : 0;
-        }
+        const pts = indicadorAtingiu(ind, n) ? peso : 0;
         pontuacao += pts;
         const valor = String(reg[ind] ?? "").trim();
-        return { indicador: ind, resultado: valor === "" ? null : valor, Ponto: peso, pontos: pts };
+        return { indicador: ind, resultado: valor === "" ? null : valor, meta: Number(METAS_ATIVAS[ind]), Ponto: peso, pontos: pts };
       });
 
       payloads.push({
@@ -275,6 +319,7 @@
   function poAplicarDadosRemotos(mapa) {
     if (!mapa || !Object.keys(mapa).length) return false;
     let aplicou = false;
+    let metasRemotas = null;
     Object.entries(mapa).forEach(([cod, subs]) => {
       if (!dbPassai[anoAtivo]) dbPassai[anoAtivo] = {};
       if (!dbPassai[anoAtivo][mesAtivo]) dbPassai[anoAtivo][mesAtivo] = {};
@@ -284,9 +329,18 @@
         if (INDICADORES.includes(s.indicador)) {
           reg[s.indicador] = s.resultado == null ? "" : String(s.resultado);
           aplicou = true;
+          if (s.meta != null) { if (!metasRemotas) metasRemotas = {}; metasRemotas[s.indicador] = Number(s.meta); }
         }
       });
     });
+    if (metasRemotas) {
+      METAS_ATIVAS = { ...METAS_ATIVAS, ...metasRemotas };
+      salvarMetasNoStorage();
+      INDICADORES.forEach(ind => {
+        const el = document.querySelector(`.in-meta-${ind}`);
+        if (el && metasRemotas[ind] != null) el.value = metasRemotas[ind];
+      });
+    }
     if (aplicou) salvarNoStorage();
     return aplicou;
   }
@@ -295,7 +349,18 @@
     if (!window.poSync) return;
     try {
       const mapa = await window.poSync.carregar(PO_SYNC_SLUG, Number(anoAtivo), Number(mesAtivo) + 1);
-      if (poAplicarDadosRemotos(mapa)) atualizarTabelaCorpo();
+      // 🏦 Banco é a fonte da verdade: zera o período local e preenche só com o que veio do banco.
+      if (mapa) {
+        if (!dbPassai[anoAtivo]) dbPassai[anoAtivo] = {};
+        dbPassai[anoAtivo][mesAtivo] = {};
+        LISTA_LOJAS.forEach(loja => {
+          dbPassai[anoAtivo][mesAtivo][loja.codigo] = {};
+          INDICADORES.forEach(ind => { dbPassai[anoAtivo][mesAtivo][loja.codigo][ind] = ""; });
+        });
+        poAplicarDadosRemotos(mapa);
+        salvarNoStorage();
+        atualizarTabelaCorpo();
+      }
     } catch (e) {
       console.error("☁️ Falha ao sincronizar com o banco:", e);
     }
@@ -320,13 +385,17 @@
 
 
   function converterInputParaNumero(valorStr) {
-    if (!valorStr || valorStr.trim() === "") return null;
-    let limpo = valorStr.replace("R$", "").replace("%", "").replace(/\s/g, "");
-    if (limpo.includes(",")) {
-      limpo = limpo.replace(/\./g, "").replace(",", ".");
+    if (window.poCalculos && typeof window.poCalculos.parseValorBR === "function") {
+      return window.poCalculos.parseValorBR(valorStr);
     }
+    if (!valorStr || String(valorStr).trim() === "") return null;
+    let limpo = String(valorStr).replace("R$", "").replace("%", "").replace(/\s/g, "");
+    const neg = /^-/.test(limpo);
+    limpo = limpo.replace(/^-/, "");
+    if (limpo.includes(",")) limpo = limpo.replace(/\./g, "").replace(",", ".");
     let num = parseFloat(limpo);
-    return isNaN(num) ? null : num;
+    if (isNaN(num)) return null;
+    return neg ? -num : num;
   }
 
   // ============================================================
@@ -426,19 +495,15 @@
           registroLoja[ind] = inputEl.value;
 
           const nValor = converterInputParaNumero(inputEl.value);
-          const metaConfig = METAS_PASSAI[ind];
 
           if (nValor !== null) {
-            let alcancou = false;
-            if (metaConfig.operacao === "maior_igual") {
-              alcancou = (nValor >= metaConfig.target);
-            }
+            const alcancou = indicadorAtingiu(ind, nValor);
 
             if (alcancou) {
               inputEl.className = "po-passai-input res-good";
               badgeEl.className = "badge-passai-pts ganhou";
-              badgeEl.textContent = metaConfig.peso;
-              totalPontosLoja += metaConfig.peso;
+              badgeEl.textContent = String(PESOS[ind]).replace(".", ",");
+              totalPontosLoja += PESOS[ind];
             } else {
               inputEl.className = "po-passai-input res-bad";
               badgeEl.className = "badge-passai-pts perdeu";
@@ -451,16 +516,16 @@
           }
         });
 
-        tr.querySelector(`.total-passai-${loja.codigo}`).textContent = totalPontosLoja;
+        tr.querySelector(`.total-passai-${loja.codigo}`).textContent = Number.isInteger(totalPontosLoja) ? totalPontosLoja : String(totalPontosLoja).replace(".", ",");
         salvarNoStorage();
       };
 
       INDICADORES.forEach(ind => {
-        tr.querySelector(`.in-passai-${ind}`).addEventListener("input", processarCalculoLinha);
+        const _inp = tr.querySelector(`.in-passai-${ind}`); if (_inp) _inp.addEventListener("input", processarCalculoLinha);
       });
 
       // Cálculo de batimento na renderização inicial
-      processarCalculoLinha();
+      try { processarCalculoLinha(); } catch (e) { console.error("⚠️ Erro cálculo passai.js:", e); }
     });
   }
 
@@ -482,28 +547,33 @@
     table.className = 'table-passai';
 
     const thead = document.createElement('thead');
+    const metaCels = INDICADORES.map(ind =>
+      `<th colspan="2"><input type="text" class="po-passai-meta in-meta-${ind}" value="${METAS_ATIVAS[ind]}" title="Meta editável — vale para todas as lojas"></th>`
+    ).join("");
+    const nomeCels = INDICADORES.map(ind => `<th colspan="2">${ROTULOS[ind]}</th>`).join("");
+    const subCels  = INDICADORES.map(() => `<th>RESULTADO</th><th>Ponto</th>`).join("");
     thead.innerHTML = `
-      <!-- NÍVEL 1: GOALS / TARGETS (Fiel à imagem image_db3ec9.png) -->
       <tr class="row-metas">
         <th rowspan="3" class="th-fixa" style="font-size:12px;">CÓDIGO</th>
         <th rowspan="3" class="th-fixa" style="font-size:12px; text-align:left; padding-left:10px;">LOJA</th>
-        <th colspan="2">3%</th><th colspan="2">100%</th>
-        <th colspan="2">8%</th>
+        ${metaCels}
         <th rowspan="3" class="th-total-pontos">TOTAL PONTOS</th>
       </tr>
-      <!-- NÍVEL 2: INDICADORES ESTRUTURAIS -->
-      <tr class="row-indicadores">
-        <th colspan="2">ORIGINAÇÃO</th>
-        <th colspan="2">CNS</th>
-        <th colspan="2">PARTICIPAÇÃO</th>
-      </tr>
-      <!-- NÍVEL 3: SUB-HEADERS DE DADO / PESO -->
-      <tr class="row-subheaders">
-        <th>RESULTADO</th><th>Ponto</th>
-        <th>RESULTADO</th><th>Ponto</th>
-        <th>RESULTADO</th><th>Ponto</th>
-      </tr>
+      <tr class="row-indicadores">${nomeCels}</tr>
+      <tr class="row-subheaders">${subCels}</tr>
     `;
+    setTimeout(() => {
+      INDICADORES.forEach(ind => {
+        const el = thead.querySelector(`.in-meta-${ind}`);
+        if (!el) return;
+        const aplicar = () => {
+          const n = converterInputParaNumero(el.value);
+          if (n !== null) { METAS_ATIVAS[ind] = n; salvarMetasNoStorage(); atualizarTabelaCorpo(); }
+        };
+        el.addEventListener("change", aplicar);
+        el.addEventListener("blur", aplicar);
+      });
+    }, 0);
     table.appendChild(thead);
 
     const tbody = document.createElement('tbody');
@@ -526,6 +596,7 @@
   // ============================================================
   window.renderPassaiTable = function (target) {
     inicializarDados();
+    (function(){ const m = localStorage.getItem("po_metas_passai_ne"); if (m) { try { METAS_ATIVAS = { ...METAS_PADRAO, ...JSON.parse(m) }; } catch(_){} } })();
 
     let container = null;
     if (typeof target === 'string') container = document.querySelector(target);

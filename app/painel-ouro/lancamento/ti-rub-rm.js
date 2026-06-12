@@ -131,6 +131,17 @@
         outline: none;
       }
 
+      .po-ti-meta {
+        width: 80px; background: rgba(255,255,255,0.9);
+        border: 1px dashed #c9a227; color: #8a6d1f; font-weight: 700;
+        font-size: 11px; text-align: center; padding: 3px 4px;
+        border-radius: 5px; font-family: inherit;
+      }
+      .po-ti-meta:focus {
+        outline: none; background: #fff; border-style: solid;
+        box-shadow: 0 0 0 3px rgba(201,162,39,0.2);
+      }
+
       .badge-ti-pts {
         display: inline-block;
         padding: 2px 6px;
@@ -174,24 +185,68 @@
   const INDICADORES = ["etiqueta", "ruptura", "psv", "descarga", "mau_uso"];
 
   // Configuração das metas extraídas diretamente da imagem enviada
-  const METAS_TI = {
-    etiqueta: { operacao: "menor_igual", target: 3.0, peso: 2 },  // Até 3% pontua
-    ruptura:  { operacao: "menor_igual", target: 3.0, peso: 2 },  // Até 3% pontua
-    psv:      { operacao: "menor_igual", target: 5.0, peso: 3 },  // Até 5% pontua
-    descarga: { operacao: "maior_igual", target: 100.0, peso: 2 }, // Mínimo de 100%
-    mau_uso:  { operacao: "menor_igual", target: 500.0, peso: 1 }  // Até R$ 500,00 tolerado
+  // Configuração de metas EDITÁVEIS (salvas em storage + banco)
+  const OPERACAO = {
+    etiqueta: "menor_igual",
+    ruptura: "menor_igual",
+    psv: "menor_igual",
+    descarga: "maior_igual",
+    mau_uso: "menor_igual",
   };
+  const PESOS = {
+    etiqueta: 2,
+    ruptura: 2,
+    psv: 3,
+    descarga: 2,
+    mau_uso: 1,
+  };
+  const ROTULOS = {
+    etiqueta: "ETIQUETA",
+    ruptura: "RUPTURA FINAL",
+    psv: "PSV",
+    descarga: "DESCARGA (R$ META)",
+    mau_uso: "MAU USO (EQ, TI)",
+  };
+  const METAS_PADRAO = {
+    etiqueta: 3.0,
+    ruptura: 3.0,
+    psv: 5.0,
+    descarga: 100.0,
+    mau_uso: 500.0,
+  };
+  let METAS_ATIVAS = { ...METAS_PADRAO };
+
+  function indicadorAtingiu(ind, n) {
+    const meta = Number(METAS_ATIVAS[ind]);
+    if (window.poCalculos && typeof window.poCalculos.atingiuMeta === "function") {
+      return window.poCalculos.atingiuMeta(OPERACAO[ind], n, meta);
+    }
+    if (n === null) return false;
+    return OPERACAO[ind] === "maior_igual" ? (n >= meta) : (n <= meta);
+  }
+  function salvarMetasNoStorage() {
+    localStorage.setItem("po_metas_ti_ne", JSON.stringify(METAS_ATIVAS));
+  }
 
   const MESES = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
   ];
 
-  let anoAtivo = "2025";
-  let mesAtivo = "0";
+  let anoAtivo = String(new Date().getFullYear()); // abre no ano atual
+  let mesAtivo = String(new Date().getMonth()); // abre no mês atual
   let dbTi = {};
 
   function inicializarDados() {
+    // 🔄 Versionamento de schema: se a versão salva for diferente, descarta
+    // dados antigos (indicadores mudaram) para evitar estrutura incompatível.
+    const SCHEMA_VERSAO = "3";
+    const chaveVersao = "po_db_ti_rub_rm_ne__schema";
+    if (localStorage.getItem(chaveVersao) !== SCHEMA_VERSAO) {
+      localStorage.removeItem("po_db_ti_rub_rm_ne");
+      localStorage.removeItem("po_metas_ti_ne");
+      localStorage.setItem(chaveVersao, SCHEMA_VERSAO);
+    }
     const salvos = localStorage.getItem("po_db_ti_rub_rm_ne");
     if (salvos) {
       dbTi = JSON.parse(salvos);
@@ -232,17 +287,12 @@
 
       let pontuacao = 0;
       const subs = INDICADORES.map(ind => {
-        const cfg = METAS_TI[ind];
-        const peso = cfg ? cfg.peso : 0;
+        const peso = PESOS[ind];
         const n = converterInputParaNumero(reg[ind]);
-        let pts = 0;
-        if (n !== null && cfg) {
-          const ok = cfg.operacao === "maior_igual" ? (n >= cfg.target) : (n <= cfg.target);
-          pts = ok ? peso : 0;
-        }
+        const pts = indicadorAtingiu(ind, n) ? peso : 0;
         pontuacao += pts;
         const valor = String(reg[ind] ?? "").trim();
-        return { indicador: ind, resultado: valor === "" ? null : valor, Ponto: peso, pontos: pts };
+        return { indicador: ind, resultado: valor === "" ? null : valor, meta: Number(METAS_ATIVAS[ind]), Ponto: peso, pontos: pts };
       });
 
       payloads.push({
@@ -277,6 +327,7 @@
   function poAplicarDadosRemotos(mapa) {
     if (!mapa || !Object.keys(mapa).length) return false;
     let aplicou = false;
+    let metasRemotas = null;
     Object.entries(mapa).forEach(([cod, subs]) => {
       if (!dbTi[anoAtivo]) dbTi[anoAtivo] = {};
       if (!dbTi[anoAtivo][mesAtivo]) dbTi[anoAtivo][mesAtivo] = {};
@@ -286,9 +337,18 @@
         if (INDICADORES.includes(s.indicador)) {
           reg[s.indicador] = s.resultado == null ? "" : String(s.resultado);
           aplicou = true;
+          if (s.meta != null) { if (!metasRemotas) metasRemotas = {}; metasRemotas[s.indicador] = Number(s.meta); }
         }
       });
     });
+    if (metasRemotas) {
+      METAS_ATIVAS = { ...METAS_ATIVAS, ...metasRemotas };
+      salvarMetasNoStorage();
+      INDICADORES.forEach(ind => {
+        const el = document.querySelector(`.in-meta-${ind}`);
+        if (el && metasRemotas[ind] != null) el.value = metasRemotas[ind];
+      });
+    }
     if (aplicou) salvarNoStorage();
     return aplicou;
   }
@@ -297,7 +357,18 @@
     if (!window.poSync) return;
     try {
       const mapa = await window.poSync.carregar(PO_SYNC_SLUG, Number(anoAtivo), Number(mesAtivo) + 1);
-      if (poAplicarDadosRemotos(mapa)) atualizarTabelaCorpo();
+      // 🏦 Banco é a fonte da verdade: zera o período local e preenche só com o que veio do banco.
+      if (mapa) {
+        if (!dbTi[anoAtivo]) dbTi[anoAtivo] = {};
+        dbTi[anoAtivo][mesAtivo] = {};
+        LISTA_LOJAS.forEach(loja => {
+          dbTi[anoAtivo][mesAtivo][loja.codigo] = {};
+          INDICADORES.forEach(ind => { dbTi[anoAtivo][mesAtivo][loja.codigo][ind] = ""; });
+        });
+        poAplicarDadosRemotos(mapa);
+        salvarNoStorage();
+        atualizarTabelaCorpo();
+      }
     } catch (e) {
       console.error("☁️ Falha ao sincronizar com o banco:", e);
     }
@@ -322,13 +393,17 @@
 
 
   function converterInputParaNumero(valorStr) {
-    if (!valorStr || valorStr.trim() === "") return null;
-    let limpo = valorStr.replace("R$", "").replace("%", "").replace(/\s/g, "");
-    if (limpo.includes(",")) {
-      limpo = limpo.replace(/\./g, "").replace(",", ".");
+    if (window.poCalculos && typeof window.poCalculos.parseValorBR === "function") {
+      return window.poCalculos.parseValorBR(valorStr);
     }
+    if (!valorStr || String(valorStr).trim() === "") return null;
+    let limpo = String(valorStr).replace("R$", "").replace("%", "").replace(/\s/g, "");
+    const neg = /^-/.test(limpo);
+    limpo = limpo.replace(/^-/, "");
+    if (limpo.includes(",")) limpo = limpo.replace(/\./g, "").replace(",", ".");
     let num = parseFloat(limpo);
-    return isNaN(num) ? null : num;
+    if (isNaN(num)) return null;
+    return neg ? -num : num;
   }
 
   // ============================================================
@@ -428,21 +503,14 @@
           registroLoja[ind] = inputEl.value;
 
           const nValor = converterInputParaNumero(inputEl.value);
-          const metaConfig = METAS_TI[ind];
-
           if (nValor !== null) {
-            let alcancou = false;
-            if (metaConfig.operacao === "maior_igual") {
-              alcancou = (nValor >= metaConfig.target);
-            } else if (metaConfig.operacao === "menor_igual") {
-              alcancou = (nValor <= metaConfig.target);
-            }
+            const alcancou = indicadorAtingiu(ind, nValor);
 
             if (alcancou) {
               inputEl.className = "po-ti-input res-good";
               badgeEl.className = "badge-ti-pts ganhou";
-              badgeEl.textContent = metaConfig.peso;
-              totalPontosLoja += metaConfig.peso;
+              badgeEl.textContent = String(PESOS[ind]).replace(".", ",");
+              totalPontosLoja += PESOS[ind];
             } else {
               inputEl.className = "po-ti-input res-bad";
               badgeEl.className = "badge-ti-pts perdeu";
@@ -455,16 +523,16 @@
           }
         });
 
-        tr.querySelector(`.total-ti-${loja.codigo}`).textContent = totalPontosLoja;
+        tr.querySelector(`.total-ti-${loja.codigo}`).textContent = Number.isInteger(totalPontosLoja) ? totalPontosLoja : String(totalPontosLoja).replace(".", ",");
         salvarNoStorage();
       };
 
       INDICADORES.forEach(ind => {
-        tr.querySelector(`.in-ti-${ind}`).addEventListener("input", processarCalculoLinha);
+        const _inp = tr.querySelector(`.in-ti-${ind}`); if (_inp) _inp.addEventListener("input", processarCalculoLinha);
       });
 
       // Roda cálculo de carregamento inicial
-      processarCalculoLinha();
+      try { processarCalculoLinha(); } catch (e) { console.error("⚠️ Erro cálculo ti-rub-rm.js:", e); }
     });
   }
 
@@ -486,30 +554,33 @@
     table.className = 'table-ti';
 
     const thead = document.createElement('thead');
+    const metaCels = INDICADORES.map(ind =>
+      `<th colspan="2"><input type="text" class="po-ti-meta in-meta-${ind}" value="${METAS_ATIVAS[ind]}" title="Meta editável — vale para todas as lojas"></th>`
+    ).join("");
+    const nomeCels = INDICADORES.map(ind => `<th colspan="2">${ROTULOS[ind]}</th>`).join("");
+    const subCels  = INDICADORES.map(() => `<th>RESULTADO</th><th>Ponto</th>`).join("");
     thead.innerHTML = `
       <tr class="row-metas">
         <th rowspan="3" class="th-fixa" style="font-size:12px;">CÓDIGO</th>
         <th rowspan="3" class="th-fixa" style="font-size:12px; text-align:left; padding-left:10px;">LOJA</th>
-        <th colspan="2">3%</th><th colspan="2">3%</th>
-        <th colspan="2">5%</th><th colspan="2">100%</th>
-        <th colspan="2">R$ 500,00</th>
+        ${metaCels}
         <th rowspan="3" class="th-total-pontos">TOTAL PONTOS</th>
       </tr>
-      <tr class="row-indicadores">
-        <th colspan="2">ETIQUETA</th>
-        <th colspan="2">RUPTURA FINAL</th>
-        <th colspan="2">PSV</th>
-        <th colspan="2">DESCARGA (R$ META)</th>
-        <th colspan="2">MAU USO (EQ, TI)</th>
-      </tr>
-      <tr class="row-subheaders">
-        <th>RESULTADO</th><th>Ponto</th>
-        <th>RESULTADO</th><th>Ponto</th>
-        <th>RESULTADO</th><th>Ponto</th>
-        <th>RESULTADO</th><th>Ponto</th>
-        <th>RESULTADO</th><th>Ponto</th>
-      </tr>
+      <tr class="row-indicadores">${nomeCels}</tr>
+      <tr class="row-subheaders">${subCels}</tr>
     `;
+    setTimeout(() => {
+      INDICADORES.forEach(ind => {
+        const el = thead.querySelector(`.in-meta-${ind}`);
+        if (!el) return;
+        const aplicar = () => {
+          const n = converterInputParaNumero(el.value);
+          if (n !== null) { METAS_ATIVAS[ind] = n; salvarMetasNoStorage(); atualizarTabelaCorpo(); }
+        };
+        el.addEventListener("change", aplicar);
+        el.addEventListener("blur", aplicar);
+      });
+    }, 0);
     table.appendChild(thead);
 
     const tbody = document.createElement('tbody');
@@ -532,6 +603,7 @@
   // ============================================================
   window.renderTITable = function (target) {
     inicializarDados();
+    (function(){ const m = localStorage.getItem("po_metas_ti_ne"); if (m) { try { METAS_ATIVAS = { ...METAS_PADRAO, ...JSON.parse(m) }; } catch(_){} } })();
 
     let container = null;
     if (typeof target === 'string') container = document.querySelector(target);

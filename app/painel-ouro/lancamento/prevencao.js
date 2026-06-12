@@ -131,6 +131,26 @@
         outline: none;
       }
 
+      /* Input de META editável no cabeçalho */
+      .po-prev-meta {
+        width: 78px;
+        background: rgba(255,255,255,0.9);
+        border: 1px dashed #c9a227;
+        color: #8a6d1f;
+        font-weight: 700;
+        font-size: 11px;
+        text-align: center;
+        padding: 3px 4px;
+        border-radius: 5px;
+        font-family: inherit;
+      }
+      .po-prev-meta:focus {
+        outline: none;
+        background: #fff;
+        border-style: solid;
+        box-shadow: 0 0 0 3px rgba(201,162,39,0.2);
+      }
+
       .badge-prev-pts {
         display: inline-block;
         padding: 2px 6px;
@@ -171,25 +191,79 @@
     { codigo: "333", nome: "Mossoró" }
   ];
 
-  const INDICADORES = ["quebra", "auditoria", "validade", "inventario"];
+  const INDICADORES = ["vencimento", "troca", "qb_flv", "qb_acougue", "qb_identificada"];
 
-  // Metas e pesos estruturados conforme padrão operacional da área de Prevenção
-  const METAS_PREV = {
-    quebra:     { operacao: "menor_igual", target: 0.45, peso: 3 }, // Até 0,45% | Peso 3
-    auditoria:  { operacao: "maior_igual", target: 92.0, peso: 2 }, // Mínimo 92%  | Peso 2
-    validade:   { operacao: "menor_igual", target: 0.10, peso: 2 }, // Até 0,10% | Peso 2
-    inventario: { operacao: "maior_igual", target: 98.0, peso: 3 }  // Mínimo 98%  | Peso 3
+  // Rótulos exibidos no cabeçalho da tabela
+  const ROTULOS = {
+    vencimento:     "VENCIMENTO",
+    troca:          "TROCA",
+    qb_flv:         "QUEBRA FLV",
+    qb_acougue:     "QUEBRA AÇOUGUE",
+    qb_identificada:"QUEBRA IDENTIFICADA",
   };
+
+  // Tipo de comparação de cada indicador:
+  //  "menor_igual" → pontua se valor <= meta            (Vencimento, Troca: ficar abaixo do teto em R$)
+  //  "magnitude"   → pontua se |valor| <= |meta|         (Quebra FLV/Açougue: quebrar MENOS que o limite, mesmo com sinal negativo)
+  //  "maior_igual" → pontua se valor >= meta            (Quebra Identificada: identificar pelo menos a meta)
+  const OPERACAO = {
+    vencimento:     "maior_igual", // valor negativo: -5000 OK, -5000.01 passa (n >= meta)
+    troca:          "menor_igual", // positivo: até 10.000 (n <= meta)
+    qb_flv:         "maior_igual", // negativo: -2,80 OK, -2,81 passa (n >= meta)
+    qb_acougue:     "maior_igual", // negativo: idem
+    qb_identificada:"menor_igual", // identificar menos é melhor (n <= meta)
+  };
+
+  const PESOS = {
+    vencimento: 1, troca: 1, qb_flv: 2, qb_acougue: 2, qb_identificada: 4,
+  };
+
+  // Metas PADRÃO (usadas se o banco ainda não tiver metas salvas).
+  // São EDITÁVEIS na tela e salvas no banco — valem para todas as lojas.
+  const METAS_PADRAO = {
+    vencimento: 5000,    // -R$ 5.000,00 (teto)
+    troca: 10000,        // R$ 10.000,00 (teto)
+    qb_flv: -2.80,       // -2,80%
+    qb_acougue: -2.00,   // -2,00%
+    qb_identificada: 10, // 10%
+  };
+
+  // Metas ATIVAS em memória (carregadas do banco; default = METAS_PADRAO)
+  let METAS_PREV = { ...METAS_PADRAO };
+
+  // Monta a config no formato { operacao, target, peso } a partir das metas ativas
+  function cfgIndicador(ind) {
+    return { operacao: OPERACAO[ind], target: Number(METAS_PREV[ind]), peso: PESOS[ind] };
+  }
+
+  // Decide se um valor pontua, conforme a operação do indicador
+  function indicadorAtingiu(ind, n) {
+    const meta = Number(METAS_PREV[ind]);
+    if (window.poCalculos && typeof window.poCalculos.atingiuMeta === "function") {
+      return window.poCalculos.atingiuMeta(OPERACAO[ind], n, meta);
+    }
+    if (n === null) return false;
+    return OPERACAO[ind] === "maior_igual" ? (n >= meta) : (n <= meta);
+  }
 
   const MESES = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
   ];
 
-  let mesAtivo = "0";
+  let mesAtivo = String(new Date().getMonth()); // abre no mês atual
   let dbPrev = {};
 
   function inicializarDados() {
+    // 🔄 Versionamento de schema: se a versão salva for diferente, descarta
+    // dados antigos (indicadores mudaram) para evitar estrutura incompatível.
+    const SCHEMA_VERSAO = "3";
+    const chaveVersao = "po_db_prevencao_ne__schema";
+    if (localStorage.getItem(chaveVersao) !== SCHEMA_VERSAO) {
+      localStorage.removeItem("po_db_prevencao_ne");
+      localStorage.removeItem("po_metas_prevencao_ne");
+      localStorage.setItem(chaveVersao, SCHEMA_VERSAO);
+    }
     const salvos = localStorage.getItem("po_db_prevencao_ne");
     if (salvos) {
       dbPrev = JSON.parse(salvos);
@@ -206,10 +280,19 @@
       });
       salvarNoStorage();
     }
+    // carrega metas editáveis salvas localmente (cache); banco sobrescreve depois
+    const metasSalvas = localStorage.getItem("po_metas_prevencao_ne");
+    if (metasSalvas) {
+      try { METAS_PREV = { ...METAS_PADRAO, ...JSON.parse(metasSalvas) }; } catch (_) {}
+    }
   }
 
   function salvarNoStorage() {
     localStorage.setItem("po_db_prevencao_ne", JSON.stringify(dbPrev));
+  }
+
+  function salvarMetasNoStorage() {
+    localStorage.setItem("po_metas_prevencao_ne", JSON.stringify(METAS_PREV));
   }
 
   // ============================================================
@@ -228,17 +311,18 @@
 
       let pontuacao = 0;
       const subs = INDICADORES.map(ind => {
-        const cfg = METAS_PREV[ind];
-        const peso = cfg ? cfg.peso : 0;
+        const peso = PESOS[ind];
         const n = converterInputParaNumero(reg[ind]);
-        let pts = 0;
-        if (n !== null && cfg) {
-          const ok = cfg.operacao === "maior_igual" ? (n >= cfg.target) : (n <= cfg.target);
-          pts = ok ? peso : 0;
-        }
+        const pts = indicadorAtingiu(ind, n) ? peso : 0;
         pontuacao += pts;
         const valor = String(reg[ind] ?? "").trim();
-        return { indicador: ind, resultado: valor === "" ? null : valor, Ponto: peso, pontos: pts };
+        return {
+          indicador: ind,
+          resultado: valor === "" ? null : valor,
+          meta: Number(METAS_PREV[ind]),
+          Ponto: peso,
+          pontos: pts,
+        };
       });
 
       payloads.push({
@@ -273,6 +357,7 @@
   function poAplicarDadosRemotos(mapa) {
     if (!mapa || !Object.keys(mapa).length) return false;
     let aplicou = false;
+    let metasRemotas = null;
     Object.entries(mapa).forEach(([cod, subs]) => {
       if (!dbPrev[mesAtivo]) dbPrev[mesAtivo] = {};
       if (!dbPrev[mesAtivo][cod]) dbPrev[mesAtivo][cod] = {};
@@ -281,9 +366,23 @@
         if (INDICADORES.includes(s.indicador)) {
           reg[s.indicador] = s.resultado == null ? "" : String(s.resultado);
           aplicou = true;
+          // captura as metas salvas no banco (valem para todas as lojas)
+          if (s.meta != null) {
+            if (!metasRemotas) metasRemotas = {};
+            metasRemotas[s.indicador] = Number(s.meta);
+          }
         }
       });
     });
+    if (metasRemotas) {
+      METAS_PREV = { ...METAS_PREV, ...metasRemotas };
+      salvarMetasNoStorage();
+      // atualiza os inputs de meta do cabeçalho, se já renderizados
+      INDICADORES.forEach(ind => {
+        const el = document.querySelector(`.in-meta-${ind}`);
+        if (el && metasRemotas[ind] != null) el.value = metasRemotas[ind];
+      });
+    }
     if (aplicou) salvarNoStorage();
     return aplicou;
   }
@@ -292,7 +391,17 @@
     if (!window.poSync) return;
     try {
       const mapa = await window.poSync.carregar(PO_SYNC_SLUG, new Date().getFullYear(), Number(mesAtivo) + 1);
-      if (poAplicarDadosRemotos(mapa)) atualizarTabelaCorpo();
+      // 🏦 Banco é a fonte da verdade: zera o período local e preenche só com o banco.
+      if (mapa) {
+        dbPrev[mesAtivo] = {};
+        LISTA_LOJAS.forEach(loja => {
+          dbPrev[mesAtivo][loja.codigo] = {};
+          INDICADORES.forEach(ind => { dbPrev[mesAtivo][loja.codigo][ind] = ""; });
+        });
+        poAplicarDadosRemotos(mapa);
+        salvarNoStorage();
+        atualizarTabelaCorpo();
+      }
     } catch (e) {
       console.error("☁️ Falha ao sincronizar com o banco:", e);
     }
@@ -317,13 +426,17 @@
 
 
   function converterInputParaNumero(valorStr) {
-    if (!valorStr || valorStr.trim() === "") return null;
-    let limpo = valorStr.replace("R$", "").replace("%", "").replace(/\s/g, "");
-    if (limpo.includes(",")) {
-      limpo = limpo.replace(/\./g, "").replace(",", ".");
+    if (window.poCalculos && typeof window.poCalculos.parseValorBR === "function") {
+      return window.poCalculos.parseValorBR(valorStr);
     }
+    if (!valorStr || String(valorStr).trim() === "") return null;
+    let limpo = String(valorStr).replace("R$", "").replace("%", "").replace(/\s/g, "");
+    const neg = /^-/.test(limpo);
+    limpo = limpo.replace(/^-/, "");
+    if (limpo.includes(",")) limpo = limpo.replace(/\./g, "").replace(",", ".");
     let num = parseFloat(limpo);
-    return isNaN(num) ? null : num;
+    if (isNaN(num)) return null;
+    return neg ? -num : num;
   }
 
   // ============================================================
@@ -402,21 +515,15 @@
           registroLoja[ind] = inputEl.value;
 
           const nValor = converterInputParaNumero(inputEl.value);
-          const metaConfig = METAS_PREV[ind];
 
           if (nValor !== null) {
-            let alcancou = false;
-            if (metaConfig.operacao === "maior_igual") {
-              alcancou = (nValor >= metaConfig.target);
-            } else if (metaConfig.operacao === "menor_igual") {
-              alcancou = (nValor <= metaConfig.target);
-            }
+            const alcancou = indicadorAtingiu(ind, nValor);
 
             if (alcancou) {
               inputEl.className = "po-prev-input res-good";
               badgeEl.className = "badge-prev-pts ganhou";
-              badgeEl.textContent = metaConfig.peso;
-              totalPontosLoja += metaConfig.peso;
+              badgeEl.textContent = String(PESOS[ind]).replace(".", ",");
+              totalPontosLoja += PESOS[ind];
             } else {
               inputEl.className = "po-prev-input res-bad";
               badgeEl.className = "badge-prev-pts perdeu";
@@ -429,15 +536,15 @@
           }
         });
 
-        tr.querySelector(`.total-prev-${loja.codigo}`).textContent = totalPontosLoja;
+        tr.querySelector(`.total-prev-${loja.codigo}`).textContent = Number.isInteger(totalPontosLoja) ? totalPontosLoja : String(totalPontosLoja).replace(".", ",");
         salvarNoStorage();
       };
 
       INDICADORES.forEach(ind => {
-        tr.querySelector(`.in-prev-${ind}`).addEventListener("input", processarCalculoLinha);
+        const _inp = tr.querySelector(`.in-prev-${ind}`); if (_inp) _inp.addEventListener("input", processarCalculoLinha);
       });
 
-      processarCalculoLinha();
+      try { processarCalculoLinha(); } catch (e) { console.error("⚠️ Erro cálculo prevencao.js:", e); }
     });
   }
 
@@ -459,28 +566,43 @@
     table.className = 'table-prev';
 
     const thead = document.createElement('thead');
+    // Linha de metas EDITÁVEIS (inputs) + linha de nomes + linha RESULTADO/Ponto
+    const metaCels = INDICADORES.map(ind => {
+      const v = METAS_PREV[ind];
+      return `<th colspan="2"><input type="text" class="po-prev-meta in-meta-${ind}" value="${v}" title="Meta editável — vale para todas as lojas"></th>`;
+    }).join("");
+    const nomeCels = INDICADORES.map(ind => `<th colspan="2">${ROTULOS[ind]}</th>`).join("");
+    const subCels  = INDICADORES.map(() => `<th>RESULTADO</th><th>Ponto</th>`).join("");
+
     thead.innerHTML = `
       <tr class="row-metas">
         <th rowspan="3" class="th-fixa" style="font-size:12px;">CÓDIGO</th>
         <th rowspan="3" class="th-fixa" style="font-size:12px; text-align:left; padding-left:10px;">LOJA</th>
-        <th colspan="2">0,45%</th><th colspan="2">92%</th>
-        <th colspan="2">0,10%</th><th colspan="2">98%</th>
+        ${metaCels}
         <th rowspan="3" class="th-total-pontos">TOTAL PONTOS</th>
       </tr>
       <tr class="row-indicadores">
-        <th colspan="2">QUEBRA LÍQUIDA</th>
-        <th colspan="2">AUDITORIA DE PROCESSOS</th>
-        <th colspan="2">CONTROLE VALIDADE</th>
-        <th colspan="2">INVENTÁRIO GLOBAL</th>
+        ${nomeCels}
       </tr>
       <tr class="row-subheaders">
-        <th>RESULTADO</th><th>Ponto</th>
-        <th>RESULTADO</th><th>Ponto</th>
-        <th>RESULTADO</th><th>Ponto</th>
-        <th>RESULTADO</th><th>Ponto</th>
+        ${subCels}
       </tr>
     `;
     table.appendChild(thead);
+
+    // Liga edição das metas: ao mudar, salva e recalcula todas as linhas
+    setTimeout(() => {
+      INDICADORES.forEach(ind => {
+        const el = thead.querySelector(`.in-meta-${ind}`);
+        if (!el) return;
+        const aplicar = () => {
+          const n = converterInputParaNumero(el.value);
+          if (n !== null) { METAS_PREV[ind] = n; salvarMetasNoStorage(); atualizarTabelaCorpo(); }
+        };
+        el.addEventListener("change", aplicar);
+        el.addEventListener("blur", aplicar);
+      });
+    }, 0);
 
     const tbody = document.createElement('tbody');
     tbody.id = "po-prev-tbody";

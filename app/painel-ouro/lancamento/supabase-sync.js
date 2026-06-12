@@ -54,6 +54,13 @@ console.log("✅ supabase-sync.js carregado");
       }
       .po-supabase-btn:hover { filter: brightness(1.08); }
       .po-supabase-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+      .po-supabase-btn-limpar {
+        height: 38px; padding: 0 16px; border: 1px solid #d9b3ac; border-radius: 9px;
+        background: #fff; color: #b5483b; font-family: inherit; font-size: 12px;
+        font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+        transition: all 0.15s;
+      }
+      .po-supabase-btn-limpar:hover { background: #fbeae7; }
       .po-sync-toast {
         position: fixed;
         bottom: 28px;

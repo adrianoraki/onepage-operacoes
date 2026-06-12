@@ -207,14 +207,21 @@
   ];
 
   // Filtros ativos iniciais
-  let anoAtivo = "2025";
-  let mesAtivo = "0"; // Índice do mês de Janeiro
+  let anoAtivo = String(new Date().getFullYear()); // abre no ano atual
+  let mesAtivo = String(new Date().getMonth()); // abre no mês atual // Índice do mês de Janeiro
 
   // Estrutura global de dados que simula o formato JSON aceito pelo Supabase
   let dbVendas = {};
 
   // Inicializa ou carrega os dados salvos
   function inicializarDados() {
+    // 🔄 Versionamento de schema: limpa dados de teste antigos incompatíveis.
+    const SCHEMA_VERSAO = "3";
+    const chaveVersao = "po_db_vendas__schema";
+    if (localStorage.getItem(chaveVersao) !== SCHEMA_VERSAO) {
+      localStorage.removeItem("po_db_vendas");
+      localStorage.setItem(chaveVersao, SCHEMA_VERSAO);
+    }
     const salvos = localStorage.getItem("po_db_vendas");
     if (salvos) {
       dbVendas = JSON.parse(salvos);
@@ -308,7 +315,15 @@
     if (!window.poSync) return;
     try {
       const mapa = await window.poSync.carregar(PO_SYNC_SLUG, Number(anoAtivo), Number(mesAtivo) + 1);
-      if (poAplicarDadosRemotos(mapa)) atualizarTabelaCorpo();
+      // 🏦 Banco é a fonte da verdade: zera o período local e preenche só com o banco.
+      if (mapa) {
+        if (!dbVendas[anoAtivo]) dbVendas[anoAtivo] = {};
+        dbVendas[anoAtivo][mesAtivo] = {};
+        LISTA_LOJAS.forEach(loja => { dbVendas[anoAtivo][mesAtivo][loja.codigo] = { meta: 0, venda: 0 }; });
+        poAplicarDadosRemotos(mapa);
+        salvarNoStorage();
+        atualizarTabelaCorpo();
+      }
     } catch (e) {
       console.error("☁️ Falha ao sincronizar com o banco:", e);
     }

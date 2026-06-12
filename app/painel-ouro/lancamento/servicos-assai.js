@@ -135,6 +135,17 @@
         outline: none;
       }
 
+      .po-servicos-meta {
+        width: 60px; background: rgba(255,255,255,0.9);
+        border: 1px dashed #c9a227; color: #8a6d1f; font-weight: 700;
+        font-size: 10px; text-align: center; padding: 2px 3px;
+        border-radius: 5px; font-family: inherit;
+      }
+      .po-servicos-meta:focus {
+        outline: none; background: #fff; border-style: solid;
+        box-shadow: 0 0 0 3px rgba(201,162,39,0.2);
+      }
+
       .badge-pts {
         display: inline-block;
         padding: 2px 6px;
@@ -177,25 +188,39 @@
 
   const DEPARTAMENTOS = ["acougue", "cembaladas", "emporio", "cafeteria", "padaria"];
 
-  // Limites e Metas configurados com base na linha superior da sua imagem
-  const METAS_REFERENCIA = {
+  // Metas PADRÃO (editáveis na tela, salvas em storage + banco, valem p/ todas as lojas)
+  const METAS_PADRAO = {
     acougue:    { vendas: 100.0, quebras: -2.00 },
     cembaladas: { vendas: 100.0, quebras: -1.50 },
     emporio:    { vendas: 100.0, quebras: -1.00 },
     cafeteria:  { vendas: 100.0, quebras: -1.60 },
     padaria:    { vendas: 100.0, quebras: -3.00 }
   };
+  let METAS_REFERENCIA = JSON.parse(JSON.stringify(METAS_PADRAO));
+
+  function salvarMetasNoStorage() {
+    localStorage.setItem("po_metas_servicos_ne", JSON.stringify(METAS_REFERENCIA));
+  }
 
   const MESES = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
   ];
 
-  let anoAtivo = "2025";
-  let mesAtivo = "0";
+  let anoAtivo = String(new Date().getFullYear()); // abre no ano atual
+  let mesAtivo = String(new Date().getMonth()); // abre no mês atual
   let dbServicos = {};
 
   function inicializarDados() {
+    // 🔄 Versionamento de schema: se a versão salva for diferente, descarta
+    // dados antigos (indicadores mudaram) para evitar estrutura incompatível.
+    const SCHEMA_VERSAO = "3";
+    const chaveVersao = "po_db_servicos_assai__schema";
+    if (localStorage.getItem(chaveVersao) !== SCHEMA_VERSAO) {
+      localStorage.removeItem("po_db_servicos_assai");
+      localStorage.removeItem("po_metas_servicos_ne");
+      localStorage.setItem(chaveVersao, SCHEMA_VERSAO);
+    }
     const salvos = localStorage.getItem("po_db_servicos_assai");
     if (salvos) {
       dbServicos = JSON.parse(salvos);
@@ -244,8 +269,8 @@
         const ptsV = (nV !== null && nV >= METAS_REFERENCIA[d].vendas) ? 1 : 0;
         const ptsQ = (nQ !== null && nQ >= METAS_REFERENCIA[d].quebras) ? 1 : 0;
         pontuacao += ptsV + ptsQ;
-        subs.push({ indicador: `${d}_vendas`,  resultado: vV === "" ? null : vV, Ponto: 1, pontos: ptsV });
-        subs.push({ indicador: `${d}_quebras`, resultado: vQ === "" ? null : vQ, Ponto: 1, pontos: ptsQ });
+        subs.push({ indicador: `${d}_vendas`,  resultado: vV === "" ? null : vV, meta: Number(METAS_REFERENCIA[d].vendas),  Ponto: 1, pontos: ptsV });
+        subs.push({ indicador: `${d}_quebras`, resultado: vQ === "" ? null : vQ, meta: Number(METAS_REFERENCIA[d].quebras), Ponto: 1, pontos: ptsQ });
       });
 
       payloads.push({
@@ -280,6 +305,7 @@
   function poAplicarDadosRemotos(mapa) {
     if (!mapa || !Object.keys(mapa).length) return false;
     let aplicou = false;
+    let metasRemotas = null;
     Object.entries(mapa).forEach(([cod, subs]) => {
       if (!dbServicos[anoAtivo]) dbServicos[anoAtivo] = {};
       if (!dbServicos[anoAtivo][mesAtivo]) dbServicos[anoAtivo][mesAtivo] = {};
@@ -291,11 +317,24 @@
       (subs || []).forEach(s => {
         DEPARTAMENTOS.forEach(d => {
           if (!reg[d]) reg[d] = { vendas: "", quebras: "" };
-          if (s.indicador === `${d}_vendas`)  { reg[d].vendas  = s.resultado == null ? "" : String(s.resultado); aplicou = true; }
-          if (s.indicador === `${d}_quebras`) { reg[d].quebras = s.resultado == null ? "" : String(s.resultado); aplicou = true; }
+          if (s.indicador === `${d}_vendas`)  { reg[d].vendas  = s.resultado == null ? "" : String(s.resultado); aplicou = true; if (s.meta != null) { if(!metasRemotas) metasRemotas={}; (metasRemotas[d]=metasRemotas[d]||{}).vendas = Number(s.meta); } }
+          if (s.indicador === `${d}_quebras`) { reg[d].quebras = s.resultado == null ? "" : String(s.resultado); aplicou = true; if (s.meta != null) { if(!metasRemotas) metasRemotas={}; (metasRemotas[d]=metasRemotas[d]||{}).quebras = Number(s.meta); } }
         });
       });
     });
+    if (metasRemotas) {
+      DEPARTAMENTOS.forEach(d => {
+        if (metasRemotas[d]) {
+          if (metasRemotas[d].vendas != null)  METAS_REFERENCIA[d].vendas  = metasRemotas[d].vendas;
+          if (metasRemotas[d].quebras != null) METAS_REFERENCIA[d].quebras = metasRemotas[d].quebras;
+          const ev = document.querySelector(`.in-meta-${d}-vendas`);
+          const eq = document.querySelector(`.in-meta-${d}-quebras`);
+          if (ev && metasRemotas[d].vendas != null)  ev.value = metasRemotas[d].vendas;
+          if (eq && metasRemotas[d].quebras != null) eq.value = metasRemotas[d].quebras;
+        }
+      });
+      salvarMetasNoStorage();
+    }
     if (aplicou) salvarNoStorage();
     return aplicou;
   }
@@ -304,7 +343,18 @@
     if (!window.poSync) return;
     try {
       const mapa = await window.poSync.carregar(PO_SYNC_SLUG, Number(anoAtivo), Number(mesAtivo) + 1);
-      if (poAplicarDadosRemotos(mapa)) atualizarTabelaCorpo();
+      // 🏦 Banco é a fonte da verdade: zera o período local e preenche só com o banco.
+      if (mapa) {
+        if (!dbServicos[anoAtivo]) dbServicos[anoAtivo] = {};
+        dbServicos[anoAtivo][mesAtivo] = {};
+        LISTA_LOJAS.forEach(loja => {
+          dbServicos[anoAtivo][mesAtivo][loja.codigo] = {};
+          DEPARTAMENTOS.forEach(d => { dbServicos[anoAtivo][mesAtivo][loja.codigo][d] = { vendas: "", quebras: "" }; });
+        });
+        poAplicarDadosRemotos(mapa);
+        salvarNoStorage();
+        atualizarTabelaCorpo();
+      }
     } catch (e) {
       console.error("☁️ Falha ao sincronizar com o banco:", e);
     }
@@ -330,13 +380,17 @@
 
   // Helper para converter string de input formatada para float matemático pura
   function converterInputParaNumero(valorStr) {
-    if (!valorStr || valorStr.trim() === "") return null;
-    let limpo = valorStr.replace("R$", "").replace("%", "").replace(/\s/g, "");
-    if (limpo.includes(",")) {
-      limpo = limpo.replace(/\./g, "").replace(",", ".");
+    if (window.poCalculos && typeof window.poCalculos.parseValorBR === "function") {
+      return window.poCalculos.parseValorBR(valorStr);
     }
+    if (!valorStr || String(valorStr).trim() === "") return null;
+    let limpo = String(valorStr).replace("R$", "").replace("%", "").replace(/\s/g, "");
+    const neg = /^-/.test(limpo);
+    limpo = limpo.replace(/^-/, "");
+    if (limpo.includes(",")) limpo = limpo.replace(/\./g, "").replace(",", ".");
     let num = parseFloat(limpo);
-    return isNaN(num) ? null : num;
+    if (isNaN(num)) return null;
+    return neg ? -num : num;
   }
 
   // ============================================================
@@ -492,7 +546,7 @@
         });
 
         // Atualiza a célula de pontuação total acumulada da loja
-        tr.querySelector(`.total-${loja.codigo}`).textContent = totalPontosLoja;
+        tr.querySelector(`.total-${loja.codigo}`).textContent = Number.isInteger(totalPontosLoja) ? totalPontosLoja : String(totalPontosLoja).replace(".", ",");
         salvarNoStorage();
       };
 
@@ -538,11 +592,7 @@
         <th rowspan="4" class="th-total-pontos">TOTAL PONTOS</th>
       </tr>
       <tr>
-        <th colspan="2" class="th-meta">100%</th><th colspan="2" class="th-meta">-2,00%</th>
-        <th colspan="2" class="th-meta">100%</th><th colspan="2" class="th-meta">-1,50%</th>
-        <th colspan="2" class="th-meta">100,00%</th><th colspan="2" class="th-meta">-1,00%</th>
-        <th colspan="2" class="th-meta">100,00%</th><th colspan="2" class="th-meta">-1,60%</th>
-        <th colspan="2" class="th-meta">100,00%</th><th colspan="2" class="th-meta">-3,00%</th>
+        ${DEPARTAMENTOS.map(d => `<th colspan="2" class="th-meta"><input type="text" class="po-servicos-meta in-meta-${d}-vendas" value="${METAS_REFERENCIA[d].vendas}" title="Meta de vendas — todas as lojas"></th><th colspan="2" class="th-meta"><input type="text" class="po-servicos-meta in-meta-${d}-quebras" value="${METAS_REFERENCIA[d].quebras}" title="Meta de quebras — todas as lojas"></th>`).join("")}
       </tr>
       <tr>
         <th colspan="2" class="th-sub">VENDAS</th><th colspan="2" class="th-sub">QUEBRAS</th>
@@ -570,6 +620,22 @@
     `;
     table.appendChild(thead);
 
+    // Liga edição das metas (vendas/quebras por departamento)
+    setTimeout(() => {
+      DEPARTAMENTOS.forEach(d => {
+        [["vendas"], ["quebras"]].forEach(([campo]) => {
+          const el = thead.querySelector(`.in-meta-${d}-${campo}`);
+          if (!el) return;
+          const aplicar = () => {
+            const n = converterInputParaNumero(el.value);
+            if (n !== null) { METAS_REFERENCIA[d][campo] = n; salvarMetasNoStorage(); atualizarTabelaCorpo(); }
+          };
+          el.addEventListener("change", aplicar);
+          el.addEventListener("blur", aplicar);
+        });
+      });
+    }, 0);
+
     const tbody = document.createElement('tbody');
     tbody.id = "po-servicos-tbody";
     table.appendChild(tbody);
@@ -590,6 +656,7 @@
   // ============================================================
   window.renderServicosAssaiTable = function (target) {
     inicializarDados();
+    (function(){ const m = localStorage.getItem("po_metas_servicos_ne"); if (m) { try { const obj = JSON.parse(m); DEPARTAMENTOS.forEach(d => { if (obj[d]) METAS_REFERENCIA[d] = { ...METAS_REFERENCIA[d], ...obj[d] }; }); } catch(_){} } })();
 
     let container = null;
     if (typeof target === 'string') container = document.querySelector(target);
