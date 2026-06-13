@@ -673,13 +673,13 @@ window.telaPainelOuro = async function () {
         </div>
       </div>
 
+      ${PO_STATE.abaAtiva === "dashboard" ? "" : `
       <div class="po-tabs">
         <button type="button" class="po-tab ${PO_STATE.abaAtiva === "evolucao" ? "ativa" : ""}" data-aba="evolucao" onclick="poTrocarAba('evolucao')">Ranking Anual</button>
         <button type="button" class="po-tab ${PO_STATE.abaAtiva === "ranking" ? "ativa" : ""}" data-aba="ranking" onclick="poTrocarAba('ranking')">Resultados Semestre</button>
         <button type="button" class="po-tab ${PO_STATE.abaAtiva === "areas" ? "ativa" : ""}" data-aba="areas" onclick="poTrocarAba('areas')">Ranking Semestre</button>
         <button type="button" class="po-tab ${PO_STATE.abaAtiva === "superacao" ? "ativa" : ""}" data-aba="superacao" onclick="poTrocarAba('superacao')">🚀 Superação</button>
-        <button type="button" class="po-tab ${PO_STATE.abaAtiva === "dashboard" ? "ativa" : ""}" data-aba="dashboard" onclick="poTrocarAba('dashboard')">📊 Dashboard</button>
-      </div>
+      </div>`}
 
       <div id="po-conteudo"></div>
     </div>`;
@@ -699,15 +699,25 @@ window.poAlterarPeriodo = async function () {
 // 🗂️ SISTEMA DE ABAS
 // ============================================================
 window.poTrocarAba = async function (aba) {
+  const eraDashboard = PO_STATE.abaAtiva === "dashboard";
+  const vaiDashboard = aba === "dashboard";
   PO_STATE.abaAtiva = aba;
-  document.querySelectorAll(".po-tab").forEach(t =>
-    t.classList.toggle("ativa", t.dataset.aba === aba));
 
   const conteudo = document.getElementById("po-conteudo");
   if (!conteudo) { // tela ainda não montada
     if (typeof window.telaPainelOuro === "function") await window.telaPainelOuro();
     return;
   }
+
+  // a barra de abas aparece fora do dashboard e some no dashboard;
+  // ao cruzar essa fronteira, re-renderiza a tela inteira para mostrar/ocultar a barra
+  if (eraDashboard !== vaiDashboard) {
+    window.poDestruirChartsPub();
+    if (typeof window.telaPainelOuro === "function") { await window.telaPainelOuro(); return; }
+  }
+
+  document.querySelectorAll(".po-tab").forEach(t =>
+    t.classList.toggle("ativa", t.dataset.aba === aba));
 
   window.poDestruirChartsPub();
 
