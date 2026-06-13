@@ -543,6 +543,15 @@ async function poLbRecarregar() {
 // ============================================================
 window.poLbSalvarTudo = async function() {
   if (PO_LB.salvando) return;
+
+  // 🔒 trava por semestre: se o período está encerrado, exige desbloqueio do Master
+  try {
+    if (typeof window.poVerificarTravaAntesDeSalvar === "function") {
+      const liberado = await window.poVerificarTravaAntesDeSalvar(PO_LB.ano, PO_LB.mes);
+      if (!liberado) { return; } // travado e não desbloqueado → não salva
+    }
+  } catch (e) { /* em caso de erro na trava, segue (não bloqueia indevidamente) */ }
+
   PO_LB.salvando = true;
   const btn = document.getElementById("po-lb-salvar");
   if (btn) { btn.disabled = true; btn.innerHTML = `<span class="po-lb-spin" style="width:14px;height:14px;border-width:2px;"></span> Salvando…`; }

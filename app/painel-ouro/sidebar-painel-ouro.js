@@ -672,16 +672,16 @@ function poSbMontarSidebar() {
 
         <div class="po-sb-secao-label">Visualizações</div>
 
-        <button type="button" class="po-sb-item ativo" id="po-sb-btn-ranking"
-          onclick="poSbNavegar('ranking')">
-          <i class="fas fa-list-ol"></i>
-          <span>Ranking mensal</span>
-        </button>
-
-        <button type="button" class="po-sb-item" id="po-sb-btn-evolucao"
+        <button type="button" class="po-sb-item ativo" id="po-sb-btn-evolucao"
           onclick="poSbNavegar('evolucao')">
           <i class="fas fa-chart-line"></i>
           <span>Ranking Anual</span>
+        </button>
+
+        <button type="button" class="po-sb-item" id="po-sb-btn-dashboard"
+          onclick="poSbNavegar('dashboard')">
+          <i class="fas fa-chart-bar"></i>
+          <span>Dashboard</span>
         </button>
 
         <div class="po-sb-divider"></div>

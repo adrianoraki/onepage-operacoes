@@ -204,6 +204,21 @@ console.log("✅ supabase-sync.js carregado");
   const _filaAuto = {};        // chave: slug|ano|mes|loja → timeout
   async function _gravarLinha(slug, ano, mes, payload) {
     if (!clienteDisponivel()) throw new Error("Banco indisponível");
+
+    // 🔒 trava por semestre: período encerrado exige desbloqueio do Master
+    if (typeof window.poPeriodoTravado === "function" && window.poPeriodoTravado(ano, mes)) {
+      // pede desbloqueio (modal). Se o usuário não desbloquear, aborta a gravação.
+      let liberado = false;
+      if (typeof window.poVerificarTravaAntesDeSalvar === "function") {
+        liberado = await window.poVerificarTravaAntesDeSalvar(ano, mes);
+      }
+      if (!liberado) {
+        const err = new Error("PERIODO_TRAVADO");
+        err.travado = true;
+        throw err;
+      }
+    }
+
     let userId = null;
     try { const { data } = await window.db.auth.getUser(); userId = data?.user?.id || null; } catch (e) {}
     const row = {
@@ -235,8 +250,29 @@ console.log("✅ supabase-sync.js carregado");
    * Auto-save por loja: agenda a gravação ~400ms após o último blur,
    * agrupando edições rápidas na mesma loja.
    */
+  let _pedindoDesbloqueio = false; // evita abrir vários modais ao mesmo tempo
   function salvarUmaLoja(slug, ano, mes, payload) {
     if (!payload || !payload.loja_codigo) return;
+
+    // 🔒 se o período está travado, trata o desbloqueio UMA vez (não por loja)
+    if (typeof window.poPeriodoTravado === "function" && window.poPeriodoTravado(ano, mes)) {
+      if (_pedindoDesbloqueio) return; // já há um modal aberto; ignora os demais blurs
+      _pedindoDesbloqueio = true;
+      (async () => {
+        let liberado = false;
+        try {
+          if (typeof window.poVerificarTravaAntesDeSalvar === "function")
+            liberado = await window.poVerificarTravaAntesDeSalvar(ano, mes);
+        } finally { _pedindoDesbloqueio = false; }
+        if (liberado) {
+          // desbloqueado: grava esta loja agora
+          try { statusAuto("salvando"); await _gravarLinha(slug, ano, mes, payload); statusAuto("salvo"); }
+          catch (e) { statusAuto("erro"); }
+        }
+      })();
+      return;
+    }
+
     const chave = `${slug}|${ano}|${mes}|${payload.loja_codigo}`;
     clearTimeout(_filaAuto[chave]);
     _filaAuto[chave] = setTimeout(async () => {
@@ -245,6 +281,7 @@ console.log("✅ supabase-sync.js carregado");
         await _gravarLinha(slug, ano, mes, payload);
         statusAuto("salvo");
       } catch (err) {
+        if (err && err.travado) { statusAuto("erro"); return; }
         console.error("☁️ auto-save falhou", err);
         statusAuto("erro");
       }

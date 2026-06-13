@@ -14,7 +14,10 @@ console.log("✅ painel-ouro.js (núcleo) carregado");
 window.PO_STATE = window.PO_STATE || {
   ano: new Date().getFullYear(),
   mes: new Date().getMonth() + 1,
-  abaAtiva: "ranking",
+  abaAtiva: "evolucao",
+  semestre: (new Date().getMonth() + 1) <= 6 ? 1 : 2,
+  regional: null, // null = todas; "NE1" | "NE2"
+  dashMes: new Date().getMonth() + 1, // mês selecionado no dashboard
   areaAtiva: "vendas",
 };
 const PO_STATE = window.PO_STATE;
@@ -164,6 +167,104 @@ const poMostrarLoading = window.poMostrarLoading;
   padding: 1px 7px; margin-left: 6px; vertical-align: middle; white-space: nowrap;
 }
 
+/* seletores de semestre / regional (segmented control) */
+.po-filtros-sem { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+.po-seg-group {
+  display: inline-flex; background: rgba(40,30,8,0.45);
+  border: 1px solid rgba(201,162,39,0.35); border-radius: 10px; padding: 3px; gap: 2px;
+}
+.po-seg {
+  border: none; background: transparent; cursor: pointer;
+  font-size: 12.5px; font-weight: 700; color: #f0e2b0;
+  padding: 6px 14px; border-radius: 8px; transition: all 0.15s;
+}
+.po-seg:hover { color: #fff; background: rgba(201,162,39,0.15); }
+.po-seg.ativa { background: linear-gradient(135deg, #e8c84a, #c9a227); color: #3a2c08; box-shadow: 0 2px 6px rgba(201,162,39,0.3); }
+
+/* badge de regional na lista */
+.po-reg-badge {
+  display: inline-block; font-size: 9.5px; font-weight: 800;
+  color: #2d6a9a; background: rgba(45,123,181,0.12);
+  border: 1px solid rgba(45,123,181,0.25); border-radius: 999px;
+  padding: 1px 7px; margin-left: 4px; vertical-align: middle;
+}
+
+/* destaques (maior venda / menor vencimento) no ranking semestre */
+.po-destaques { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; justify-content: center; }
+.po-destaque-item {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: rgba(255,255,255,0.5); border: 1px solid rgba(201,162,39,0.2);
+  border-radius: 12px; padding: 10px 18px; min-width: 150px;
+}
+.po-destaque-lbl { font-size: 11px; font-weight: 700; color: #8a6a10; }
+.po-destaque-item b { font-size: 13px; color: #4a3a12; }
+.po-destaque-item span:last-child { font-size: 12px; color: #9a7b1c; font-weight: 700; }
+
+/* 🔒 MODAL DE TRAVA / DESBLOQUEIO */
+.po-trava-overlay {
+  position: fixed; inset: 0; background: rgba(15,18,24,0.55);
+  z-index: 99999; display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s; backdrop-filter: blur(3px);
+}
+.po-trava-overlay.aberto { opacity: 1; pointer-events: all; }
+.po-trava-modal {
+  width: min(400px, 92vw); background: #fff; border-radius: 18px; padding: 28px;
+  text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  transform: translateY(14px) scale(0.98); transition: transform 0.2s;
+}
+.po-trava-overlay.aberto .po-trava-modal { transform: translateY(0) scale(1); }
+.po-trava-ico { font-size: 38px; margin-bottom: 8px; }
+.po-trava-modal h3 { font-size: 19px; font-weight: 800; color: #1f2a37; margin-bottom: 8px; }
+.po-trava-modal p { font-size: 13.5px; color: #5b6b7d; line-height: 1.5; margin-bottom: 18px; }
+.po-trava-campo { text-align: left; margin-bottom: 12px; }
+.po-trava-campo label { display: block; font-size: 12px; font-weight: 600; color: #5b6b7d; margin-bottom: 4px; }
+.po-trava-campo input {
+  width: 100%; box-sizing: border-box; padding: 11px 13px; border-radius: 10px;
+  border: 1px solid #dbe2ea; font-size: 14px; font-family: inherit;
+}
+.po-trava-campo input:focus { outline: none; border-color: #c9a227; box-shadow: 0 0 0 3px rgba(201,162,39,0.15); }
+.po-trava-erro { color: #c0392b; font-size: 12.5px; font-weight: 600; min-height: 18px; margin-bottom: 8px; }
+.po-trava-acoes { display: flex; gap: 10px; }
+.po-trava-cancelar, .po-trava-confirmar {
+  flex: 1; padding: 12px; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; border: none;
+}
+.po-trava-cancelar { background: #eef1f5; color: #5b6b7d; }
+.po-trava-cancelar:hover { background: #e2e7ed; }
+.po-trava-confirmar { background: linear-gradient(135deg, #e8c84a, #c9a227); color: #4a3700; }
+.po-trava-confirmar:hover { filter: brightness(1.05); }
+.po-trava-confirmar:disabled { opacity: 0.6; cursor: wait; }
+
+/* selo de período travado (mostrado nas telas de lançamento) */
+.po-lock-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; color: #9a4a15;
+  background: rgba(201,100,39,0.12); border: 1px solid rgba(201,100,39,0.3);
+  border-radius: 999px; padding: 3px 11px;
+}
+
+/* 📊 DASHBOARD — barras horizontais por loja */
+.po-dash-barras { display: flex; flex-direction: column; gap: 7px; }
+.po-dash-row {
+  display: grid; grid-template-columns: 160px 1fr 110px; align-items: center; gap: 12px;
+  cursor: pointer; padding: 4px 6px; border-radius: 8px; transition: background 0.12s;
+}
+.po-dash-row:hover { background: rgba(201,162,39,0.08); }
+.po-dash-loja {
+  font-size: 12.5px; font-weight: 700; color: #4a3a12;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+body.po-modo-ouro .po-dash-loja { color: #f0e2b0; }
+.po-dash-barra-wrap { background: rgba(150,150,150,0.15); border-radius: 6px; height: 18px; overflow: hidden; }
+.po-dash-barra { height: 100%; border-radius: 6px; transition: width 0.4s ease; min-width: 2px; }
+.po-dash-val { font-size: 12.5px; font-weight: 800; color: #9a7b1c; text-align: right; white-space: nowrap; }
+.po-dash-pct { font-size: 11px; color: #9aabb7; font-weight: 600; }
+
+@media (max-width: 560px) {
+  .po-dash-row { grid-template-columns: 100px 1fr 80px; gap: 6px; }
+  .po-dash-loja { font-size: 11px; }
+}
+
+
 /* ----- PÓDIO DO RANKING ANUAL (3 coroas) ----- */
 .po-card-podio .po-card-body { padding: 10px 8px 22px; }
 .po-podio {
@@ -238,10 +339,29 @@ const poMostrarLoading = window.poMostrarLoading;
   background: linear-gradient(160deg, #1c1608 0%, #2a2210 100%);
   padding: clamp(20px, 3vw, 44px);
   overflow-y: auto;
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+  display: block;
 }
+/* o grid em fullscreen ocupa toda a largura */
+.po-fs:fullscreen.po-grid,
+.po-fs:-webkit-full-screen.po-grid { width: 100%; max-width: 100%; margin: 0; }
 /* dentro da tela cheia, cards ganham respiro e o conteúdo centraliza */
 .po-fs:fullscreen .po-card,
-.po-fs:-webkit-full-screen .po-card { max-width: 1100px; margin: 0 auto 18px; }
+.po-fs:-webkit-full-screen .po-card {
+  max-width: 1200px; margin: 0 auto 18px; width: 100%; box-sizing: border-box;
+  background: linear-gradient(180deg, rgba(48,40,16,0.92), rgba(34,27,10,0.92));
+  border: 1px solid rgba(201,162,39,0.3);
+}
+.po-fs:fullscreen .po-card-titulo,
+.po-fs:-webkit-full-screen .po-card-titulo { color: #f5e6b8; }
+.po-fs:fullscreen .po-loja-nome,
+.po-fs:-webkit-full-screen .po-loja-nome { color: #f0e2b0; }
+.po-fs:fullscreen .po-ranking-table tbody td,
+.po-fs:-webkit-full-screen .po-ranking-table tbody td { border-color: rgba(201,162,39,0.12); }
+.po-fs:fullscreen .po-ranking-table tbody tr:hover td,
+.po-fs:-webkit-full-screen .po-ranking-table tbody tr:hover td { background: rgba(201,162,39,0.1); }
 .po-fs:fullscreen .po-podio,
 .po-fs:-webkit-full-screen .po-podio { gap: clamp(16px, 4vw, 48px); }
 .po-fs:fullscreen .po-coroa-svg,
@@ -316,6 +436,127 @@ async function poCarregarEvolucao(ano) {
   const porMes = new Array(12).fill(0);
   (data || []).forEach(r => { porMes[Number(r.mes) - 1] += Number(r.pontuacao_obtida) || 0; });
   return porMes;
+}
+
+// Total por mês de um ano, separando por ÁREA → { area_slug: [12 meses] }
+async function poCarregarPorAreaMes(ano) {
+  const { data, error } = await window.db
+    .from("painel_ouro_resultados")
+    .select("mes, area_slug, pontuacao_obtida")
+    .eq("ano", ano).eq("ativo", true);
+  if (error) { poErr("Erro ao carregar por área", error); return {}; }
+  const mapa = {};
+  (data || []).forEach(r => {
+    const a = r.area_slug || "outros";
+    if (!mapa[a]) mapa[a] = new Array(12).fill(0);
+    mapa[a][Number(r.mes) - 1] += Number(r.pontuacao_obtida) || 0;
+  });
+  return mapa;
+}
+
+// === DASHBOARD POR LOJA ===
+
+// Ranking de lojas num MÊS específico de um ano (para barras horizontais)
+async function poCarregarLojasNoMes(ano, mes) {
+  const { data, error } = await window.db
+    .from("painel_ouro_resultados")
+    .select("loja_codigo, pontuacao_obtida, pontuacao_maxima, painel_ouro_lojas(nome)")
+    .eq("ano", ano).eq("mes", mes).eq("ativo", true);
+  if (error) { poErr("Erro ao carregar lojas do mês", error); return []; }
+  const mapa = {};
+  (data || []).forEach(r => {
+    const c = r.loja_codigo;
+    if (!mapa[c]) mapa[c] = { codigo: c, nome: r.painel_ouro_lojas?.nome || c, obtido: 0, maximo: 0 };
+    mapa[c].obtido += Number(r.pontuacao_obtida) || 0;
+    mapa[c].maximo += Number(r.pontuacao_maxima) || 0;
+  });
+  return Object.values(mapa).sort((a, b) => b.obtido - a.obtido);
+}
+
+// Total acumulado por loja no ANO inteiro (para comparar 2025 vs 2026 por loja)
+async function poCarregarLojasNoAno(ano) {
+  const { data, error } = await window.db
+    .from("painel_ouro_resultados")
+    .select("loja_codigo, pontuacao_obtida, painel_ouro_lojas(nome)")
+    .eq("ano", ano).eq("ativo", true);
+  if (error) { poErr("Erro ao carregar lojas do ano", error); return {}; }
+  const mapa = {};
+  (data || []).forEach(r => {
+    const c = r.loja_codigo;
+    if (!mapa[c]) mapa[c] = { codigo: c, nome: r.painel_ouro_lojas?.nome || c, obtido: 0 };
+    mapa[c].obtido += Number(r.pontuacao_obtida) || 0;
+  });
+  return mapa; // { codigo: {nome, obtido} }
+}
+
+// ============================================================
+// 🌎 REGIONAIS NE1 / NE2 — mesma lógica do módulo Comparativos
+// ============================================================
+const PO_ORDEM_LOJAS = [
+  // NE1 (índices 0..13)
+  "77","83","109","114","119","120","204","207","238","268","298","300","305","333",
+  // NE2 (índices 14+)
+  "44","46","76","91","107","138","152","163","179","250","198","262","284","289","290",
+];
+function poRegionalDaLoja(codigo, regionalCadastro) {
+  const reg = String(regionalCadastro || "").trim().toUpperCase();
+  if (reg === "NE1" || reg === "NE2") return reg;
+  const idx = PO_ORDEM_LOJAS.indexOf(String(codigo || ""));
+  if (idx !== -1) return idx < 14 ? "NE1" : "NE2";
+  return reg || "—";
+}
+// meses de cada semestre
+function poMesesSemestre(sem) { return sem === 2 ? [7,8,9,10,11,12] : [1,2,3,4,5,6]; }
+
+// Carrega ranking de um SEMESTRE (soma 6 meses), com desempate e regional.
+// filtroRegional: "NE1" | "NE2" | null (todas)
+async function poCarregarRankingSemestre(ano, semestre, filtroRegional) {
+  const meses = poMesesSemestre(semestre);
+  const { data, error } = await window.db
+    .from("painel_ouro_resultados")
+    .select("loja_codigo, area_slug, mes, pontuacao_obtida, pontuacao_maxima, sub_resultados, painel_ouro_lojas(nome, regional)")
+    .eq("ano", ano).eq("ativo", true).in("mes", meses);
+  if (error) { poErr("Erro ao carregar ranking semestral", error); return []; }
+
+  const num = (v) => {
+    if (v == null || v === "") return 0;
+    if (typeof v === "number") return v;
+    if (window.poCalculos && window.poCalculos.parseValorBR)
+      return window.poCalculos.parseValorBR(String(v)) || 0;
+    return Number(String(v).replace(/[^\d,-]/g, "").replace(",", ".")) || 0;
+  };
+
+  const mapa = {};
+  (data || []).forEach(r => {
+    const cod = r.loja_codigo;
+    const regional = poRegionalDaLoja(cod, r.painel_ouro_lojas?.regional);
+    if (filtroRegional && regional !== filtroRegional) return;
+    if (!mapa[cod]) mapa[cod] = {
+      codigo: cod, nome: r.painel_ouro_lojas?.nome || cod, regional,
+      obtido: 0, maximo: 0, meses: new Set(),
+      totalVenda: 0, totalVencimento: 0,
+    };
+    mapa[cod].obtido += Number(r.pontuacao_obtida) || 0;
+    mapa[cod].maximo += Number(r.pontuacao_maxima) || 0;
+    if (r.mes != null) mapa[cod].meses.add(Number(r.mes));
+    const subs = Array.isArray(r.sub_resultados) ? r.sub_resultados : [];
+    if (r.area_slug === "vendas") {
+      const sv = subs.find(s => s.indicador === "venda");
+      if (sv) mapa[cod].totalVenda += num(sv.resultado);
+    }
+    if (r.area_slug === "prevencao") {
+      const sc = subs.find(s => s.indicador === "vencimento");
+      if (sc) mapa[cod].totalVencimento += num(sc.resultado);
+    }
+  });
+
+  return Object.values(mapa)
+    .map(m => ({ ...m, qtdMeses: m.meses.size }))
+    .sort((a, b) => {
+      if (b.obtido !== a.obtido) return b.obtido - a.obtido;
+      if (b.totalVenda !== a.totalVenda) return b.totalVenda - a.totalVenda;
+      return a.totalVencimento - b.totalVencimento;
+    });
 }
 
 // Soma a pontuação do ANO INTEIRO (todos os meses) por loja → ranking anual
@@ -410,7 +651,8 @@ window.telaPainelOuro = async function () {
 
   const anoAtual = new Date().getFullYear();
   const optAno = [];
-  for (let a = 2025; a <= anoAtual + 1; a++)
+  // mostra de 2025 até o ano atual (anos futuros ficam ocultos até virarem o ano)
+  for (let a = 2025; a <= anoAtual; a++)
     optAno.push(`<option value="${a}" ${a === PO_STATE.ano ? "selected" : ""}>${a}</option>`);
   const optMes = PO_MESES.map((m, i) =>
     `<option value="${i + 1}" ${i + 1 === PO_STATE.mes ? "selected" : ""}>${m}</option>`).join("");
@@ -427,14 +669,16 @@ window.telaPainelOuro = async function () {
         </div>
         <div class="po-periodo">
           <select id="po-sel-ano" onchange="poAlterarPeriodo()">${optAno.join("")}</select>
-          <select id="po-sel-mes" onchange="poAlterarPeriodo()">${optMes}</select>
+          <select id="po-sel-mes" onchange="poAlterarPeriodo()" style="display:none">${optMes}</select>
         </div>
       </div>
 
       <div class="po-tabs">
-        <button type="button" class="po-tab ${PO_STATE.abaAtiva === "ranking" ? "ativa" : ""}" data-aba="ranking" onclick="poTrocarAba('ranking')">Ranking mensal</button>
         <button type="button" class="po-tab ${PO_STATE.abaAtiva === "evolucao" ? "ativa" : ""}" data-aba="evolucao" onclick="poTrocarAba('evolucao')">Ranking Anual</button>
-        <button type="button" class="po-tab ${PO_STATE.abaAtiva === "areas" ? "ativa" : ""}" data-aba="areas" onclick="poTrocarAba('areas')">Resultados por área</button>
+        <button type="button" class="po-tab ${PO_STATE.abaAtiva === "ranking" ? "ativa" : ""}" data-aba="ranking" onclick="poTrocarAba('ranking')">Resultados Semestre</button>
+        <button type="button" class="po-tab ${PO_STATE.abaAtiva === "areas" ? "ativa" : ""}" data-aba="areas" onclick="poTrocarAba('areas')">Ranking Semestre</button>
+        <button type="button" class="po-tab ${PO_STATE.abaAtiva === "superacao" ? "ativa" : ""}" data-aba="superacao" onclick="poTrocarAba('superacao')">🚀 Superação</button>
+        <button type="button" class="po-tab ${PO_STATE.abaAtiva === "dashboard" ? "ativa" : ""}" data-aba="dashboard" onclick="poTrocarAba('dashboard')">📊 Dashboard</button>
       </div>
 
       <div id="po-conteudo"></div>
@@ -467,13 +711,11 @@ window.poTrocarAba = async function (aba) {
 
   window.poDestruirChartsPub();
 
-  if (aba === "ranking")  return window.poRenderRanking(conteudo, PO_STATE.ano, PO_STATE.mes);
   if (aba === "evolucao") return window.poRenderRankingAnual(conteudo, PO_STATE.ano);
-  if (aba === "areas") {
-    if (typeof window.poRenderAreas === "function")
-      return window.poRenderAreas(conteudo, PO_STATE.ano, PO_STATE.mes, PO_STATE.areaAtiva);
-    conteudo.innerHTML = `<div class="po-empty"><div class="po-empty-ico">📊</div><p>Módulo de áreas não carregado.</p></div>`;
-  }
+  if (aba === "dashboard") return window.poRenderDashboard(conteudo);
+  if (aba === "superacao") return window.poRenderSuperacao(conteudo);
+  if (aba === "ranking")  return window.poRenderResultadosSemestre(conteudo, PO_STATE.ano, PO_STATE.semestre, PO_STATE.regional);
+  if (aba === "areas")    return window.poRenderRankingSemestre(conteudo, PO_STATE.ano, PO_STATE.semestre, PO_STATE.regional);
 };
 
 // ============================================================
@@ -660,6 +902,260 @@ async function poRenderRankingAnual(container, ano) {
 }
 window.poRenderRankingAnual = poRenderRankingAnual;
 
+// ============================================================
+// 🗓️ BARRA DE SELETORES (semestre 1/2 + regional NE1/NE2/Todas)
+// ============================================================
+function poBarraSemestre(semestre, regional) {
+  const seg = (val, txt, ativo, fn) =>
+    `<button type="button" class="po-seg ${ativo ? "ativa" : ""}" onclick="${fn}">${txt}</button>`;
+  return `
+    <div class="po-filtros-sem">
+      <div class="po-seg-group">
+        ${seg(1, "1º Semestre", semestre === 1, "poSetSemestre(1)")}
+        ${seg(2, "2º Semestre", semestre === 2, "poSetSemestre(2)")}
+      </div>
+      <div class="po-seg-group">
+        ${seg("", "Todas", !regional, "poSetRegional(null)")}
+        ${seg("NE1", "NE1", regional === "NE1", "poSetRegional('NE1')")}
+        ${seg("NE2", "NE2", regional === "NE2", "poSetRegional('NE2')")}
+      </div>
+    </div>`;
+}
+window.poSetSemestre = function (s) { PO_STATE.semestre = s; window.poTrocarAba(PO_STATE.abaAtiva); };
+window.poSetRegional = function (r) { PO_STATE.regional = r; window.poTrocarAba(PO_STATE.abaAtiva); };
+
+// ============================================================
+// 📊 ABA "RESULTADOS SEMESTRE" — pontuação somada de 6 meses
+//    (dividida por regional NE1/NE2, ou todas)
+// ============================================================
+async function poRenderResultadosSemestre(container, ano, semestre, regional) {
+  poMostrarLoading(container);
+  const ranking = await poCarregarRankingSemestre(ano, semestre, regional);
+  const rotuloReg = regional ? regional : "Todas as regionais";
+  const rotuloSem = semestre === 2 ? "2º Semestre (Jul–Dez)" : "1º Semestre (Jan–Jun)";
+
+  if (!ranking.length) {
+    container.innerHTML = poBarraSemestre(semestre, regional) +
+      `<div class="po-empty"><div class="po-empty-ico">📊</div>
+        <p>Sem lançamentos no ${rotuloSem} de ${ano}${regional ? " · " + regional : ""}.</p></div>`;
+    return;
+  }
+
+  // totais do semestre
+  const totObtido = ranking.reduce((s, r) => s + r.obtido, 0);
+  const totMaximo = ranking.reduce((s, r) => s + r.maximo, 0);
+  const pctGeral = totMaximo > 0 ? Math.round((totObtido / totMaximo) * 100) : 0;
+  const maxObtido = Math.max(...ranking.map(r => r.obtido), 1);
+
+  const linhas = ranking.map((r, i) => {
+    const pct = r.maximo > 0 ? Math.round((r.obtido / r.maximo) * 100) : 0;
+    const larg = Math.round((r.obtido / maxObtido) * 100);
+    return `
+      <tr onclick="poAbrirDetalheSemestre('${r.codigo}')">
+        <td class="txt-center" style="color:#9aabb7;font-weight:700">${i + 1}</td>
+        <td>
+          <div class="po-loja-nome">${r.nome} <span class="po-reg-badge">${r.regional}</span></div>
+          <div class="po-loja-cod">#${r.codigo} · ${r.qtdMeses} ${r.qtdMeses === 1 ? "mês" : "meses"}</div>
+        </td>
+        <td class="txt-center" style="font-weight:800;color:#9a7b1c">${poFmt(r.obtido)} / ${poFmt(r.maximo)}</td>
+        <td class="txt-center" style="font-weight:700;color:${pct >= 70 ? "#1e7d45" : pct >= 40 ? "#a07a15" : "#c0392b"}">${pct}%</td>
+        <td><div class="po-barra-bg"><div class="po-barra-fill" style="width:${larg}%"></div></div></td>
+      </tr>`;
+  }).join("");
+
+  container.innerHTML = poBarraSemestre(semestre, regional) + `
+    <div class="po-grid" id="po-card-result-sem">
+      <div class="po-col-12 po-card">
+        <div class="po-card-header">
+          <span class="po-card-titulo">📊 Resultados — ${rotuloSem} ${ano}</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="po-card-badge">${rotuloReg} · ${ranking.length} lojas · ${pctGeral}% geral</span>
+            <button type="button" class="po-fs-btn" title="Tela cheia" onclick="poTelaCheia('po-card-result-sem')"><i class="fas fa-expand"></i></button>
+          </div>
+        </div>
+        <div class="po-card-body" style="padding:0;overflow-x:auto;">
+          <table class="po-ranking-table">
+            <thead><tr>
+              <th class="txt-center" style="width:40px">#</th>
+              <th>Loja</th>
+              <th class="txt-center">Pontos</th>
+              <th class="txt-center">Aproveit.</th>
+              <th>Desempenho</th>
+            </tr></thead>
+            <tbody>${linhas}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+}
+window.poRenderResultadosSemestre = poRenderResultadosSemestre;
+
+// ============================================================
+// 🏆 ABA "RANKING SEMESTRE" — pódio + indicadores-chave do semestre
+// ============================================================
+async function poRenderRankingSemestre(container, ano, semestre, regional) {
+  poMostrarLoading(container);
+  const ranking = await poCarregarRankingSemestre(ano, semestre, regional);
+  const rotuloSem = semestre === 2 ? "2º Semestre" : "1º Semestre";
+  const rotuloReg = regional ? regional : "Todas";
+
+  if (!ranking.length) {
+    container.innerHTML = poBarraSemestre(semestre, regional) +
+      `<div class="po-empty"><div class="po-empty-ico">🏆</div>
+        <p>Sem dados no ${rotuloSem} de ${ano}${regional ? " · " + regional : ""}.</p></div>`;
+    return;
+  }
+
+  const maxObtido = Math.max(...ranking.map(r => r.obtido), 1);
+  const p1 = ranking[0], p2 = ranking[1], p3 = ranking[2];
+
+  const coroaCard = (r, pos) => {
+    if (!r) return `<div class="po-podio-item po-podio-vazio"></div>`;
+    const pct = r.maximo > 0 ? Math.round((r.obtido / r.maximo) * 100) : 0;
+    const classe = pos === 1 ? "p1" : pos === 2 ? "p2" : "p3";
+    const corPos = pos === 1 ? "#c9a227" : pos === 2 ? "#8d98a7" : "#b3742e";
+    return `
+      <div class="po-podio-item ${classe}" onclick="poAbrirDetalheSemestre('${r.codigo}')">
+        <div class="po-coroa-wrap">
+          <svg viewBox="0 0 64 52" class="po-coroa-svg" aria-hidden="true">
+            <defs><linearGradient id="grads-${classe}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffe98a"/><stop offset="0.5" stop-color="${corPos}"/><stop offset="1" stop-color="#7a5e12"/>
+            </linearGradient></defs>
+            <path d="M6 16 L16 34 L24 14 L32 32 L40 14 L48 34 L58 16 L54 44 L10 44 Z" fill="url(#grads-${classe})" stroke="#6e560f" stroke-width="1.2" stroke-linejoin="round"/>
+            <circle cx="6" cy="16" r="4" fill="url(#grads-${classe})" stroke="#6e560f" stroke-width="1"/>
+            <circle cx="32" cy="10" r="4.5" fill="url(#grads-${classe})" stroke="#6e560f" stroke-width="1"/>
+            <circle cx="58" cy="16" r="4" fill="url(#grads-${classe})" stroke="#6e560f" stroke-width="1"/>
+            <rect x="10" y="44" width="44" height="5" rx="2" fill="url(#grads-${classe})" stroke="#6e560f" stroke-width="1"/>
+          </svg>
+          <span class="po-podio-num">${pos}º</span>
+        </div>
+        <div class="po-podio-loja">${r.nome}</div>
+        <div class="po-podio-cod">#${r.codigo} · ${r.regional}</div>
+        <div class="po-podio-pts">${poFmt(r.obtido)} pts</div>
+        <div class="po-podio-pct" style="color:${pct >= 70 ? "#1e7d45" : pct >= 40 ? "#a07a15" : "#c0392b"}">${pct}% aproveit.</div>
+      </div>`;
+  };
+
+  // indicadores-chave: maior venda e menor vencimento do semestre (destaques)
+  const liderVenda = [...ranking].sort((a, b) => b.totalVenda - a.totalVenda)[0];
+  const liderVenc = [...ranking].filter(r => r.totalVencimento > 0).sort((a, b) => a.totalVencimento - b.totalVencimento)[0];
+
+  const linhas = ranking.map((r, i) => {
+    const pos = i + 1;
+    const cls = pos === 1 ? "ouro" : pos === 2 ? "prata" : pos === 3 ? "bronze" : "";
+    const pct = r.maximo > 0 ? Math.round((r.obtido / r.maximo) * 100) : 0;
+    const larg = Math.round((r.obtido / maxObtido) * 100);
+    return `
+      <tr onclick="poAbrirDetalheSemestre('${r.codigo}')">
+        <td class="txt-center"><span class="po-pos ${cls}">${pos}</span></td>
+        <td>
+          <div class="po-loja-nome">${r.nome} <span class="po-reg-badge">${r.regional}</span></div>
+          <div class="po-loja-cod">#${r.codigo}</div>
+        </td>
+        <td class="txt-center" style="font-weight:800;color:#9a7b1c">${poFmt(r.obtido)}</td>
+        <td class="txt-center" style="font-weight:700;color:${pct >= 70 ? "#1e7d45" : pct >= 40 ? "#a07a15" : "#c0392b"}">${pct}%</td>
+        <td class="txt-center" style="font-size:12px;color:#5d6b78">R$ ${poFmt(r.totalVenda)}</td>
+        <td><div class="po-barra-bg"><div class="po-barra-fill" style="width:${larg}%"></div></div></td>
+      </tr>`;
+  }).join("");
+
+  container.innerHTML = poBarraSemestre(semestre, regional) + `
+    <div class="po-grid" id="po-card-rank-sem">
+      <div class="po-col-12 po-card po-card-podio">
+        <div class="po-card-header">
+          <span class="po-card-titulo">🏆 Ranking ${rotuloSem} — ${ano}</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="po-card-badge">${rotuloReg} · ${ranking.length} lojas</span>
+            <button type="button" class="po-fs-btn" title="Tela cheia" onclick="poTelaCheia('po-card-rank-sem')"><i class="fas fa-expand"></i></button>
+          </div>
+        </div>
+        <div class="po-card-body">
+          <div class="po-podio">
+            ${coroaCard(p2, 2)}${coroaCard(p1, 1)}${coroaCard(p3, 3)}
+          </div>
+          <div class="po-destaques">
+            ${liderVenda ? `<div class="po-destaque-item"><span class="po-destaque-lbl">🥇 Maior venda</span><b>${liderVenda.nome}</b><span>R$ ${poFmt(liderVenda.totalVenda)}</span></div>` : ""}
+            ${liderVenc ? `<div class="po-destaque-item"><span class="po-destaque-lbl">🛡️ Menor vencimento</span><b>${liderVenc.nome}</b><span>R$ ${poFmt(liderVenc.totalVencimento)}</span></div>` : ""}
+          </div>
+        </div>
+      </div>
+
+      <div class="po-col-12 po-card">
+        <div class="po-card-header">
+          <span class="po-card-titulo">Classificação — indicadores-chave</span>
+          <span class="po-card-badge">pontos + venda do semestre</span>
+        </div>
+        <div class="po-card-body" style="padding:0;overflow-x:auto;">
+          <table class="po-ranking-table">
+            <thead><tr>
+              <th class="txt-center" style="width:50px">#</th>
+              <th>Loja</th>
+              <th class="txt-center">Pontos</th>
+              <th class="txt-center">Aproveit.</th>
+              <th class="txt-center">Venda</th>
+              <th>Desempenho</th>
+            </tr></thead>
+            <tbody>${linhas}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+}
+window.poRenderRankingSemestre = poRenderRankingSemestre;
+
+// Detalhe de loja no semestre (soma os 6 meses por área)
+window.poAbrirDetalheSemestre = async function (codigo) {
+  let ov = document.getElementById("po-detalhe-overlay");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "po-detalhe-overlay"; ov.className = "po-detalhe-overlay";
+    ov.addEventListener("click", e => { if (e.target === ov) poFecharDetalhe(); });
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = `<div class="po-detalhe-painel"><div class="po-loading-box"><div class="po-spin"></div> Carregando…</div></div>`;
+  ov.classList.add("aberto");
+
+  const meses = poMesesSemestre(PO_STATE.semestre);
+  const { data } = await window.db
+    .from("painel_ouro_resultados")
+    .select("area_slug, pontuacao_obtida, pontuacao_maxima, painel_ouro_lojas(nome)")
+    .eq("loja_codigo", codigo).eq("ano", PO_STATE.ano).eq("ativo", true).in("mes", meses);
+
+  const NOMES_AREA = {
+    vendas:"Vendas", quebras:"Quebras", frente_caixa:"Frente de Caixa", passai:"Passaí",
+    servicos_assai:"Serviços Assaí", rh:"RH", prevencao:"Prevenção", ti_rub_rm:"TI / RUB / RM", adm:"ADM",
+  };
+  const porArea = {}; let nome = codigo;
+  (data || []).forEach(d => {
+    nome = d.painel_ouro_lojas?.nome || nome;
+    if (!porArea[d.area_slug]) porArea[d.area_slug] = { obtido: 0, maximo: 0 };
+    porArea[d.area_slug].obtido += Number(d.pontuacao_obtida) || 0;
+    porArea[d.area_slug].maximo += Number(d.pontuacao_maxima) || 0;
+  });
+
+  let tot = 0, max = 0;
+  const blocos = Object.entries(porArea).sort((a,b)=>b[1].obtido-a[1].obtido).map(([slug, v]) => {
+    tot += v.obtido; max += v.maximo;
+    const pct = v.maximo > 0 ? Math.round((v.obtido/v.maximo)*100) : 0;
+    return `<div class="po-detalhe-area"><div class="po-detalhe-area-top">
+      <span>${NOMES_AREA[slug] || slug}</span><span>${poFmt(v.obtido)} / ${poFmt(v.maximo)} pts · ${pct}%</span></div></div>`;
+  }).join("");
+
+  const rotuloSem = PO_STATE.semestre === 2 ? "2º Semestre" : "1º Semestre";
+  ov.innerHTML = `
+    <div class="po-detalhe-painel">
+      <div class="po-detalhe-head">
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#0a3d62">${nome}</div>
+          <div style="font-size:11px;color:#9aabb7">#${codigo} · ${rotuloSem}/${PO_STATE.ano}</div>
+          <div style="font-size:12px;font-weight:700;color:#9a7b1c;margin-top:6px">Total: ${poFmt(tot)} / ${poFmt(max)} pts</div>
+        </div>
+        <button type="button" class="po-detalhe-fechar" onclick="poFecharDetalhe()">✕</button>
+      </div>
+      <div class="po-detalhe-body">${blocos || `<div style="color:#9aabb7;padding:20px;text-align:center">Sem dados.</div>`}</div>
+    </div>`;
+};
+
 // Detalhe anual da loja (reusa overlay, soma o ano todo)
 window.poAbrirDetalheAnual = async function (codigo) {
   let ov = document.getElementById("po-detalhe-overlay");
@@ -714,10 +1210,295 @@ window.poAbrirDetalheAnual = async function (codigo) {
 // 📈 (legado) gráfico de evolução — mantido caso seja reutilizado
 // ============================================================
 let poChartEvolucao = null;
+let poDashCharts = [];
 window.poDestruirChartsPub = function () {
   try { if (poChartEvolucao) { poChartEvolucao.destroy(); poChartEvolucao = null; } } catch (_) {}
+  try { poDashCharts.forEach(c => { try { c.destroy(); } catch (_) {} }); poDashCharts = []; } catch (_) {}
 };
 const poDestruirChartsPub = window.poDestruirChartsPub;
+
+// ============================================================
+// 📊 ABA DASHBOARD — gráficos comparativos
+// ============================================================
+async function poRenderDashboard(container) {
+  poMostrarLoading(container);
+
+  const anoVigente = PO_STATE.ano;          // respeita o ano selecionado no topo
+  const anoAnterior = anoVigente - 1;
+  const mesSel = PO_STATE.dashMes || (new Date().getMonth() + 1);
+
+  // carrega tudo em paralelo
+  const [lojasMes, lojasAnoVig, lojasAnoAnt] = await Promise.all([
+    poCarregarLojasNoMes(anoVigente, mesSel),
+    poCarregarLojasNoAno(anoVigente),
+    poCarregarLojasNoAno(anoAnterior),
+  ]);
+
+  // seletor de mês (1..12) para o gráfico de barras horizontais
+  const optMes = PO_MESES.map((m, i) =>
+    `<option value="${i+1}" ${i+1 === mesSel ? "selected" : ""}>${m}</option>`).join("");
+
+  // ---------- GRÁFICO 1: barras horizontais por loja (mês vigente) ----------
+  let barrasHtml = "";
+  if (!lojasMes.length) {
+    barrasHtml = `<div class="po-empty" style="padding:20px"><p>Sem lançamentos em ${poNomeMes(mesSel)}/${anoVigente}.</p></div>`;
+  } else {
+    const maxObt = Math.max(...lojasMes.map(l => l.obtido), 1);
+    barrasHtml = lojasMes.map((l, i) => {
+      const pct = l.maximo > 0 ? Math.round((l.obtido / l.maximo) * 100) : 0;
+      const larg = Math.round((l.obtido / maxObt) * 100);
+      const cor = i === 0 ? "#c9a227" : i === 1 ? "#b8902a" : i === 2 ? "#a8842e" : "#5a94e0";
+      return `
+        <div class="po-dash-row" onclick="poAbrirDetalheLojaMes('${l.codigo}', ${mesSel})">
+          <div class="po-dash-loja">${l.nome}</div>
+          <div class="po-dash-barra-wrap">
+            <div class="po-dash-barra" style="width:${larg}%;background:${cor}"></div>
+          </div>
+          <div class="po-dash-val">${poFmt(l.obtido)} <span class="po-dash-pct">(${pct}%)</span></div>
+        </div>`;
+    }).join("");
+  }
+
+  // ---------- GRÁFICOS 2 e 3: comparativo por loja (2025 vs 2026) ----------
+  // monta lista unificada de lojas (presentes em qualquer dos dois anos)
+  const codigos = new Set([...Object.keys(lojasAnoVig), ...Object.keys(lojasAnoAnt)]);
+  const comparativo = [...codigos].map(cod => {
+    const v = lojasAnoVig[cod]?.obtido || 0;
+    const a = lojasAnoAnt[cod]?.obtido || 0;
+    const nome = lojasAnoVig[cod]?.nome || lojasAnoAnt[cod]?.nome || cod;
+    return { codigo: cod, nome, atual: v, anterior: a, dif: v - a };
+  }).sort((x, y) => y.atual - x.atual);
+
+  // ---------- monta a tela ----------
+  container.innerHTML = `
+    <div class="po-grid">
+
+      <div class="po-col-12 po-card" id="po-card-dash-mes">
+        <div class="po-card-header">
+          <span class="po-card-titulo">📊 Ranking de lojas — ${anoVigente}</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <select id="po-dash-sel-mes" onchange="poDashTrocarMes(this.value)"
+              style="background:rgba(40,30,8,0.5);border:1px solid rgba(201,162,39,0.35);color:#f0e2b0;border-radius:8px;padding:5px 10px;font-weight:700;">
+              ${optMes}
+            </select>
+            <button type="button" class="po-fs-btn" title="Tela cheia" onclick="poTelaCheia('po-card-dash-mes')"><i class="fas fa-expand"></i></button>
+          </div>
+        </div>
+        <div class="po-card-body">
+          <div class="po-dash-barras">${barrasHtml}</div>
+        </div>
+      </div>
+
+      <div class="po-col-12 po-card">
+        <div class="po-card-header">
+          <span class="po-card-titulo">📈 Evolução por loja — ${anoAnterior} vs ${anoVigente}</span>
+          <span class="po-card-badge">total acumulado do ano</span>
+        </div>
+        <div class="po-card-body" style="padding:0;overflow-x:auto;">
+          ${comparativo.length ? `
+          <table class="po-ranking-table">
+            <thead><tr>
+              <th>Loja</th>
+              <th class="txt-center">${anoAnterior}</th>
+              <th class="txt-center">${anoVigente}</th>
+              <th class="txt-center">Diferença</th>
+            </tr></thead>
+            <tbody>
+              ${comparativo.map(c => {
+                const sinal = c.dif > 0 ? "▲" : c.dif < 0 ? "▼" : "—";
+                const cor = c.dif > 0 ? "#1e7d45" : c.dif < 0 ? "#c0392b" : "#9aabb7";
+                return `<tr>
+                  <td><div class="po-loja-nome">${c.nome}</div><div class="po-loja-cod">#${c.codigo}</div></td>
+                  <td class="txt-center" style="color:#9aabb7;font-weight:700">${c.anterior ? poFmt(c.anterior) : "–"}</td>
+                  <td class="txt-center" style="color:#9a7b1c;font-weight:800">${c.atual ? poFmt(c.atual) : "–"}</td>
+                  <td class="txt-center" style="color:${cor};font-weight:800">${sinal} ${poFmt(Math.abs(c.dif))}</td>
+                </tr>`;
+              }).join("")}
+            </tbody>
+          </table>` : `<div class="po-empty" style="padding:20px"><p>Sem dados para comparar.</p></div>`}
+        </div>
+      </div>
+
+      <div class="po-col-12 po-card">
+        <div class="po-card-header">
+          <span class="po-card-titulo">📉 Comparativo visual — ${anoAnterior} vs ${anoVigente}</span>
+          <span class="po-card-badge">barras por loja</span>
+        </div>
+        <div class="po-card-body"><canvas id="po-dash-comp-lojas" height="${Math.max(180, comparativo.length * 22)}"></canvas></div>
+      </div>
+
+    </div>`;
+
+  // gráfico de barras comparativo (Chart.js) — 2025 vs 2026 por loja
+  if (window.Chart && comparativo.length) {
+    const ctx = document.getElementById("po-dash-comp-lojas").getContext("2d");
+    poDashCharts.push(new window.Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: comparativo.map(c => c.nome),
+        datasets: [
+          { label: `${anoAnterior}`, data: comparativo.map(c => c.anterior),
+            backgroundColor: "rgba(229,115,115,0.55)", borderColor: "#e57373", borderWidth: 1 },
+          { label: `${anoVigente}`, data: comparativo.map(c => c.atual),
+            backgroundColor: "rgba(201,162,39,0.85)", borderColor: "#c9a227", borderWidth: 1 },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: "#cbb87e", font: { size: 11 } } } },
+        scales: {
+          x: { beginAtZero: true, grid: { color: "rgba(201,162,39,0.12)" }, ticks: { color: "#9aabb7" } },
+          y: { grid: { display: false }, ticks: { color: "#cbb87e", font: { size: 10 } } },
+        },
+      },
+    }));
+  }
+}
+window.poRenderDashboard = poRenderDashboard;
+
+// ============================================================
+// 🚀 ABA SUPERAÇÃO — lojas que mais cresceram (ano vigente vs anterior)
+//    Pódio + lista, ordenado pela maior diferença de pontos.
+// ============================================================
+async function poRenderSuperacao(container) {
+  poMostrarLoading(container);
+
+  const anoVigente = PO_STATE.ano;
+  const anoAnterior = anoVigente - 1;
+
+  const [lojasVig, lojasAnt] = await Promise.all([
+    poCarregarLojasNoAno(anoVigente),
+    poCarregarLojasNoAno(anoAnterior),
+  ]);
+
+  // une as lojas dos dois anos e calcula a diferença
+  const codigos = new Set([...Object.keys(lojasVig), ...Object.keys(lojasAnt)]);
+  const lista = [...codigos].map(cod => {
+    const atual = lojasVig[cod]?.obtido || 0;
+    const anterior = lojasAnt[cod]?.obtido || 0;
+    const nome = lojasVig[cod]?.nome || lojasAnt[cod]?.nome || cod;
+    const dif = atual - anterior;
+    const pctCresc = anterior > 0 ? Math.round((dif / anterior) * 100) : (atual > 0 ? 100 : 0);
+    return { codigo: cod, nome, atual, anterior, dif, pctCresc };
+  })
+  // só faz sentido comparar quem tem dados nos dois anos
+  .filter(l => l.anterior > 0 || l.atual > 0)
+  .sort((a, b) => b.dif - a.dif); // maior crescimento no topo
+
+  if (!lista.length) {
+    container.innerHTML = `<div class="po-empty"><div class="po-empty-ico">🚀</div>
+      <p>Sem dados suficientes para comparar ${anoAnterior} e ${anoVigente}.</p></div>`;
+    return;
+  }
+
+  const maxDif = Math.max(...lista.map(l => Math.abs(l.dif)), 1);
+  const p1 = lista[0], p2 = lista[1], p3 = lista[2];
+
+  // pódio (coroas) — top 3 que mais superaram
+  const coroaCard = (r, pos) => {
+    if (!r) return `<div class="po-podio-item po-podio-vazio"></div>`;
+    const classe = pos === 1 ? "p1" : pos === 2 ? "p2" : "p3";
+    const corPos = pos === 1 ? "#c9a227" : pos === 2 ? "#8d98a7" : "#b3742e";
+    const sinal = r.dif > 0 ? "+" : "";
+    const corDif = r.dif > 0 ? "#1e7d45" : r.dif < 0 ? "#c0392b" : "#9aabb7";
+    return `
+      <div class="po-podio-item ${classe}" onclick="poAbrirDetalheAnual('${r.codigo}')">
+        <div class="po-coroa-wrap">
+          <svg viewBox="0 0 64 52" class="po-coroa-svg" aria-hidden="true">
+            <defs><linearGradient id="gradsup-${classe}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffe98a"/><stop offset="0.5" stop-color="${corPos}"/><stop offset="1" stop-color="#7a5e12"/>
+            </linearGradient></defs>
+            <path d="M6 16 L16 34 L24 14 L32 32 L40 14 L48 34 L58 16 L54 44 L10 44 Z" fill="url(#gradsup-${classe})" stroke="#6e560f" stroke-width="1.2" stroke-linejoin="round"/>
+            <circle cx="6" cy="16" r="4" fill="url(#gradsup-${classe})" stroke="#6e560f" stroke-width="1"/>
+            <circle cx="32" cy="10" r="4.5" fill="url(#gradsup-${classe})" stroke="#6e560f" stroke-width="1"/>
+            <circle cx="58" cy="16" r="4" fill="url(#gradsup-${classe})" stroke="#6e560f" stroke-width="1"/>
+            <rect x="10" y="44" width="44" height="5" rx="2" fill="url(#gradsup-${classe})" stroke="#6e560f" stroke-width="1"/>
+          </svg>
+          <span class="po-podio-num">${pos}º</span>
+        </div>
+        <div class="po-podio-loja">${r.nome}</div>
+        <div class="po-podio-cod">#${r.codigo}</div>
+        <div class="po-podio-pts" style="color:${corDif}">${sinal}${poFmt(r.dif)} pts</div>
+        <div class="po-podio-pct" style="color:${corDif}">${sinal}${r.pctCresc}%</div>
+      </div>`;
+  };
+
+  const linhas = lista.map((r, i) => {
+    const pos = i + 1;
+    const cls = pos === 1 ? "ouro" : pos === 2 ? "prata" : pos === 3 ? "bronze" : "";
+    const sinal = r.dif > 0 ? "+" : "";
+    const corDif = r.dif > 0 ? "#1e7d45" : r.dif < 0 ? "#c0392b" : "#9aabb7";
+    const seta = r.dif > 0 ? "▲" : r.dif < 0 ? "▼" : "—";
+    // barra: verde p/ crescimento, vermelho suave p/ queda
+    const larg = Math.round((Math.abs(r.dif) / maxDif) * 100);
+    const corBarra = r.dif >= 0 ? "linear-gradient(90deg,#5cd49a,#1e7d45)" : "linear-gradient(90deg,#f3a9a9,#c0392b)";
+    return `
+      <tr onclick="poAbrirDetalheAnual('${r.codigo}')">
+        <td class="txt-center"><span class="po-pos ${cls}">${pos}</span></td>
+        <td>
+          <div class="po-loja-nome">${r.nome}</div>
+          <div class="po-loja-cod">#${r.codigo}</div>
+        </td>
+        <td class="txt-center" style="color:#9aabb7;font-weight:700">${r.anterior ? poFmt(r.anterior) : "–"}</td>
+        <td class="txt-center" style="color:#9a7b1c;font-weight:800">${r.atual ? poFmt(r.atual) : "–"}</td>
+        <td class="txt-center" style="color:${corDif};font-weight:800">${seta} ${sinal}${poFmt(r.dif)}</td>
+        <td><div class="po-barra-bg"><div class="po-barra-fill" style="width:${larg}%;background:${corBarra}"></div></div></td>
+      </tr>`;
+  }).join("");
+
+  container.innerHTML = `
+    <div class="po-grid" id="po-card-superacao">
+      <div class="po-col-12 po-card po-card-podio">
+        <div class="po-card-header">
+          <span class="po-card-titulo">🚀 Ranking de Superação — ${anoAnterior} → ${anoVigente}</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="po-card-badge">quem mais cresceu</span>
+            <button type="button" class="po-fs-btn" title="Tela cheia" onclick="poTelaCheia('po-card-superacao')"><i class="fas fa-expand"></i></button>
+          </div>
+        </div>
+        <div class="po-card-body">
+          <div class="po-podio">${coroaCard(p2, 2)}${coroaCard(p1, 1)}${coroaCard(p3, 3)}</div>
+        </div>
+      </div>
+
+      <div class="po-col-12 po-card">
+        <div class="po-card-header">
+          <span class="po-card-titulo">Evolução completa</span>
+          <span class="po-card-badge">${anoAnterior} vs ${anoVigente} · acumulado</span>
+        </div>
+        <div class="po-card-body" style="padding:0;overflow-x:auto;">
+          <table class="po-ranking-table">
+            <thead><tr>
+              <th class="txt-center" style="width:50px">#</th>
+              <th>Loja</th>
+              <th class="txt-center">${anoAnterior}</th>
+              <th class="txt-center">${anoVigente}</th>
+              <th class="txt-center">Evolução</th>
+              <th>Crescimento</th>
+            </tr></thead>
+            <tbody>${linhas}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+}
+window.poRenderSuperacao = poRenderSuperacao;
+
+// troca o mês do gráfico de barras do dashboard
+window.poDashTrocarMes = function (mes) {
+  PO_STATE.dashMes = Number(mes);
+  const conteudo = document.getElementById("po-conteudo");
+  if (conteudo) { window.poDestruirChartsPub(); poRenderDashboard(conteudo); }
+};
+
+// detalhe da loja num mês (reusa o overlay existente)
+window.poAbrirDetalheLojaMes = function (codigo, mes) {
+  const mesAnterior = PO_STATE.mes;
+  PO_STATE.mes = mes;
+  if (typeof window.poAbrirDetalhe === "function") window.poAbrirDetalhe(codigo);
+  PO_STATE.mes = mesAnterior;
+};
 
 // ============================================================
 // 🔍 DETALHE DA LOJA (modal lateral)

@@ -5,6 +5,10 @@ const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co";
 const SUPABASE_KEY =
   "sb_publishable_CbkVXGXd1IZO6iF4yRry2Q_UjBxjna7";
 
+// expõe para módulos que precisam criar um cliente temporário (ex.: trava de edição)
+window.SUPABASE_URL_PUBLIC = SUPABASE_URL;
+window.SUPABASE_KEY_PUBLIC = SUPABASE_KEY;
+
 let supabaseClient = null;
 
 // ==========================
