@@ -681,7 +681,7 @@ function poSbMontarSidebar() {
         <button type="button" class="po-sb-item" id="po-sb-btn-evolucao"
           onclick="poSbNavegar('evolucao')">
           <i class="fas fa-chart-line"></i>
-          <span>Evolução anual</span>
+          <span>Ranking Anual</span>
         </button>
 
         <div class="po-sb-divider"></div>
