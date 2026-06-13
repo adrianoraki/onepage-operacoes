@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Documentos — MetricaOne</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Poppins', 'Helvetica Neue', Arial, sans-serif;
+         background: linear-gradient(135deg, #0f2640 0%, #1a3a5c 100%);
+         min-height: 100vh; color: #1f2a37; padding: 30px 16px; }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  .topo { text-align: center; color: #fff; margin-bottom: 28px; }
+  .logo { font-size: 30px; font-weight: 800; }
+  .logo .um { color: #c9a227; }
+  .topo p { font-size: 13px; opacity: 0.8; margin-top: 6px; }
+  .restrito { display: inline-block; background: rgba(201,162,39,0.18); color: #e8c84a;
+              border: 1px solid rgba(201,162,39,0.4); border-radius: 999px;
+              padding: 3px 14px; font-size: 11px; font-weight: 700; margin-top: 12px;
+              text-transform: uppercase; letter-spacing: 1px; }
+  .card { background: #fff; border-radius: 14px; padding: 20px; margin-bottom: 14px;
+          display: flex; align-items: center; gap: 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+          cursor: pointer; transition: transform 0.15s; }
+  .card:hover { transform: translateY(-2px); }
+  .card .ico { font-size: 34px; width: 50px; text-align: center; }
+  .card .txt { flex: 1; }
+  .card h3 { font-size: 16px; color: #0f2640; margin-bottom: 3px; }
+  .card p { font-size: 12.5px; color: #5b6b7d; }
+  .card .seta { color: #2d7bb5; font-size: 20px; font-weight: 800; }
+  .carregando { text-align: center; color: #fff; padding: 40px; opacity: 0.8; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topo">
+      <div class="logo">Metrica<span class="um">One</span></div>
+      <p>Central de Documentos</p>
+      <span class="restrito">🔐 Acesso somente Master</span>
+    </div>
+
+    <div id="conteudo">
+      <div class="carregando" id="carregando">Verificando suas permissões…</div>
+    </div>
+  </div>
+
+  <!-- Supabase + app base (sessão e cliente window.db) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="app/app.js?v=20260613"></script>
+  <script src="app/doc-guard.js?v=20260613"></script>
+  <script>
+    // espera o cliente Supabase ficar pronto e então valida o perfil Master
+    async function iniciar() {
+      // dá um tempo para o app.js inicializar window.db
+      let tentativas = 0;
+      while ((!window.db || !window.poDocGuard) && tentativas < 40) {
+        await new Promise(r => setTimeout(r, 100));
+        tentativas++;
+      }
+      const liberado = await window.poDocGuard.ehMaster();
+      const cont = document.getElementById("conteudo");
+      if (!liberado) {
+        cont.innerHTML = `
+          <div class="card" style="cursor:default;">
+            <div class="ico">🔐</div>
+            <div class="txt">
+              <h3>Acesso restrito</h3>
+              <p>Esta área é confidencial e só pode ser vista por um usuário Master.
+                 Faça login com uma conta Master ou fale com o responsável pelo sistema.</p>
+            </div>
+          </div>`;
+        return;
+      }
+      // É Master: mostra os documentos
+      const docs = [
+        { ico: "📊", nome: "Apresentação Comercial", desc: "Material para vender ou alugar o sistema.", arq: "docs/MetricaOne-Apresentacao.pdf" },
+        { ico: "⚙️", nome: "Documentação Técnica", desc: "Arquitetura, banco de dados e como rodar.", arq: "docs/MetricaOne-Doc-Tecnica.pdf" },
+        { ico: "📖", nome: "Manual do Usuário", desc: "Como usar cada tela no dia a dia.", arq: "docs/MetricaOne-Manual-Usuario.pdf" },
+      ];
+      cont.innerHTML = docs.map(d => `
+        <div class="card" data-doc-master="${d.arq}">
+          <div class="ico">${d.ico}</div>
+          <div class="txt"><h3>${d.nome}</h3><p>${d.desc}</p></div>
+          <div class="seta">→</div>
+        </div>`).join("");
+      window.poDocGuard.protegerLinks();
+    }
+    iniciar();
+  </script>
+</body>
+</html>
