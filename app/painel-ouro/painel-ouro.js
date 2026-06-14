@@ -242,6 +242,55 @@ const poMostrarLoading = window.poMostrarLoading;
   border-radius: 999px; padding: 3px 11px;
 }
 
+/* 🔥 MAPA DE CALOR — lojas × indicadores */
+.hm-tabela { border-collapse: collapse; width: 100%; font-size: 11px; }
+.hm-tabela th, .hm-tabela td { text-align: center; }
+.hm-corner {
+  position: sticky; left: 0; z-index: 3; background: #2a2210;
+  color: #f5e6b8; font-weight: 800; padding: 8px 10px; text-align: left; min-width: 130px;
+}
+.hm-area {
+  background: rgba(201,162,39,0.18); color: #f5e6b8; font-weight: 800;
+  font-size: 11px; padding: 6px 8px; border-bottom: 1px solid rgba(201,162,39,0.3);
+  border-left: 2px solid rgba(28,22,8,0.6);
+}
+.hm-ind {
+  background: rgba(40,33,12,0.7); color: #cbb87e; font-weight: 600;
+  font-size: 9.5px; padding: 8px 3px; vertical-align: bottom;
+  height: 92px; white-space: nowrap;
+}
+.hm-ind span {
+  display: inline-block; writing-mode: vertical-rl;
+  max-height: 84px; overflow: hidden; text-overflow: ellipsis;
+}
+.hm-loja {
+  position: sticky; left: 0; z-index: 2; background: #241d0c;
+  text-align: left; padding: 6px 10px; min-width: 130px; border-top: 1px solid rgba(201,162,39,0.08);
+}
+.hm-loja-nome { color: #f0e2b0; font-weight: 700; font-size: 12px; }
+.hm-loja-pct { font-size: 10px; font-weight: 700; margin-top: 1px; }
+.hm-cel {
+  width: 26px; height: 26px; font-weight: 800; font-size: 11px;
+  border: 1px solid rgba(28,22,8,0.45);
+}
+.hm-cel.hm-ok   { background: #1e7d45; color: #d4f5e3; }
+.hm-cel.hm-bad  { background: #c0392b; color: #fde2e2; }
+.hm-cel.hm-vazio{ background: rgba(120,120,120,0.12); color: #7a8794; }
+.hm-tabela tbody tr:hover .hm-loja { background: #2f2710; }
+.hm-tabela tbody tr:hover .hm-cel { filter: brightness(1.12); }
+.hm-legenda {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 10px 14px; font-size: 11px; color: #cbb87e;
+  border-top: 1px solid rgba(201,162,39,0.15);
+}
+.hm-legenda .hm-dot {
+  display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+  margin-right: 5px; vertical-align: middle;
+}
+.hm-legenda .hm-ok { background: #1e7d45; }
+.hm-legenda .hm-bad { background: #c0392b; }
+.hm-legenda .hm-vazio { background: rgba(120,120,120,0.3); }
+
 /* 🚀 SUPERAÇÃO — card herói (maior superação) */
 .po-sup-hero {
   display: flex; align-items: center; gap: 18px;
@@ -703,6 +752,7 @@ window.telaPainelOuro = async function () {
         <button type="button" class="po-tab ${PO_STATE.abaAtiva === "ranking" ? "ativa" : ""}" data-aba="ranking" onclick="poTrocarAba('ranking')">Resultados Semestre</button>
         <button type="button" class="po-tab ${PO_STATE.abaAtiva === "areas" ? "ativa" : ""}" data-aba="areas" onclick="poTrocarAba('areas')">Ranking Semestre</button>
         <button type="button" class="po-tab ${PO_STATE.abaAtiva === "superacao" ? "ativa" : ""}" data-aba="superacao" onclick="poTrocarAba('superacao')">🚀 Superação</button>
+        <button type="button" class="po-tab ${PO_STATE.abaAtiva === "heatmap" ? "ativa" : ""}" data-aba="heatmap" onclick="poTrocarAba('heatmap')">🔥 Mapa de Calor</button>
       </div>`}
 
       <div id="po-conteudo"></div>
@@ -748,6 +798,7 @@ window.poTrocarAba = async function (aba) {
   if (aba === "evolucao") return window.poRenderRankingAnual(conteudo, PO_STATE.ano);
   if (aba === "dashboard") return window.poRenderDashboard(conteudo);
   if (aba === "superacao") return window.poRenderSuperacao(conteudo);
+  if (aba === "heatmap") return window.poRenderHeatmap(conteudo);
   if (aba === "ranking")  return window.poRenderResultadosSemestre(conteudo, PO_STATE.ano, PO_STATE.semestre, PO_STATE.regional);
   if (aba === "areas")    return window.poRenderRankingSemestre(conteudo, PO_STATE.ano, PO_STATE.semestre, PO_STATE.regional);
 };
@@ -1397,6 +1448,181 @@ async function poRenderDashboard(container) {
     }));
   }
 }
+// ============================================================
+// 🔥 MAPA DE CALOR — lojas × indicadores (só 2026, com detalhe)
+// ------------------------------------------------------------
+// Lê os sub_resultados de cada área e monta uma grade onde cada
+// célula mostra se a loja atingiu (verde) ou não (vermelho) cada
+// indicador. Regra universal: pontos === Ponto → atingiu.
+// ============================================================
+
+// rótulos legíveis de cada indicador (espelha os módulos de lançamento)
+const PO_ROTULOS_IND = {
+  // vendas / quebras
+  venda: "VENDA", meta: "META", realizado: "REALIZADO",
+  // prevenção
+  vencimento: "VENCIMENTO", troca: "TROCA", qb_flv: "QUEBRA FLV",
+  qb_acougue: "QUEBRA AÇOUGUE", qb_identificada: "QUEBRA IDENTIF.",
+  // rh
+  turnover: "TURNOVER", exames: "EXAMES", pcd: "PCD", bh: "BANCO HORAS", integracao: "INTEGRAÇÃO",
+  // frente de caixa
+  cancelamento: "CANCELAMENTO", faixa_hora: "FAIXA HORA", descontos: "DESCONTOS",
+  // adm
+  contas_ger: "CONTAS GER.", hora_extra: "HORA EXTRA", energia: "ENERGIA", agua: "ÁGUA",
+  // passaí
+  originacao: "ORIGINAÇÃO", cns: "CNS", participacao: "PARTICIPAÇÃO",
+  // ti / rub / rm
+  etiqueta: "ETIQUETA", ruptura: "RUPTURA", psv: "PSV", descarga: "DESCARGA", mau_uso: "MAU USO",
+};
+const PO_ROTULO_AREA = {
+  vendas: "Vendas", quebras: "Quebras", prevencao: "Prevenção", rh: "RH",
+  "frente-caixa": "Frente de Caixa", frente_caixa: "Frente de Caixa", adm: "ADM",
+  passai: "Passaí", "servicos-assai": "Serviços", servicos_assai: "Serviços",
+  "ti-rub-rm": "TI / Rub / RM", ti_rub_rm: "TI / Rub / RM",
+};
+
+// carrega todos os indicadores de um mês → { lojas:[], colunas:[{area,ind,rotulo}], matriz:{loja:{chave:{atingiu,resultado,meta}}} }
+async function poCarregarHeatmap(ano, mes) {
+  const { data, error } = await window.db
+    .from("painel_ouro_resultados")
+    .select("loja_codigo, area_slug, sub_resultados, painel_ouro_lojas(nome)")
+    .eq("ano", ano).eq("mes", mes).eq("ativo", true)
+    .neq("area_slug", "consolidado"); // consolidado (2025) não tem detalhe
+  if (error) { poErr("Erro ao carregar mapa de calor", error); return null; }
+
+  const lojasMap = {};       // codigo -> nome
+  const colunasSet = new Map(); // chave "area::ind" -> {area, ind, rotulo}
+  const matriz = {};         // codigo -> { "area::ind": {atingiu, resultado, meta} }
+
+  (data || []).forEach(r => {
+    const cod = r.loja_codigo;
+    const nome = r.painel_ouro_lojas?.nome || cod;
+    lojasMap[cod] = nome;
+    const subs = Array.isArray(r.sub_resultados) ? r.sub_resultados : [];
+    subs.forEach(s => {
+      // ignora linhas de "meta" pura (não é um indicador avaliado)
+      if (s.indicador === "meta") return;
+      const chave = r.area_slug + "::" + s.indicador;
+      if (!colunasSet.has(chave)) {
+        const rotuloInd = PO_ROTULOS_IND[s.indicador] || String(s.indicador || "").toUpperCase();
+        colunasSet.set(chave, { area: r.area_slug, ind: s.indicador, rotulo: rotuloInd });
+      }
+      const peso = Number(s.Ponto) || 0;
+      const pts = Number(s.pontos) || 0;
+      const atingiu = peso > 0 ? pts >= peso : null; // null = sem peso definido
+      if (!matriz[cod]) matriz[cod] = {};
+      matriz[cod][chave] = { atingiu, resultado: s.resultado, meta: s.meta };
+    });
+  });
+
+  const lojas = Object.entries(lojasMap)
+    .map(([codigo, nome]) => ({ codigo, nome }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const colunas = [...colunasSet.values()];
+
+  return { lojas, colunas, matriz };
+}
+
+async function poRenderHeatmap(container) {
+  poMostrarLoading(container);
+
+  const ano = PO_STATE.ano;
+  const mes = PO_STATE.dashMes || (new Date().getMonth() + 1);
+  const dados = await poCarregarHeatmap(ano, mes);
+
+  if (!dados || !dados.lojas.length || !dados.colunas.length) {
+    container.innerHTML = `<div class="po-empty"><div class="po-empty-ico">🔥</div>
+      <p>Sem indicadores detalhados em ${poNomeMes ? poNomeMes(mes) : mes}/${ano}.</p>
+      <p style="font-size:12px;color:#9aabb7">O mapa de calor usa os dados por indicador (disponíveis a partir de 2026).</p></div>`;
+    return;
+  }
+
+  // agrupa colunas por área (para o cabeçalho com merge visual)
+  const porArea = {};
+  dados.colunas.forEach((c, i) => {
+    if (!porArea[c.area]) porArea[c.area] = [];
+    porArea[c.area].push({ ...c, idx: i });
+  });
+
+  // monta cabeçalho em 2 níveis: área (agrupado) + indicador
+  let thAreas = `<th class="hm-corner" rowspan="2">Loja</th>`;
+  let thInds = "";
+  Object.entries(porArea).forEach(([area, cols]) => {
+    const rotuloArea = PO_ROTULO_AREA[area] || area;
+    thAreas += `<th class="hm-area" colspan="${cols.length}">${rotuloArea}</th>`;
+    cols.forEach(c => { thInds += `<th class="hm-ind"><span>${c.rotulo}</span></th>`; });
+  });
+
+  // calcula % de acerto por loja (pra ordenar do melhor pro pior)
+  const linhasData = dados.lojas.map(loja => {
+    let ok = 0, tot = 0;
+    dados.colunas.forEach(c => {
+      const chave = c.area + "::" + c.ind;
+      const cel = dados.matriz[loja.codigo]?.[chave];
+      if (cel && cel.atingiu !== null && cel.atingiu !== undefined) { tot++; if (cel.atingiu) ok++; }
+    });
+    return { loja, pct: tot > 0 ? ok / tot : 0, ok, tot };
+  }).sort((a, b) => b.pct - a.pct);
+
+  const linhas = linhasData.map(({ loja, pct, ok, tot }) => {
+    const cels = dados.colunas.map(c => {
+      const chave = c.area + "::" + c.ind;
+      const cel = dados.matriz[loja.codigo]?.[chave];
+      if (!cel || cel.atingiu === null || cel.atingiu === undefined) {
+        return `<td class="hm-cel hm-vazio" title="sem dado">–</td>`;
+      }
+      const cls = cel.atingiu ? "hm-ok" : "hm-bad";
+      const ico = cel.atingiu ? "✓" : "✕";
+      const val = cel.resultado != null ? String(cel.resultado) : "";
+      return `<td class="hm-cel ${cls}" title="${c.rotulo}: ${val}">${ico}</td>`;
+    }).join("");
+    const pctTxt = Math.round(pct * 100);
+    const corPct = pct >= 0.8 ? "#1e7d45" : pct >= 0.5 ? "#a07a15" : "#c0392b";
+    return `<tr>
+      <td class="hm-loja"><div class="hm-loja-nome">${loja.nome}</div>
+        <div class="hm-loja-pct" style="color:${corPct}">${ok}/${tot} · ${pctTxt}%</div></td>
+      ${cels}</tr>`;
+  }).join("");
+
+  container.innerHTML = `
+    <div class="po-grid" id="po-card-heatmap">
+      <div class="po-col-12 po-card">
+        <div class="po-card-header">
+          <span class="po-card-titulo">🔥 Mapa de Calor — ${poNomeMes ? poNomeMes(mes) : mes}/${ano}</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <select id="po-hm-mes" onchange="poHmTrocarMes(this.value)"
+              style="background:rgba(40,30,8,0.5);border:1px solid rgba(201,162,39,0.35);color:#f0e2b0;border-radius:8px;padding:5px 10px;font-weight:700;">
+              ${PO_MESES.map((m, i) => `<option value="${i+1}" ${i+1===mes?"selected":""}>${m}</option>`).join("")}
+            </select>
+            <button type="button" class="po-fs-btn" title="Copiar imagem" onclick="poCopiarCard('po-card-heatmap')"><i class="fas fa-copy"></i></button>
+            <button type="button" class="po-fs-btn" title="Tela cheia" onclick="poTelaCheia('po-card-heatmap')"><i class="fas fa-expand"></i></button>
+          </div>
+        </div>
+        <div class="po-card-body" style="padding:0;overflow-x:auto;">
+          <table class="hm-tabela">
+            <thead>
+              <tr>${thAreas}</tr>
+              <tr>${thInds}</tr>
+            </thead>
+            <tbody>${linhas}</tbody>
+          </table>
+        </div>
+        <div class="hm-legenda">
+          <span><i class="hm-dot hm-ok"></i> Atingiu a meta</span>
+          <span><i class="hm-dot hm-bad"></i> Não atingiu</span>
+          <span><i class="hm-dot hm-vazio"></i> Sem dado</span>
+          <span style="margin-left:auto;color:#9aabb7">Passe o mouse na célula para ver o valor</span>
+        </div>
+      </div>
+    </div>`;
+}
+window.poRenderHeatmap = poRenderHeatmap;
+window.poHmTrocarMes = function (mes) {
+  PO_STATE.dashMes = Number(mes);
+  const c = document.getElementById("po-conteudo");
+  if (c) poRenderHeatmap(c);
+};
+
 window.poRenderDashboard = poRenderDashboard;
 
 // ============================================================
