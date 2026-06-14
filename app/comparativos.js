@@ -187,6 +187,7 @@ function garantirEstilosComparativo() {
     .cmp-exp:active { transform: translateY(0); }
     .cmp-exp i { font-size: 13px; }
     .cmp-exp-print { background: #475569; }
+    .cmp-exp-copy  { background: #0f766e; }
     .cmp-exp-pdf   { background: #dc2626; }
     .cmp-exp-xlsx  { background: #15803d; }
     @media (max-width: 640px) {
@@ -249,13 +250,19 @@ function garantirEstilosComparativo() {
 
     /* ===== IMPRESSÃO / PDF (cada regional em uma folha, tabela INTEIRA) ===== */
     @media print {
-      @page { size: A4 landscape; margin: 6mm; }
+      @page { size: A4 landscape; margin: 0; }
 
       /* esconde tudo que não é a matriz */
       .sidebar, .rodape-fixo, footer,
       .comparativo-topo, .comparativo-filtros, .comparativo-abas,
       .comparativo-export, .comparativo-btn-tela,
       .comparativo-info-periodo { display: none !important; }
+
+      /* REMOVE O NOME DAS LOJAS na impressão (mantém só a numeração/código) */
+      .matriz-loja-nome { display: none !important; }
+
+      /* esconde o título "NE1 / NE2" e a contagem na impressão (ganha espaço) */
+      .regional-titulo, .regional-contagem { display: none !important; }
 
       /* containers fluem e PAGINAM naturalmente (sem position absolute!) */
       html, body, .conteudo, .pagina-container,
@@ -265,32 +272,44 @@ function garantirEstilosComparativo() {
         overflow: visible !important; position: static !important;
         margin: 0 !important; padding: 0 !important;
         display: block !important; width: auto !important;
+        background: #fff !important;
       }
 
-      /* cada regional em uma folha, com a tabela COMPLETA */
+      /* cada regional ocupa UMA folha inteira, sem bordas, preenchendo a página */
       .matriz-card {
         break-inside: avoid; page-break-inside: avoid;
-        page-break-after: always; margin: 0 0 6px 0 !important;
-        box-shadow: none !important; border: none !important;
+        page-break-after: always; margin: 0 !important; padding: 2mm !important;
+        box-shadow: none !important; border: none !important; border-radius: 0 !important;
+        width: 100% !important; height: 100% !important;
+        display: flex !important; flex-direction: column !important;
       }
       .matriz-card:last-child { page-break-after: auto; }
-      .matriz-scroll { overflow: visible !important; width: auto !important; max-width: none !important; }
+      .matriz-card > * { box-shadow: none !important; border: none !important; }
+      .matriz-scroll {
+        overflow: visible !important; width: 100% !important; max-width: none !important;
+        flex: 1 !important;
+      }
 
       /* table-layout fixed faz TODAS as colunas caberem na largura da página */
       .matriz-tabela {
-        width: 100% !important; table-layout: fixed !important;
-        font-size: 7px !important; border-spacing: 1px !important;
+        width: 100% !important; height: 100% !important; table-layout: fixed !important;
+        font-size: 8px !important; border-spacing: 0 !important; border-collapse: collapse !important;
       }
+      /* sem o nome, a coluna da loja fica estreita (só o número) */
       .matriz-th-loja, .matriz-loja {
-        width: 92px !important; white-space: normal !important;
-        position: static !important; box-shadow: none !important;
+        width: 34px !important; white-space: nowrap !important;
+        position: static !important; box-shadow: none !important; border: none !important;
       }
-      .matriz-loja-cod { font-size: 8px !important; padding: 1px 4px !important; }
-      .matriz-loja-nome { font-size: 8px !important; }
+      .matriz-loja-cod { font-size: 9px !important; padding: 1px 2px !important; font-weight: 700 !important; }
       .matriz-th-ind, .matriz-celula, .matriz-resumo-cel {
-        padding: 2px 1px !important; overflow: hidden;
-        font-size: 7.5px !important; text-shadow: none !important;
+        padding: 1px !important; overflow: hidden; border: none !important;
+        font-size: 8px !important; text-shadow: none !important;
       }
+      /* as linhas esticam para a tabela preencher a altura da folha */
+      .matriz-tabela { height: 100% !important; }
+      .matriz-tabela tbody { height: 100% !important; }
+      .matriz-tabela tbody tr { height: auto !important; }
+      .matriz-celula, .matriz-loja { height: auto !important; vertical-align: middle !important; }
       .matriz-celula, .matriz-resumo-cel, .matriz-th-ind,
       .matriz-th-loja, .matriz-loja, .matriz-linha-resumo .matriz-resumo-cel {
         -webkit-print-color-adjust: exact !important;
@@ -955,6 +974,9 @@ async function telaComparativos() {
           </div>
 
           <div class="comparativo-export">
+            <button class="cmp-exp cmp-exp-copy" onclick="comparativoCopiarImagem()" title="Copiar imagem (Ctrl+V)">
+              <i class="fas fa-copy"></i><span>Copiar</span>
+            </button>
             <button class="cmp-exp cmp-exp-print" onclick="comparativoImprimir()" title="Imprimir / compartilhar">
               <i class="fas fa-print"></i><span>Print</span>
             </button>
@@ -2270,11 +2292,106 @@ function carregarScriptCDNComparativo(src) {
   });
 }
 
+// Notificação discreta (toast) que aparece e some sozinha, sem sair da tela.
+// tipo: "sucesso" (verde) ou "erro" (vermelho).
+function comparativoToast(msg, tipo = "sucesso") {
+  let toast = document.getElementById("cmp-toast");
+  if (toast) toast.remove();
+  toast = document.createElement("div");
+  toast.id = "cmp-toast";
+  const cor = tipo === "erro" ? "#c0392b" : "#0f766e";
+  const ico = tipo === "erro" ? "⚠️" : "✅";
+  toast.style.cssText = `
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: ${cor}; color: #fff; font-family: 'Poppins',system-ui; font-size: 14px; font-weight: 600;
+    padding: 12px 22px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    z-index: 100000; opacity: 0; transition: opacity 0.25s ease, transform 0.25s ease;
+    display: flex; align-items: center; gap: 9px; max-width: 90vw;`;
+  toast.innerHTML = `<span>${ico}</span><span>${msg}</span>`;
+  document.body.appendChild(toast);
+  // anima entrada
+  requestAnimationFrame(() => {
+    toast.style.opacity = "1";
+    toast.style.transform = "translateX(-50%) translateY(0)";
+  });
+  // some sozinho depois de 3,5s
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateX(-50%) translateY(20px)";
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
+// mantém o nome antigo para compatibilidade, mas agora usa o toast.
+// Mensagens com ✅ ou "copiada" são tratadas como sucesso; o resto como erro.
 function comparativoFeedbackExport(msg) {
-  if (typeof mostrarErro === "function") {
-    mostrarErro(msg);
-  } else {
-    alert(msg);
+  const limpo = msg.replace(/^✅\s*/, "");
+  const sucesso = /copiad|sucesso|pronto|gerad/i.test(msg) && !/não|falha|erro/i.test(msg);
+  comparativoToast(limpo, sucesso ? "sucesso" : "erro");
+}
+
+// COPIAR — captura a matriz como imagem e copia para a área de transferência (Ctrl+V).
+// Remove o NOME das lojas, mantendo só a numeração (código).
+async function comparativoCopiarImagem() {
+  const alvo = document.getElementById("comparativoConteudo");
+  if (!alvo) return;
+  if (!alvo.querySelector(".matriz-card")) {
+    comparativoFeedbackExport("Nada para capturar ainda.");
+    return;
+  }
+
+  try {
+    await carregarScriptCDNComparativo(
+      "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+    );
+
+    const clone = alvo.cloneNode(true);
+    clone.style.width = "max-content";
+    clone.style.maxWidth = "none";
+    clone.querySelectorAll(".matriz-scroll").forEach((s) => {
+      s.style.overflow = "visible"; s.style.width = "max-content"; s.style.maxWidth = "none";
+    });
+    clone.querySelectorAll(".matriz-loja, .matriz-th-loja").forEach((s) => {
+      s.style.position = "static"; s.style.boxShadow = "none";
+    });
+    // remove o NOME das lojas (mantém só o código/numeração)
+    clone.querySelectorAll(".matriz-loja-nome").forEach((el) => el.remove());
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "comparativo-container";
+    wrapper.style.cssText = "position:absolute;left:-99999px;top:0;width:max-content;max-width:none;min-height:0;margin:0;padding:16px;background:#0a1622;";
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+
+    const canvas = await window.html2canvas(wrapper, {
+      backgroundColor: "#0a1622", scale: 2, useCORS: true,
+      width: wrapper.scrollWidth, windowWidth: wrapper.scrollWidth,
+    });
+    wrapper.remove();
+
+    // copia para a área de transferência
+    canvas.toBlob(async (blob) => {
+      if (!blob) { comparativoFeedbackExport("Falha ao gerar a imagem."); return; }
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([new window.ClipboardItem({ "image/png": blob })]);
+          comparativoFeedbackExport("Imagem copiada! Cole com Ctrl+V.");
+        } else {
+          // navegador sem suporte a copiar imagem → baixa como alternativa
+          const link = document.createElement("a");
+          link.download = "comparativos-regionais.png";
+          link.href = URL.createObjectURL(blob);
+          link.click();
+          comparativoFeedbackExport("Seu navegador não copia imagem; baixei o arquivo.");
+        }
+      } catch (e) {
+        console.error(e);
+        comparativoFeedbackExport("Não foi possível copiar. Tente o botão Print.");
+      }
+    }, "image/png");
+  } catch (erro) {
+    console.error(erro);
+    comparativoFeedbackExport("Não foi possível gerar a imagem. Verifique a conexão.");
   }
 }
 

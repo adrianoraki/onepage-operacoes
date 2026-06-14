@@ -401,9 +401,14 @@ function initSupabase() {
 
     supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
       auth: {
+        // Usa sessionStorage em vez de localStorage: a sessão é apagada
+        // ao fechar a aba/navegador, exigindo novo login ao reabrir.
+        // Isso protege os dados quando um gestor fecha a página sem deslogar.
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        storage: window.sessionStorage,
+        storageKey: "metricaone-sessao",
       },
     });
 

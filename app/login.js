@@ -6,7 +6,16 @@ const SUPABASE_KEY =
   "sb_publishable_CbkVXGXd1IZO6iF4yRry2Q_UjBxjna7";
 
 const { createClient } = window.supabase;
-const supabaseLogin = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseLogin = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    // mesma configuração do app.js: sessão em sessionStorage (encerra ao fechar a aba)
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storage: window.sessionStorage,
+    storageKey: "metricaone-sessao",
+  },
+});
 
 let loginEmAndamento = false;
 

@@ -1,0 +1,151 @@
+/* ============================================================
+   📱🖥️📺 RESPONSIVIDADE UNIFICADA + REFINO VISUAL — MetricaOne
+   ------------------------------------------------------------
+   Cobre de celulares pequenos (≤360px) a telas de TV (≥1920px),
+   com ajustes suaves e profissionais. Carregado por último para
+   ter precedência sobre os estilos base.
+   ============================================================ */
+
+/* ---------- transições suaves globais (fluidez) ---------- */
+.po-tab, .po-seg, .po-fs-btn, .po-card, .lgpd-sino,
+.app-header .ah-perfil, button {
+  transition: background-color 0.18s ease, color 0.18s ease,
+              border-color 0.18s ease, transform 0.12s ease,
+              box-shadow 0.18s ease;
+}
+
+/* ============================================================
+   📺 TV / TELÃO (≥ 1600px) — fonte e espaçamento maiores
+   Ideal para exibir o ranking numa TV da loja.
+   ============================================================ */
+@media (min-width: 1600px) {
+  .po-wrap { max-width: 1500px; margin: 0 auto; }
+  .po-card-titulo { font-size: 18px; }
+  .po-ranking-table tbody td { font-size: 15px; padding: 14px 16px; }
+  .po-ranking-table thead th { font-size: 13px; }
+  .po-loja-nome { font-size: 15px; }
+  .po-podio-loja { font-size: 16px; }
+  .po-podio-pts { font-size: 18px; }
+  .po-dash-loja { font-size: 14px; }
+  .po-dash-val { font-size: 14px; }
+}
+
+@media (min-width: 1920px) {
+  .po-wrap { max-width: 1720px; }
+  .po-card-titulo { font-size: 20px; }
+  .po-ranking-table tbody td { font-size: 16px; padding: 16px 18px; }
+  .po-podio-pts { font-size: 20px; }
+}
+
+/* ============================================================
+   💻 TABLET / DESKTOP MÉDIO (≤ 1024px)
+   ============================================================ */
+@media (max-width: 1024px) {
+  .po-tabs { gap: 4px; }
+  .po-tab { padding: 7px 12px; font-size: 12.5px; }
+  .po-filtros-sem { gap: 8px; }
+}
+
+/* ============================================================
+   📱 CELULAR (≤ 600px) — empilhamento e toque
+   ============================================================ */
+@media (max-width: 600px) {
+  /* abas viram scroll horizontal em vez de quebrar feio */
+  .po-tabs {
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px; scrollbar-width: none;
+  }
+  .po-tabs::-webkit-scrollbar { display: none; }
+  .po-tab { white-space: nowrap; flex: 0 0 auto; }
+
+  /* filtros de semestre/regional empilham */
+  .po-filtros-sem { flex-direction: column; align-items: stretch; }
+  .po-seg-group { justify-content: center; }
+
+  /* cabeçalho dos cards: título em cima, ações embaixo */
+  .po-card-header { flex-wrap: wrap; gap: 8px; }
+
+  /* pódio: o 1º lugar não estoura */
+  .po-podio { gap: 6px; }
+  .po-podio-item { padding: 10px 5px 12px; min-width: 0; }
+  .po-podio-item.p1 { transform: translateY(-6px) scale(1.03); }
+
+  /* tabela de ranking: esconde a coluna de desempenho (barra) no celular */
+  .po-ranking-table th:last-child,
+  .po-ranking-table td:last-child { display: none; }
+
+  /* card herói da superação empilha */
+  .po-sup-hero { flex-direction: column; text-align: center; gap: 10px; }
+  .po-sup-hero-num { text-align: center; }
+
+  /* dashboard: barras por loja com colunas menores */
+  .po-dash-row { grid-template-columns: 92px 1fr 70px; gap: 6px; }
+  .po-dash-loja { font-size: 11px; }
+  .po-dash-val { font-size: 11px; }
+
+  /* header do app: compacta */
+  .app-header { padding: 10px 12px; margin-bottom: 16px; }
+  .app-header .ah-titulo { font-size: 16px; }
+  .app-header .ah-nome { max-width: 90px; }
+}
+
+/* ============================================================
+   📱 CELULAR PEQUENO (≤ 380px) — ex.: iPhone SE, Galaxy A0x
+   ============================================================ */
+@media (max-width: 380px) {
+  .po-tab { padding: 6px 10px; font-size: 12px; }
+  .po-card { padding: 12px; }
+  .po-card-titulo { font-size: 13.5px; }
+  .po-ranking-table tbody td { padding: 8px 6px; font-size: 12px; }
+  .po-ranking-table thead th { font-size: 10.5px; padding: 6px; }
+
+  /* esconde código da loja para ganhar espaço */
+  .po-loja-cod { font-size: 10px; }
+
+  /* pódio mais compacto ainda */
+  .po-coroa-svg { width: 42px !important; }
+  .po-podio-item.p1 .po-coroa-svg { width: 54px !important; }
+  .po-podio-loja { font-size: 11px; }
+  .po-podio-pts { font-size: 13px; }
+
+  /* esconde a coluna do ano anterior na superação p/ caber */
+  .po-sup-hero-ico { font-size: 34px; }
+  .po-sup-hero-nome { font-size: 17px; }
+  .po-sup-hero-num { font-size: 26px; }
+
+  /* sino e perfil menores */
+  .lgpd-sino { width: 36px; height: 36px; font-size: 15px; }
+  .app-header .ah-perfil-txt { display: none; } /* só o avatar no header */
+
+  /* popover do sino ocupa quase a tela toda */
+  .lgpd-pop { width: calc(100vw - 12px) !important; }
+}
+
+/* ============================================================
+   🎨 REFINO DE CORES — tons mais suaves e profissionais
+   ============================================================ */
+/* barras de desempenho com gradiente mais suave */
+.po-barra-fill { background: linear-gradient(90deg, #ecd98a, #cfa93a) !important; }
+
+/* hover das linhas da tabela mais sutil */
+.po-ranking-table tbody tr:hover td { background: rgba(201,162,39,0.06); }
+
+/* badges com menos saturação */
+.po-card-badge {
+  background: rgba(201,162,39,0.10);
+  color: #9a8240;
+  border: 1px solid rgba(201,162,39,0.18);
+}
+
+/* foco acessível em elementos interativos (teclado) */
+.po-tab:focus-visible, .po-seg:focus-visible, .po-fs-btn:focus-visible,
+.lgpd-sino:focus-visible, button:focus-visible {
+  outline: 2px solid rgba(201,162,39,0.5);
+  outline-offset: 2px;
+}
+
+/* rolagem suave em tabelas largas no toque */
+.po-card-body { -webkit-overflow-scrolling: touch; }
+
+/* evita que números quebrem linha feio */
+.po-podio-pts, .po-dash-val, .po-sup-hero-num, .po-card-badge { white-space: nowrap; }

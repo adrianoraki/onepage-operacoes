@@ -242,6 +242,30 @@ const poMostrarLoading = window.poMostrarLoading;
   border-radius: 999px; padding: 3px 11px;
 }
 
+/* 🚀 SUPERAÇÃO — card herói (maior superação) */
+.po-sup-hero {
+  display: flex; align-items: center; gap: 18px;
+  background: linear-gradient(135deg, rgba(28,22,8,0.92), rgba(40,33,12,0.92));
+  border: 1px solid rgba(201,162,39,0.45); border-radius: 16px; padding: 18px 22px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+}
+.po-sup-hero-ico { font-size: 42px; line-height: 1; }
+.po-sup-hero-txt { flex: 1; min-width: 0; }
+.po-sup-hero-label { font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #e8c84a; }
+.po-sup-hero-nome { font-size: 20px; font-weight: 800; color: #f5e6b8; margin-top: 2px; }
+.po-sup-hero-sub { font-size: 13px; color: #cbb87e; margin-top: 4px; }
+.po-sup-hero-num { font-size: 30px; font-weight: 800; text-align: right; line-height: 1.1; white-space: nowrap; }
+
+/* barra divergente (queda à esquerda / crescimento à direita do centro) */
+.po-div-bar { display: flex; align-items: center; height: 16px; }
+.po-div-half { flex: 1; height: 8px; display: flex; }
+.po-div-half.esq { justify-content: flex-end; background: rgba(192,57,43,0.08); border-radius: 6px 0 0 6px; }
+.po-div-half.dir { justify-content: flex-start; background: rgba(30,125,69,0.08); border-radius: 0 6px 6px 0; }
+.po-div-centro { width: 2px; height: 16px; background: #b9c2cc; }
+.po-div-fill { height: 100%; }
+.po-div-fill.pos { background: linear-gradient(90deg,#5cd49a,#1e7d45); border-radius: 0 6px 6px 0; }
+.po-div-fill.neg { background: linear-gradient(90deg,#c0392b,#f3a9a9); border-radius: 6px 0 0 6px; }
+
 /* 📊 DASHBOARD — barras horizontais por loja */
 .po-dash-barras { display: flex; flex-direction: column; gap: 7px; }
 .po-dash-row {
@@ -1382,7 +1406,6 @@ async function poRenderSuperacao(container) {
     poCarregarLojasNoAno(anoAnterior),
   ]);
 
-  // une as lojas dos dois anos e calcula a diferença
   const codigos = new Set([...Object.keys(lojasVig), ...Object.keys(lojasAnt)]);
   const lista = [...codigos].map(cod => {
     const atual = lojasVig[cod]?.obtido || 0;
@@ -1392,102 +1415,130 @@ async function poRenderSuperacao(container) {
     const pctCresc = anterior > 0 ? Math.round((dif / anterior) * 100) : (atual > 0 ? 100 : 0);
     return { codigo: cod, nome, atual, anterior, dif, pctCresc };
   })
-  // só faz sentido comparar quem tem dados nos dois anos
   .filter(l => l.anterior > 0 || l.atual > 0)
-  .sort((a, b) => b.dif - a.dif); // maior crescimento no topo
+  .sort((a, b) => b.dif - a.dif);
 
   if (!lista.length) {
-    container.innerHTML = `<div class="po-empty"><div class="po-empty-ico">🚀</div>
+    container.innerHTML = `<div class="po-empty"><div class="po-empty-ico">\u{1F680}</div>
       <p>Sem dados suficientes para comparar ${anoAnterior} e ${anoVigente}.</p></div>`;
     return;
   }
 
+  const lider = lista[0];
   const maxDif = Math.max(...lista.map(l => Math.abs(l.dif)), 1);
-  const p1 = lista[0], p2 = lista[1], p3 = lista[2];
 
-  // pódio (coroas) — top 3 que mais superaram
-  const coroaCard = (r, pos) => {
-    if (!r) return `<div class="po-podio-item po-podio-vazio"></div>`;
-    const classe = pos === 1 ? "p1" : pos === 2 ? "p2" : "p3";
-    const corPos = pos === 1 ? "#c9a227" : pos === 2 ? "#8d98a7" : "#b3742e";
-    const sinal = r.dif > 0 ? "+" : "";
-    const corDif = r.dif > 0 ? "#1e7d45" : r.dif < 0 ? "#c0392b" : "#9aabb7";
-    return `
-      <div class="po-podio-item ${classe}" onclick="poAbrirDetalheAnual('${r.codigo}')">
-        <div class="po-coroa-wrap">
-          <svg viewBox="0 0 64 52" class="po-coroa-svg" aria-hidden="true">
-            <defs><linearGradient id="gradsup-${classe}" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#ffe98a"/><stop offset="0.5" stop-color="${corPos}"/><stop offset="1" stop-color="#7a5e12"/>
-            </linearGradient></defs>
-            <path d="M6 16 L16 34 L24 14 L32 32 L40 14 L48 34 L58 16 L54 44 L10 44 Z" fill="url(#gradsup-${classe})" stroke="#6e560f" stroke-width="1.2" stroke-linejoin="round"/>
-            <circle cx="6" cy="16" r="4" fill="url(#gradsup-${classe})" stroke="#6e560f" stroke-width="1"/>
-            <circle cx="32" cy="10" r="4.5" fill="url(#gradsup-${classe})" stroke="#6e560f" stroke-width="1"/>
-            <circle cx="58" cy="16" r="4" fill="url(#gradsup-${classe})" stroke="#6e560f" stroke-width="1"/>
-            <rect x="10" y="44" width="44" height="5" rx="2" fill="url(#gradsup-${classe})" stroke="#6e560f" stroke-width="1"/>
-          </svg>
-          <span class="po-podio-num">${pos}º</span>
+  // ---------- só faz sentido desenhar o slope se houver os dois anos ----------
+  const comDoisAnos = lista.filter(l => l.anterior > 0 && l.atual > 0);
+
+  // ---------- CARD "MAIOR SUPERAÇÃO" (herói) ----------
+  const sinalL = lider.dif > 0 ? "+" : "";
+  const corL = lider.dif > 0 ? "#5cd49a" : lider.dif < 0 ? "#f08a8a" : "#e8c84a";
+  const heroHtml = `
+    <div class="po-sup-hero">
+      <div class="po-sup-hero-ico">\u{1F680}</div>
+      <div class="po-sup-hero-txt">
+        <div class="po-sup-hero-label">Maior superação do ano</div>
+        <div class="po-sup-hero-nome">${lider.nome} <span style="font-size:12px;color:#b8a878">#${lider.codigo}</span></div>
+        <div class="po-sup-hero-sub">${poFmt(lider.anterior)} <span style="color:#a89a6e">(${anoAnterior})</span> &rarr; <b style="color:#f5e6b8">${poFmt(lider.atual)}</b> <span style="color:#a89a6e">(${anoVigente})</span></div>
+      </div>
+      <div class="po-sup-hero-num" style="color:${corL}">${sinalL}${poFmt(lider.dif)}<span style="font-size:14px"> pts</span><div style="font-size:13px">${sinalL}${lider.pctCresc}%</div></div>
+    </div>`;
+
+  // ---------- SLOPE CHART (2025 -> 2026) ----------
+  // monta um SVG com uma linha por loja ligando os dois anos
+  let slopeHtml = "";
+  if (comDoisAnos.length) {
+    const todosVals = comDoisAnos.flatMap(l => [l.anterior, l.atual]);
+    const vMin = Math.min(...todosVals);
+    const vMax = Math.max(...todosVals);
+    const range = (vMax - vMin) || 1;
+    const H = Math.max(320, comDoisAnos.length * 12 + 80);
+    const topo = 50, base = H - 40;
+    const xEsq = 170, xDir = 510;
+    const yDe = (v) => base - ((v - vMin) / range) * (base - topo);
+
+    const linhas = comDoisAnos.map(l => {
+      const y1 = yDe(l.anterior), y2 = yDe(l.atual);
+      const cor = l.dif > 0 ? "#1D9E75" : l.dif < 0 ? "#E24B4A" : "#9aabb7";
+      const lw = 1 + Math.min(3, Math.abs(l.dif) / maxDif * 3);
+      const sinal = l.dif > 0 ? "\u25B2" : l.dif < 0 ? "\u25BC" : "\u2014";
+      return `
+        <line x1="${xEsq}" y1="${y1.toFixed(1)}" x2="${xDir}" y2="${y2.toFixed(1)}" stroke="${cor}" stroke-width="${lw.toFixed(1)}" stroke-linecap="round" opacity="0.85"/>
+        <circle cx="${xEsq}" cy="${y1.toFixed(1)}" r="3.5" fill="${cor}"/>
+        <circle cx="${xDir}" cy="${y2.toFixed(1)}" r="3.5" fill="${cor}"/>
+        <text x="${xEsq - 10}" y="${(y1+3).toFixed(1)}" text-anchor="end" font-size="11" fill="#7a8794">${l.nome} \u00b7 ${poFmt(l.anterior)}</text>
+        <text x="${xDir + 10}" y="${(y2+3).toFixed(1)}" text-anchor="start" font-size="11" font-weight="700" fill="${cor}">${poFmt(l.atual)} ${sinal}${l.dif>0?"+":""}${poFmt(l.dif)}</text>`;
+    }).join("");
+
+    slopeHtml = `
+      <div class="po-card">
+        <div class="po-card-header">
+          <span class="po-card-titulo">\u{1F4C8} Evolução por loja</span>
+          <span class="po-card-badge">${anoAnterior} \u2192 ${anoVigente}</span>
         </div>
-        <div class="po-podio-loja">${r.nome}</div>
-        <div class="po-podio-cod">#${r.codigo}</div>
-        <div class="po-podio-pts" style="color:${corDif}">${sinal}${poFmt(r.dif)} pts</div>
-        <div class="po-podio-pct" style="color:${corDif}">${sinal}${r.pctCresc}%</div>
+        <div class="po-card-body" style="overflow-x:auto;">
+          <svg width="100%" viewBox="0 0 680 ${H}" style="min-width:560px;font-family:inherit;">
+            <text x="${xEsq}" y="34" text-anchor="middle" font-size="13" font-weight="800" fill="#9a7b1c">${anoAnterior}</text>
+            <text x="${xDir}" y="34" text-anchor="middle" font-size="13" font-weight="800" fill="#9a7b1c">${anoVigente}</text>
+            <line x1="${xEsq}" y1="44" x2="${xEsq}" y2="${base}" stroke="#c9a227" stroke-width="0.5" opacity="0.35"/>
+            <line x1="${xDir}" y1="44" x2="${xDir}" y2="${base}" stroke="#c9a227" stroke-width="0.5" opacity="0.35"/>
+            ${linhas}
+          </svg>
+        </div>
       </div>`;
-  };
+  }
 
-  const linhas = lista.map((r, i) => {
-    const pos = i + 1;
-    const cls = pos === 1 ? "ouro" : pos === 2 ? "prata" : pos === 3 ? "bronze" : "";
+  // ---------- LISTA COM BARRA DIVERGENTE ----------
+  const linhasLista = lista.map((r, i) => {
     const sinal = r.dif > 0 ? "+" : "";
     const corDif = r.dif > 0 ? "#1e7d45" : r.dif < 0 ? "#c0392b" : "#9aabb7";
-    const seta = r.dif > 0 ? "▲" : r.dif < 0 ? "▼" : "—";
-    // barra: verde p/ crescimento, vermelho suave p/ queda
-    const larg = Math.round((Math.abs(r.dif) / maxDif) * 100);
-    const corBarra = r.dif >= 0 ? "linear-gradient(90deg,#5cd49a,#1e7d45)" : "linear-gradient(90deg,#f3a9a9,#c0392b)";
+    const seta = r.dif > 0 ? "\u25B2" : r.dif < 0 ? "\u25BC" : "\u2014";
+    const larg = Math.round((Math.abs(r.dif) / maxDif) * 50); // metade da barra (centro = 0)
+    // barra divergente: cresce à direita do centro (verde) ou à esquerda (vermelho)
+    const ladoDir = r.dif >= 0;
+    const barra = `
+      <div class="po-div-bar">
+        <div class="po-div-half esq">${!ladoDir ? `<div class="po-div-fill neg" style="width:${larg*2}%"></div>` : ""}</div>
+        <div class="po-div-centro"></div>
+        <div class="po-div-half dir">${ladoDir ? `<div class="po-div-fill pos" style="width:${larg*2}%"></div>` : ""}</div>
+      </div>`;
     return `
       <tr onclick="poAbrirDetalheAnual('${r.codigo}')">
-        <td class="txt-center"><span class="po-pos ${cls}">${pos}</span></td>
+        <td class="txt-center" style="color:#9aabb7;font-weight:700">${i + 1}</td>
         <td>
           <div class="po-loja-nome">${r.nome}</div>
           <div class="po-loja-cod">#${r.codigo}</div>
         </td>
-        <td class="txt-center" style="color:#9aabb7;font-weight:700">${r.anterior ? poFmt(r.anterior) : "–"}</td>
-        <td class="txt-center" style="color:#9a7b1c;font-weight:800">${r.atual ? poFmt(r.atual) : "–"}</td>
+        <td class="txt-center" style="color:#9aabb7;font-weight:700">${r.anterior ? poFmt(r.anterior) : "\u2013"}</td>
+        <td class="txt-center" style="color:#9a7b1c;font-weight:800">${r.atual ? poFmt(r.atual) : "\u2013"}</td>
         <td class="txt-center" style="color:${corDif};font-weight:800">${seta} ${sinal}${poFmt(r.dif)}</td>
-        <td><div class="po-barra-bg"><div class="po-barra-fill" style="width:${larg}%;background:${corBarra}"></div></div></td>
+        <td style="min-width:140px">${barra}</td>
       </tr>`;
   }).join("");
 
   container.innerHTML = `
     <div class="po-grid" id="po-card-superacao">
-      <div class="po-col-12 po-card po-card-podio">
-        <div class="po-card-header">
-          <span class="po-card-titulo">🚀 Ranking de Superação — ${anoAnterior} → ${anoVigente}</span>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span class="po-card-badge">quem mais cresceu</span>
-            <button type="button" class="po-fs-btn" title="Tela cheia" onclick="poTelaCheia('po-card-superacao')"><i class="fas fa-expand"></i></button>
-          </div>
-        </div>
-        <div class="po-card-body">
-          <div class="po-podio">${coroaCard(p2, 2)}${coroaCard(p1, 1)}${coroaCard(p3, 3)}</div>
-        </div>
-      </div>
-
+      <div class="po-col-12">${heroHtml}</div>
+      <div class="po-col-12">${slopeHtml}</div>
       <div class="po-col-12 po-card">
         <div class="po-card-header">
           <span class="po-card-titulo">Evolução completa</span>
-          <span class="po-card-badge">${anoAnterior} vs ${anoVigente} · acumulado</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="po-card-badge">do maior crescimento ao menor</span>
+            <button type="button" class="po-fs-btn" title="Tela cheia" onclick="poTelaCheia('po-card-superacao')"><i class="fas fa-expand"></i></button>
+          </div>
         </div>
         <div class="po-card-body" style="padding:0;overflow-x:auto;">
           <table class="po-ranking-table">
             <thead><tr>
-              <th class="txt-center" style="width:50px">#</th>
+              <th class="txt-center" style="width:40px">#</th>
               <th>Loja</th>
               <th class="txt-center">${anoAnterior}</th>
               <th class="txt-center">${anoVigente}</th>
               <th class="txt-center">Evolução</th>
-              <th>Crescimento</th>
+              <th class="txt-center">\u2190 queda &nbsp;|&nbsp; crescimento \u2192</th>
             </tr></thead>
-            <tbody>${linhas}</tbody>
+            <tbody>${linhasLista}</tbody>
           </table>
         </div>
       </div>
