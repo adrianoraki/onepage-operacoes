@@ -977,9 +977,6 @@ async function telaComparativos() {
             <button class="cmp-exp cmp-exp-copy" onclick="comparativoCopiarImagem()" title="Copiar imagem (Ctrl+V)">
               <i class="fas fa-copy"></i><span>Copiar</span>
             </button>
-            <button class="cmp-exp cmp-exp-print" onclick="comparativoImprimir()" title="Imprimir / compartilhar">
-              <i class="fas fa-print"></i><span>Print</span>
-            </button>
             <button class="cmp-exp cmp-exp-pdf" onclick="comparativoExportarPDF()" title="Baixar PDF">
               <i class="fas fa-file-pdf"></i><span>PDF</span>
             </button>

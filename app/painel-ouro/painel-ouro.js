@@ -904,6 +904,12 @@ async function poRenderRankingAnual(container, ano) {
           <span class="po-card-titulo">🏆 Ranking Anual — ${ano}</span>
           <div style="display:flex;align-items:center;gap:10px;">
             <span class="po-card-badge">${ranking.length} lojas · atualizado automaticamente</span>
+            <button type="button" class="po-fs-btn" title="Copiar imagem (Ctrl+V)" onclick="poCopiarCard('po-card-ranking-anual')">
+              <i class="fas fa-copy"></i>
+            </button>
+            <button type="button" class="po-fs-btn" title="Imprimir / PDF" onclick="poImprimirCard('po-card-ranking-anual')">
+              <i class="fas fa-print"></i>
+            </button>
             <button type="button" class="po-fs-btn" title="Tela cheia" onclick="poTelaCheia('po-card-ranking-anual')">
               <i class="fas fa-expand"></i>
             </button>
@@ -1100,6 +1106,8 @@ async function poRenderRankingSemestre(container, ano, semestre, regional) {
           <span class="po-card-titulo">🏆 Ranking ${rotuloSem} — ${ano}</span>
           <div style="display:flex;align-items:center;gap:10px;">
             <span class="po-card-badge">${rotuloReg} · ${ranking.length} lojas</span>
+            <button type="button" class="po-fs-btn" title="Copiar imagem (Ctrl+V)" onclick="poCopiarCard('po-card-rank-sem')"><i class="fas fa-copy"></i></button>
+            <button type="button" class="po-fs-btn" title="Imprimir / PDF" onclick="poImprimirCard('po-card-rank-sem')"><i class="fas fa-print"></i></button>
             <button type="button" class="po-fs-btn" title="Tela cheia" onclick="poTelaCheia('po-card-rank-sem')"><i class="fas fa-expand"></i></button>
           </div>
         </div>
@@ -1658,3 +1666,92 @@ document.addEventListener("fullscreenchange", () => {
     if (typeof window.retomarTimerInatividade === "function") window.retomarTimerInatividade();
   }
 });
+
+// ============================================================
+// 📸 COPIAR / IMPRIMIR cards do Painel de Ouro (Ctrl+V e impressão)
+// ------------------------------------------------------------
+// Reaproveita o mesmo padrão dos Comparativos: botão "Copiar"
+// captura o card como imagem e copia pro clipboard; botão "PDF"
+// abre a impressão só daquele card.
+// ============================================================
+
+// carrega o html2canvas sob demanda
+function poCarregarHtml2Canvas() {
+  return new Promise((resolve, reject) => {
+    if (window.html2canvas) return resolve();
+    const src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+    if (document.querySelector(`script[data-cdn="${src}"]`)) {
+      const t = setInterval(() => { if (window.html2canvas) { clearInterval(t); resolve(); } }, 100);
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = src; s.dataset.cdn = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Falha ao carregar html2canvas"));
+    document.head.appendChild(s);
+  });
+}
+
+// toast discreto (aparece e some sozinho)
+window.poToast = function (msg, tipo = "sucesso") {
+  let t = document.getElementById("po-toast");
+  if (t) t.remove();
+  t = document.createElement("div");
+  t.id = "po-toast";
+  const cor = tipo === "erro" ? "#c0392b" : "#0f766e";
+  const ico = tipo === "erro" ? "⚠️" : "✅";
+  t.style.cssText = `position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:${cor};color:#fff;font-family:'Poppins',system-ui;font-size:14px;font-weight:600;
+    padding:12px 22px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.25);z-index:100000;
+    opacity:0;transition:opacity .25s,transform .25s;display:flex;align-items:center;gap:9px;max-width:90vw;`;
+  t.innerHTML = `<span>${ico}</span><span>${msg}</span>`;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => { t.style.opacity = "1"; t.style.transform = "translateX(-50%) translateY(0)"; });
+  setTimeout(() => { t.style.opacity = "0"; t.style.transform = "translateX(-50%) translateY(20px)";
+    setTimeout(() => t.remove(), 300); }, 3500);
+};
+
+// copia o card (pódio + tabela) como imagem para o clipboard
+window.poCopiarCard = async function (idCard) {
+  const alvo = document.getElementById(idCard);
+  if (!alvo) return;
+  try {
+    await poCarregarHtml2Canvas();
+    const canvas = await window.html2canvas(alvo, {
+      backgroundColor: "#241d0c", scale: 2, useCORS: true,
+    });
+    canvas.toBlob(async (blob) => {
+      if (!blob) { window.poToast("Falha ao gerar a imagem.", "erro"); return; }
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([new window.ClipboardItem({ "image/png": blob })]);
+          window.poToast("Imagem copiada! Cole com Ctrl+V.");
+        } else {
+          const link = document.createElement("a");
+          link.download = idCard + ".png";
+          link.href = URL.createObjectURL(blob);
+          link.click();
+          window.poToast("Seu navegador não copia imagem; baixei o arquivo.");
+        }
+      } catch (e) { console.error(e); window.poToast("Não foi possível copiar.", "erro"); }
+    }, "image/png");
+  } catch (e) { console.error(e); window.poToast("Não foi possível gerar a imagem.", "erro"); }
+};
+
+// imprime apenas aquele card (usa uma janela de impressão isolada)
+window.poImprimirCard = async function (idCard) {
+  const alvo = document.getElementById(idCard);
+  if (!alvo) return;
+  try {
+    await poCarregarHtml2Canvas();
+    const canvas = await window.html2canvas(alvo, { backgroundColor: "#241d0c", scale: 2, useCORS: true });
+    const img = canvas.toDataURL("image/png");
+    const win = window.open("", "_blank");
+    win.document.write(`<!DOCTYPE html><html><head><title>Impressão</title>
+      <style>@page{size:A4 landscape;margin:0;}
+      html,body{margin:0;padding:0;height:100%;}
+      img{width:100%;height:100%;object-fit:contain;display:block;}</style></head>
+      <body><img src="${img}" onload="setTimeout(()=>{window.print();},200)"></body></html>`);
+    win.document.close();
+  } catch (e) { console.error(e); window.poToast("Não foi possível imprimir.", "erro"); }
+};
