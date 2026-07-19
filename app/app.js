@@ -808,10 +808,14 @@ const iconesMenu = {
   configuracoes: "fa-gear",
 };
 
+// Tons suavizados (mistura ~35% branco sobre a cor original) — mesma
+// identidade de cor por área, só menos saturados no menu escuro. Mantém
+// em sincronia manual com as cores estáticas de .icon-* em
+// components/sidebar.html (dashboard/análises/comparativos/config).
 const coresMenu = {
-  dashboard: "#4CAF50",
-  analises: "#FFC107",
-  comparativos: "#9C27B0",
+  dashboard: "#8BCB8D",
+  analises: "#FFD75E",
+  comparativos: "#BF73CC",
   configuracoes: "#9E9E9E",
 };
 
@@ -824,11 +828,11 @@ const iconesClasse = {
 };
 
 const coresClasse = {
-  Auditoria: "#00BCD4",
-  "Frente de Caixa": "#FF9800",
-  Operações: "#4CAF50",
-  Prevenção: "#F44336",
-  "RH / Operacional": "#3F51B5",
+  Auditoria: "#59D3E3",
+  "Frente de Caixa": "#FFBC59",
+  Operações: "#8BCB8D",
+  Prevenção: "#F8857C",
+  "RH / Operacional": "#828ECF",
 };
 
 // ==========================
