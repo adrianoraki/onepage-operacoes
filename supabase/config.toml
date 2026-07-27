@@ -422,3 +422,13 @@ entrypoint = "./functions/create-user/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/create-user/*.html" ]
+
+# admin-usuarios faz sua PRÓPRIA validação do JWT dentro do código
+# (ver edge-functions/admin-usuarios/index.ts). Com verify_jwt=true (padrão),
+# o gateway do Supabase exige um JWT válido até no preflight OPTIONS —
+# que o navegador nunca envia com Authorization — e derruba o CORS antes
+# de a função rodar. Por isso o "criar usuário" dava Failed to fetch.
+[functions.admin-usuarios]
+enabled = true
+verify_jwt = false
+entrypoint = "../edge-functions/admin-usuarios/index.ts"
