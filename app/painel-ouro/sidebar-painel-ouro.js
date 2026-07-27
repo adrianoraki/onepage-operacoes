@@ -247,7 +247,6 @@ console.log("✅ sidebar-painel-ouro.js carregado");
   gap: 7px;
   width: 100%;
   padding: 7px 10px;
-  margin-bottom: 14px;
   background: rgba(255,255,255,0.08);
   border: 1px solid rgba(255,255,255,0.14);
   border-radius: 9px;
@@ -400,9 +399,14 @@ console.log("✅ sidebar-painel-ouro.js carregado");
 }
 
 /* Rodapé do sidebar ouro */
-.po-sb-footer {
+.po-sb-footer-area {
   padding-top: 12px;
   border-top: 1px solid rgba(201,162,39,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.po-sb-footer {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -461,12 +465,12 @@ console.log("✅ sidebar-painel-ouro.js carregado");
 
 /* Botão sair */
 .po-sb-btn-sair {
-  flex: 1;
+  flex: 0 0 auto;
   min-height: 40px;
-  border: none;
+  padding: 0 16px;
+  border: 1px solid rgba(220,38,38,0.2);
   border-radius: 10px;
   background: rgba(185,28,28,0.18);
-  border: 1px solid rgba(220,38,38,0.2);
   color: rgba(251,113,133,0.8);
   display: flex;
   align-items: center;
@@ -654,10 +658,6 @@ function poSbMontarSidebar() {
 
       <!-- CABEÇALHO -->
       <div class="po-sb-header">
-        <button type="button" class="po-sb-voltar" onclick="sairModoOuro()">
-          <i class="fas fa-arrow-left"></i>
-          Voltar ao menu
-        </button>
         <div class="po-sb-logo">
           <span class="po-sb-logo-ico">👑</span>
           <div class="po-sb-logo-text">
@@ -727,14 +727,20 @@ function poSbMontarSidebar() {
       </nav>
 
       <!-- RODAPÉ -->
-      <div class="po-sb-footer">
-        <button type="button" class="po-sb-btn-config" title="Configurações" onclick="logMenu('configuracoes'); abrirConfiguracoesMenu();">
-          <i class="fas fa-gear"></i>
+      <div class="po-sb-footer-area">
+        <button type="button" class="po-sb-voltar" onclick="sairModoOuro()">
+          <i class="fas fa-arrow-left"></i>
+          Voltar ao menu
         </button>
-        <button type="button" class="po-sb-btn-sair" onclick="logMenu('logout'); logout();">
-          <i class="fas fa-right-from-bracket"></i>
-          Sair
-        </button>
+        <div class="po-sb-footer">
+          <button type="button" class="po-sb-btn-config" title="Configurações" onclick="logMenu('configuracoes'); abrirConfiguracoesMenu();">
+            <i class="fas fa-gear"></i>
+          </button>
+          <button type="button" class="po-sb-btn-sair" onclick="logMenu('logout'); logout();">
+            <i class="fas fa-right-from-bracket"></i>
+            Sair
+          </button>
+        </div>
       </div>
 
     </div>`;
