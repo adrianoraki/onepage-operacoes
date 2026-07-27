@@ -53,9 +53,10 @@ body {
   overflow: hidden;
 }
 
-/* 👑 MODO PAINEL DE OURO — leve tingimento dourado no fundo */
+/* 👑 MODO PAINEL DE OURO — mantém a foto de fundo original */
 body.po-modo-ouro .main_box {
-  background: var(--op-gold-soft);
+  background: url("/assets/ouro.jpg") no-repeat center center;
+  background-size: cover;
 }
 
 /* 👑 Footer no modo ouro: tom dourado suave combinando com o painel */

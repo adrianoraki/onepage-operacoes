@@ -453,17 +453,14 @@
 
   /* ==========================
      🚪 LOGOUT (menor)
-     Neutro de propósito: sair da conta é ação do dia a dia, não um alerta —
-     vermelho fica reservado pra ação destrutiva de verdade (mesmo padrão
-     "glass" do botão de engrenagem ao lado, .btn-config-icon).
   ========================== */
   .btn-logout {
     flex: 1;
     min-height: 44px;
-    border: 1px solid var(--op-border, #e3e7ee);
+    border: none;
     border-radius: 12px;
-    background: var(--op-surface-2, #f5f7fa);
-    color: var(--op-ink-soft, #5b6472);
+    background: linear-gradient(90deg, #ff4d4d, #d93636);
+    color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -473,13 +470,12 @@
     cursor: pointer;
     transition:
       background 0.15s ease,
-      color 0.15s ease,
+      filter 0.15s ease,
       transform 0.16s ease;
   }
 
   .btn-logout:hover {
-    background: var(--op-accent-soft, #eaf0fe);
-    color: var(--op-accent, #2f6fe0);
+    filter: brightness(1.05);
     transform: translateY(-1px);
   }
 
