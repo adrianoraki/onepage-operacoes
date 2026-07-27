@@ -92,8 +92,8 @@ function garantirEstilosComparativo() {
       border-radius: 999px;
       font-size: 15px;
       font-weight: 900;
-      background: rgba(59, 130, 246, 0.24);
-      color: #dbeafe;
+      background: rgba(47, 111, 224, 0.12);
+      color: #1d4ed8;
       vertical-align: middle;
     }
 
@@ -113,15 +113,15 @@ function garantirEstilosComparativo() {
       margin: 10px 0 14px;
       padding: 10px 12px;
       border-radius: 10px;
-      background: rgba(15, 31, 46, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-      border: 1px solid rgba(148, 163, 184, 0.18);
-      color: #dbeafe;
+      background: var(--op-surface-2, #f5f7fa);
+      border: 1px solid var(--op-border, #e3e7ee);
+      color: var(--op-ink, #202a37);
       font-size: 12px;
       line-height: 1.45;
     }
 
     .comparativo-info-periodo small {
-      color: #9fb7d5;
+      color: var(--op-ink-muted, #8891a0);
     }
 
     .comparativo-filtros {
@@ -141,7 +141,7 @@ function garantirEstilosComparativo() {
     .comparativo-filtro-grupo label {
       font-size: 11px;
       font-weight: 800;
-      color: #dbeafe;
+      color: var(--op-ink-soft, #5b6472);
     }
 
     .comparativo-filtro-grupo select {
@@ -225,7 +225,7 @@ function garantirEstilosComparativo() {
     /* destaque da linha MÉDIA / TOTAL */
     .matriz-linha-resumo .matriz-resumo-cel,
     .matriz-linha-resumo .matriz-th-loja {
-      background: rgba(22, 70, 107, 0.6) !important;
+      background: var(--op-accent, #2f6fe0) !important;
       color: #ffffff !important;
       border-bottom: 3px solid #f0b429 !important;
       font-size: 14px !important;
