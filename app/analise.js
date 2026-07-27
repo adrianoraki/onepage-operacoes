@@ -1157,18 +1157,19 @@ function garantirEstilosAbasAnalise() {
   const style = document.createElement("style");
   style.id = "analise-abas-estilos";
   style.textContent = `
-    /* paleta profissional — deep navy + electric blue (dashboards SaaS/analytics) */
+    /* paleta soft light — segue os tokens --op-* do resto do app */
     :root {
       --an-page: transparent;
-      --an-card: rgba(18, 29, 51, 0.55);
-      --an-card-2: rgba(14, 24, 48, 0.50);
-      --an-line: rgba(148,163,184,0.16);
-      --an-txt: #f1f5f9;
-      --an-txt-soft: #8e9cb3;
-      --an-accent: #3a82ff;
-      --an-accent-soft: rgba(58,130,255,0.16);
-      --an-green: #34d399;
-      --an-red: #fb7185;
+      --an-card: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,250,252,0.98));
+      --an-card-solid: var(--op-surface, #ffffff);
+      --an-card-2: var(--op-surface-2, #f5f7fa);
+      --an-line: var(--op-border, #e3e7ee);
+      --an-txt: var(--op-ink, #202a37);
+      --an-txt-soft: var(--op-ink-muted, #8891a0);
+      --an-accent: var(--op-accent, #2f6fe0);
+      --an-accent-soft: var(--op-accent-soft, #eaf0fe);
+      --an-green: #15803d;
+      --an-red: #be123c;
     }
 
     /* o wrapper branco do layout NÃO pode aparecer atrás da análise */
@@ -1198,12 +1199,12 @@ function garantirEstilosAbasAnalise() {
       display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 6px;
     }
     .analise-filtros select {
-      background: var(--an-card); color: var(--an-txt);
+      background: var(--an-card-solid); color: var(--an-txt);
       border: 1px solid var(--an-line); border-radius: 10px;
       padding: 9px 14px; font-size: 13px; font-weight: 600;
       cursor: pointer; outline: none; transition: border-color 0.15s; min-width: 140px;
     }
-    .analise-filtros select:hover { border-color: rgba(58,130,255,0.55); }
+    .analise-filtros select:hover { border-color: rgba(47,111,224,0.45); }
     .analise-filtros select:focus { border-color: var(--an-accent); }
 
     /* abas */
@@ -1219,7 +1220,7 @@ function garantirEstilosAbasAnalise() {
       transition: color 0.15s, border-color 0.15s; margin-bottom: -1px;
     }
     .analise-aba:hover { color: var(--an-txt); }
-    .analise-aba.ativa { color: #fff; border-bottom-color: var(--an-accent); }
+    .analise-aba.ativa { color: var(--an-accent); border-bottom-color: var(--an-accent); }
     .analise-aba-ico { font-size: 14px; opacity: 0.9; }
 
     /* layout base (antes vinha do dashboard.css, agora autônomo) */
@@ -1236,9 +1237,7 @@ function garantirEstilosAbasAnalise() {
     #analiseConteudo .dashboard-card {
       background: var(--an-card); border: 1px solid var(--an-line);
       border-radius: 16px; padding: 22px 24px;
-      backdrop-filter: blur(12px) saturate(115%);
-      -webkit-backdrop-filter: blur(12px) saturate(115%);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+      box-shadow: 0 8px 24px rgba(15,23,42,0.08);
     }
     #analiseConteudo h3 { font-size: 16px; color: var(--an-txt); letter-spacing: 0.2px; }
 
@@ -1258,9 +1257,9 @@ function garantirEstilosAbasAnalise() {
     }
     .analise-tabela-var tbody td {
       padding: 12px 14px; color: var(--an-txt);
-      border-bottom: 1px solid rgba(148,163,184,0.06);
+      border-bottom: 1px solid var(--an-line);
     }
-    .analise-tabela-var tbody tr:hover { background: rgba(58,130,255,0.06); }
+    .analise-tabela-var tbody tr:hover { background: var(--an-accent-soft); }
     .analise-var-sobe { color: var(--an-green); font-weight: 800; }
     .analise-var-desce { color: var(--an-red); font-weight: 800; }
     .analise-var-igual { color: var(--an-txt-soft); font-weight: 700; }
@@ -1268,7 +1267,7 @@ function garantirEstilosAbasAnalise() {
     .analise-badge {
       display: inline-flex; align-items: center; justify-content: center;
       min-width: 32px; padding: 3px 9px; border-radius: 8px;
-      background: var(--an-accent-soft); color: #bcd4ff; font-weight: 800; font-size: 12px;
+      background: var(--an-accent-soft); color: var(--an-accent); font-weight: 800; font-size: 12px;
     }
 
     .analise-aviso {
@@ -1280,8 +1279,8 @@ function garantirEstilosAbasAnalise() {
     /* ===== PÓDIO DE CAMPEÃS (fixo no topo, horizontal) ===== */
     .analise-podio-fixo { margin: 6px 0 2px 0; }
     .analise-podio-wrap {
-      background: linear-gradient(180deg, #14213d 0%, #0e1830 100%);
-      border: 1px solid var(--an-line); border-radius: 14px;
+      background: linear-gradient(180deg, #fff9ec 0%, #fdf3de 100%);
+      border: 1px solid rgba(201,162,39,0.25); border-radius: 14px;
       padding: 12px 16px 14px;
     }
     .analise-podio-titulo {
@@ -1296,7 +1295,7 @@ function garantirEstilosAbasAnalise() {
     .podio-pos {
       flex: 1 1 0; min-width: 0;
       border-radius: 12px; padding: 10px 12px;
-      border: 1px solid var(--an-line); background: var(--an-card);
+      border: 1px solid var(--an-line); background: var(--an-card-solid);
       display: flex; align-items: center; gap: 10px;
     }
     .podio-pos .podio-medalha { font-size: 24px; line-height: 1; flex-shrink: 0; }
@@ -1312,14 +1311,14 @@ function garantirEstilosAbasAnalise() {
       background: linear-gradient(180deg, rgba(240,180,41,0.16), rgba(240,180,41,0.04));
       border-color: rgba(240,180,41,0.5);
     }
-    .podio-pos.pos-1 .podio-valor { color: #f5c451; }
+    .podio-pos.pos-1 .podio-valor { color: #9a7b1c; }
     .podio-pos.pos-1 .podio-medalha { font-size: 28px; }
     /* 2º — prata */
-    .podio-pos.pos-2 { border-color: rgba(203,213,225,0.35); }
-    .podio-pos.pos-2 .podio-valor { color: #cbd5e1; }
+    .podio-pos.pos-2 { border-color: rgba(148,163,184,0.4); }
+    .podio-pos.pos-2 .podio-valor { color: #64748b; }
     /* 3º — bronze */
     .podio-pos.pos-3 { border-color: rgba(180,120,70,0.4); }
-    .podio-pos.pos-3 .podio-valor { color: #d8995e; }
+    .podio-pos.pos-3 .podio-valor { color: #a8672f; }
     @media (max-width: 640px) {
       .podio-pos .podio-valor { font-size: 13px; }
       .podio-pos .podio-loja { font-size: 12px; }
