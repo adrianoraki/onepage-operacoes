@@ -13,6 +13,23 @@
 :root {
   --sidebar-w: clamp(270px, 22vw, 340px); /* mesma largura atual */
   --footer-h: 34px;
+
+  /* ---------- 🎨 Paleta soft light (compartilhada por todo o app) ---------- */
+  --op-bg: #eef1f6;
+  --op-surface: #ffffff;
+  --op-surface-2: #f5f7fa;
+  --op-border: #e3e7ee;
+  --op-ink: #202a37;
+  --op-ink-soft: #5b6472;
+  --op-ink-muted: #8891a0;
+  --op-accent: #2f6fe0;
+  --op-accent-2: #5b93f5;
+  --op-accent-soft: #eaf0fe;
+  --op-gold: #c9962a;
+  --op-gold-deep: #8a6512;
+  --op-gold-soft: #fdf0d2;
+  --op-danger: #d93636;
+  --op-success: #1e7d45;
 }
 
 html,
@@ -32,44 +49,24 @@ body {
   min-height: 100dvh;
   height: 100dvh;
 
-  background: url("/assets/side.jpeg") no-repeat center center;
-  background-size: cover;
+  background: var(--op-bg);
   overflow: hidden;
 }
 
-/* 👑 MODO PAINEL DE OURO — troca a imagem de fundo (teclado → ouro.jpg) */
+/* 👑 MODO PAINEL DE OURO — leve tingimento dourado no fundo */
 body.po-modo-ouro .main_box {
-  background-image: url("/assets/ouro.jpg");
+  background: var(--op-gold-soft);
 }
 
-.main_box::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(13, 27, 42, 0.38) 0%, rgba(10, 22, 36, 0.46) 100%);
-  z-index: 0;
-  transition: background 0.3s ease;
-}
-
-/* No modo ouro o overlay fica mais leve e quente para a foto aparecer */
-body.po-modo-ouro .main_box::before {
-  background: linear-gradient(180deg, rgba(8,6,3,0.34) 0%, rgba(12,9,4,0.42) 100%);
-}
-
-/* 🖼️ Tela inicial (Análises): overlay bem leve para a imagem de fundo aparecer */
-body.tela-analises:not(.po-modo-ouro) .main_box::before {
-  background: linear-gradient(180deg, rgba(13, 27, 42, 0.18) 0%, rgba(10, 22, 36, 0.26) 100%);
-}
-
-/* 👑 Footer no modo ouro: tom escuro-dourado translúcido combinando com o painel */
+/* 👑 Footer no modo ouro: tom dourado suave combinando com o painel */
 body.po-modo-ouro .rodape-fixo {
-  background: linear-gradient(90deg, rgba(20,14,4,0.92) 0%, rgba(34,24,6,0.92) 50%, rgba(20,14,4,0.92) 100%);
+  background: var(--op-gold-soft);
   border-top: 1px solid rgba(201, 162, 39, 0.35);
-  color: #e8d9a8;
-  box-shadow: 0 -2px 16px rgba(120, 90, 20, 0.25);
+  color: var(--op-gold-deep);
+  box-shadow: 0 -2px 10px rgba(120, 90, 20, 0.08);
 }
 body.po-modo-ouro .rodape-fixo .link-autor {
-  color: #e8c84a;
+  color: var(--op-gold-deep);
 }
 
 /* ==========================
@@ -95,12 +92,10 @@ body.po-modo-ouro .rodape-fixo .link-autor {
   display: flex;
   flex-direction: column;
 
-  background: rgba(255, 255, 255, 0.13);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--op-surface);
 
-  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 2px 0 16px rgba(15, 23, 42, 0.05);
+  border-right: 1px solid var(--op-border);
 
   position: relative;
   z-index: 10;
@@ -112,7 +107,7 @@ body.po-modo-ouro .rodape-fixo .link-autor {
 ========================== */
 .logo {
   padding: 18px 20px 16px 22px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--op-border);
 }
 
 .logo a {
@@ -120,7 +115,7 @@ body.po-modo-ouro .rodape-fixo .link-autor {
   align-items: center;
   gap: 10px;
 
-  color: white;
+  color: var(--op-ink);
   text-decoration: none;
   font-size: clamp(16px, 1.2vw, 20px);
   font-weight: 600;
@@ -160,7 +155,7 @@ body.po-modo-ouro .rodape-fixo .link-autor {
   gap: 12px;
 
   padding: 13px 20px;
-  color: #fff;
+  color: var(--op-ink-soft);
 
   cursor: pointer;
   transition: all 0.2s ease;
@@ -184,13 +179,14 @@ body.po-modo-ouro .rodape-fixo .link-autor {
 }
 
 .menu ul li:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-left-color: rgba(255, 255, 255, 0.7);
+  background: var(--op-surface-2);
+  border-left-color: var(--op-border);
 }
 
 .menu ul li.ativo {
-  background: rgba(63, 123, 204, 0.28);
-  border-left-color: #5a94e0;
+  background: var(--op-accent-soft);
+  border-left-color: var(--op-accent);
+  color: var(--op-accent);
 }
 
 /* ==========================
@@ -203,7 +199,7 @@ body.po-modo-ouro .rodape-fixo .link-autor {
 .submenu li {
   padding-left: 40px;
   font-size: 13px;
-  color: #d8d8d8;
+  color: var(--op-ink-muted);
 }
 
 /* ==========================
@@ -212,12 +208,8 @@ body.po-modo-ouro .rodape-fixo .link-autor {
 .bottom-area {
   margin-top: auto;
   padding: 12px 14px 14px;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.28),
-    rgba(0, 0, 0, 0.14)
-  );
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--op-surface-2);
+  border-top: 1px solid var(--op-border);
 }
 
 /* ==========================
@@ -243,17 +235,17 @@ body.po-modo-ouro .rodape-fixo .link-autor {
   padding: 12px 14px;
   border-radius: 12px;
 
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--op-surface-2);
+  border: 1px solid var(--op-border);
 
-  color: white;
+  color: var(--op-ink);
   font-size: 14px;
   font-weight: 600;
 }
 
 .config-btn:hover .config-btn-content,
 .config-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--op-accent-soft);
 }
 
 .config-btn i {
@@ -267,8 +259,8 @@ body.po-modo-ouro .rodape-fixo .link-autor {
   padding: 14px;
   border-radius: 14px;
 
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--op-surface-2);
+  border: 1px solid var(--op-border);
 }
 
 .user-info {
@@ -282,7 +274,7 @@ body.po-modo-ouro .rodape-fixo .link-autor {
   height: clamp(42px, 4.4vw, 58px);
 
   border-radius: 50%;
-  background: linear-gradient(135deg, #5a94e0, #2d7bb5);
+  background: linear-gradient(135deg, var(--op-accent-2), var(--op-accent));
 
   display: flex;
   align-items: center;
@@ -293,7 +285,7 @@ body.po-modo-ouro .rodape-fixo .link-autor {
   font-weight: 700;
 
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(30, 96, 145, 0.3);
+  box-shadow: 0 4px 12px rgba(47, 111, 224, 0.28);
 }
 
 .dados {
@@ -304,7 +296,7 @@ body.po-modo-ouro .rodape-fixo .link-autor {
 }
 
 .dados .nome {
-  color: white;
+  color: var(--op-ink);
   font-weight: 600;
   font-size: clamp(13px, 1vw, 16px);
   line-height: 1.2;
@@ -315,13 +307,13 @@ body.po-modo-ouro .rodape-fixo .link-autor {
 }
 
 .dados .matricula {
-  color: #d7d7d7;
+  color: var(--op-ink-soft);
   font-size: clamp(11px, 0.9vw, 13px);
   line-height: 1.2;
 }
 
 .dados .email {
-  color: #b9b9b9;
+  color: var(--op-ink-muted);
   font-size: clamp(10px, 0.85vw, 12px);
   line-height: 1.2;
 
@@ -407,7 +399,7 @@ body.po-modo-ouro .rodape-fixo .link-autor {
   height: 48px;
   border-radius: 10px;
   border: none;
-  background: linear-gradient(90deg, #2d7bb5, #155a8a);
+  background: linear-gradient(90deg, var(--op-accent-2), var(--op-accent));
   color: white;
   font-weight: 600;
   cursor: pointer;
@@ -453,16 +445,14 @@ body.po-modo-ouro .rodape-fixo .link-autor {
     align-items: center;
     justify-content: center;
 
-    background: rgba(15, 23, 34, 0.92);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    color: #aebccb;
+    background: var(--op-surface);
+    color: var(--op-ink-muted);
     text-align: center;
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 0.4px;
-    border-top: 1px solid rgba(255, 255, 255, 0.07);
-    box-shadow: 0 -2px 14px rgba(0, 0, 0, 0.3);
+    border-top: 1px solid var(--op-border);
+    box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.04);
     z-index: 50;
 }
 
@@ -472,14 +462,14 @@ body.po-modo-ouro .rodape-fixo .link-autor {
 
 /* Link do Autor */
 .link-autor {
-    color: #4da6ff;
+    color: var(--op-accent);
     text-decoration: none;
     font-weight: bold;
     transition: color 0.3s ease;
 }
 
 .link-autor:hover {
-    color: #99ccff;
+    color: var(--op-accent-2);
     text-decoration: underline;
 }
 
@@ -565,20 +555,18 @@ body.po-modo-ouro .rodape-fixo .link-autor {
     height: 42px;
     align-items: center;
     justify-content: center;
-    background: rgba(10, 20, 34, 0.88);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--op-surface);
+    border: 1px solid var(--op-border);
     border-radius: 10px;
-    color: white;
+    color: var(--op-ink);
     cursor: pointer;
     font-size: 17px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
     transition: background 0.2s ease;
   }
 
   .btn-hamburger:active {
-    background: rgba(63, 123, 204, 0.4);
+    background: var(--op-accent-soft);
   }
 
   .logo {
@@ -760,24 +748,22 @@ body.po-modo-ouro .rodape-fixo .link-autor {
   margin-bottom: 24px;
   border-radius: 16px;
 
-  background: linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.05) 100%);
-  backdrop-filter: blur(14px) saturate(120%);
-  -webkit-backdrop-filter: blur(14px) saturate(120%);
-  border: 1px solid rgba(255,255,255,0.12);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  background: var(--op-surface);
+  border: 1px solid var(--op-border);
+  box-shadow: 0 4px 16px rgba(15,23,42,0.06);
 }
 
 .app-header .ah-esq { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .app-header .ah-titulo {
   font-size: clamp(16px, 1.8vw, 22px);
   font-weight: 800;
-  color: #ffffff;
+  color: var(--op-ink);
   letter-spacing: 0.2px;
   line-height: 1.1;
 }
 .app-header .ah-saud {
   font-size: 12.5px;
-  color: #aebccb;
+  color: var(--op-ink-muted);
   font-weight: 500;
 }
 
@@ -786,17 +772,17 @@ body.po-modo-ouro .rodape-fixo .link-autor {
 .app-header .ah-icon-btn {
   width: 42px; height: 42px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
-  color: #cdd8e4;
+  border: 1px solid var(--op-border);
+  background: var(--op-surface-2);
+  color: var(--op-ink-soft);
   font-size: 16px;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: all 0.15s ease;
 }
 .app-header .ah-icon-btn:hover {
-  background: rgba(255,255,255,0.12);
-  color: #fff;
+  background: var(--op-accent-soft);
+  color: var(--op-accent);
   transform: translateY(-1px);
 }
 
@@ -804,53 +790,53 @@ body.po-modo-ouro .rodape-fixo .link-autor {
   display: flex; align-items: center; gap: 10px;
   padding: 6px 14px 6px 6px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--op-border);
+  background: var(--op-surface-2);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 .app-header .ah-perfil:hover {
-  background: rgba(255,255,255,0.12);
+  background: var(--op-accent-soft);
   transform: translateY(-1px);
 }
 .app-header .ah-avatar {
   width: 38px; height: 38px; min-width: 38px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5a94e0, #2d7bb5);
+  background: linear-gradient(135deg, var(--op-accent-2), var(--op-accent));
   background-size: cover; background-position: center;
   color: #fff; font-weight: 800; font-size: 14px;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 12px rgba(45,123,181,0.35);
+  box-shadow: 0 4px 12px rgba(47,111,224,0.28);
 }
 .app-header .ah-perfil-txt { display: flex; flex-direction: column; line-height: 1.15; text-align: left; }
-.app-header .ah-nome { font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
-.app-header .ah-funcao { font-size: 11px; color: #9fb0c2; font-weight: 500; }
+.app-header .ah-nome { font-size: 13px; font-weight: 700; color: var(--op-ink); white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.app-header .ah-funcao { font-size: 11px; color: var(--op-ink-muted); font-weight: 500; }
 
-/* 👑 Tema Painel de Ouro: header dourado */
+/* 👑 Tema Painel de Ouro: header dourado suave */
 body.po-modo-ouro .app-header {
-  background: linear-gradient(135deg, rgba(40,30,8,0.55) 0%, rgba(28,20,5,0.45) 100%);
-  border: 1px solid rgba(201,162,39,0.32);
-  box-shadow: 0 8px 24px rgba(120,90,20,0.22);
+  background: var(--op-gold-soft);
+  border: 1px solid rgba(201,162,39,0.35);
+  box-shadow: 0 4px 16px rgba(120,90,20,0.08);
 }
-body.po-modo-ouro .app-header .ah-titulo { color: #f5e6b8; }
-body.po-modo-ouro .app-header .ah-saud { color: #cbb87e; }
+body.po-modo-ouro .app-header .ah-titulo { color: var(--op-gold-deep); }
+body.po-modo-ouro .app-header .ah-saud { color: #a9822f; }
 body.po-modo-ouro .app-header .ah-avatar {
   background: linear-gradient(135deg, #e8c84a, #c9a227);
-  box-shadow: 0 4px 12px rgba(201,162,39,0.4);
+  box-shadow: 0 4px 12px rgba(201,162,39,0.35);
   color: #3a2c08;
 }
 body.po-modo-ouro .app-header .ah-perfil,
 body.po-modo-ouro .app-header .ah-icon-btn {
   border-color: rgba(201,162,39,0.3);
-  background: rgba(201,162,39,0.08);
-  color: #e8d9a8;
+  background: rgba(201,162,39,0.10);
+  color: var(--op-gold-deep);
 }
 body.po-modo-ouro .app-header .ah-perfil:hover,
 body.po-modo-ouro .app-header .ah-icon-btn:hover {
-  background: rgba(201,162,39,0.16);
+  background: rgba(201,162,39,0.18);
 }
-body.po-modo-ouro .app-header .ah-nome { color: #f5e6b8; }
-body.po-modo-ouro .app-header .ah-funcao { color: #cbb87e; }
+body.po-modo-ouro .app-header .ah-nome { color: var(--op-gold-deep); }
+body.po-modo-ouro .app-header .ah-funcao { color: #a9822f; }
 
 /* Responsivo: em telas estreitas, esconde a saudação e o texto do perfil */
 @media (max-width: 640px) {

@@ -1,20 +1,20 @@
 /* ============================================================
-   🔥 COMPARATIVOS — HEATMAP + MATRIZ BI · DARK MODE PADRÃO
-   Estratégia: dark por padrão, escala fluida com clamp(),
+   🔥 COMPARATIVOS — HEATMAP + MATRIZ BI · SOFT LIGHT PADRÃO
+   Estratégia: light por padrão, escala fluida com clamp(),
    breakpoints para celular / tablet / desktop / TV.
    ============================================================ */
 
-/* ---------- Paleta dark + tokens fluidos ---------- */
+/* ---------- Paleta soft light + tokens fluidos ---------- */
 .comparativo-container {
   --hm-bg: transparent;
-  --hm-card: rgba(17, 32, 47, 0.55);
-  --hm-card-2: rgba(22, 39, 58, 0.55);
-  --hm-card-3: rgba(5, 13, 22, 0.5);
-  --hm-head-ind: #13405f;
-  --hm-borda: rgba(255,255,255,0.10);
-  --hm-txt: #eaf2f9;
-  --hm-txt-2: #8aa0b4;
-  --hm-azul: #2d7bb5;
+  --hm-card: var(--op-surface, #ffffff);
+  --hm-card-2: var(--op-surface-2, #f5f7fa);
+  --hm-card-3: #eef1f6;
+  --hm-head-ind: var(--op-accent-soft, #eaf0fe);
+  --hm-borda: var(--op-border, #e3e7ee);
+  --hm-txt: var(--op-ink, #202a37);
+  --hm-txt-2: var(--op-ink-muted, #8891a0);
+  --hm-azul: var(--op-accent, #2f6fe0);
 
   --hm-gap: clamp(14px, 2vw, 24px);
   --hm-radius: 14px;
@@ -72,7 +72,7 @@
 .comparativo-titulo {
   font-size: var(--hm-fonte-titulo);
   font-weight: 800;
-  color: #fff;
+  color: var(--hm-txt);
   letter-spacing: -0.6px;
   line-height: 1.1;
 }
@@ -88,10 +88,10 @@
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid var(--hm-borda);
   border-radius: 10px;
-  background: rgba(255,255,255,0.08);
-  color: #fff;
+  background: var(--hm-card-2);
+  color: var(--hm-txt);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -102,7 +102,8 @@
 .comparativo-btn-tela:hover {
   border-color: var(--hm-azul);
   background: var(--hm-azul);
-  box-shadow: 0 4px 16px rgba(30,96,145,0.4);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(47,111,224,0.28);
 }
 .comparativo-btn-tela i { font-size: 14px; }
 
@@ -112,13 +113,13 @@
   gap: 12px;
   flex-wrap: wrap;
   padding: clamp(12px, 1.4vw, 16px);
-  background: rgba(255,255,255,0.04);
+  background: var(--hm-card-2);
   border: 1px solid var(--hm-borda);
   border-radius: 12px;
 }
 .comparativo-filtros select {
   padding: 10px 14px;
-  border: 1px solid #2a455f;
+  border: 1px solid var(--hm-borda);
   border-radius: 8px;
   background: var(--hm-card-2);
   color: var(--hm-txt);
@@ -141,7 +142,7 @@
   display: inline-flex;
   gap: 4px;
   padding: 4px;
-  background: rgba(255,255,255,0.06);
+  background: var(--hm-card-2);
   border-radius: 12px;
   width: fit-content;
   max-width: 100%;
@@ -153,7 +154,7 @@
   gap: 6px;
   border: none;
   background: transparent;
-  color: #aabfd0;
+  color: var(--hm-txt-2);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.3px;
@@ -162,8 +163,8 @@
   cursor: pointer;
   transition: all 0.18s;
 }
-.comparativo-aba:hover { color: #fff; background: rgba(255,255,255,0.06); }
-.comparativo-aba.ativa { background: var(--hm-azul); color: #fff; box-shadow: 0 2px 10px rgba(30,96,145,0.4); }
+.comparativo-aba:hover { color: var(--hm-txt); background: var(--hm-card); }
+.comparativo-aba.ativa { background: var(--hm-azul); color: #fff; box-shadow: 0 2px 10px rgba(47,111,224,0.3); }
 .comparativo-aba i { font-size: 13px; }
 
 /* ---------- Conteúdo ---------- */
@@ -184,7 +185,7 @@
   border-radius: var(--hm-radius);
   border: 1px solid var(--hm-borda);
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+  box-shadow: 0 4px 20px rgba(15,23,42,0.08);
 }
 .regional-titulo {
   display: flex;
@@ -192,7 +193,7 @@
   justify-content: space-between;
   font-size: clamp(15px, 1.8vw, 18px);
   font-weight: 800;
-  color: #fff;
+  color: var(--hm-txt);
   padding: 14px clamp(14px, 1.8vw, 20px);
   background: linear-gradient(90deg, var(--hm-card-2), var(--hm-card));
   border-bottom: 1px solid var(--hm-borda);
@@ -200,8 +201,8 @@
 .regional-contagem {
   font-size: 11px;
   font-weight: 600;
-  color: #cfe0ee;
-  background: rgba(255,255,255,0.1);
+  color: var(--hm-azul);
+  background: var(--hm-head-ind);
   padding: 2px 12px;
   border-radius: 99px;
 }
@@ -218,7 +219,7 @@
   padding: 12px 16px; text-align: left; font-weight: 700; color: var(--hm-txt-2);
   letter-spacing: 0.3px; text-transform: uppercase; font-size: 11px;
 }
-.comparativo-row { font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.04); transition: filter 0.15s; }
+.comparativo-row { font-weight: 600; border-bottom: 1px solid var(--hm-borda); transition: filter 0.15s; }
 .comparativo-row:last-child { border-bottom: none; }
 .comparativo-row:hover { filter: brightness(1.08); }
 .col-rank { width: 50px; text-align: center; font-weight: 800; font-size: 12px; padding: 13px 8px; }
@@ -233,25 +234,23 @@
   border: 1px solid var(--hm-borda);
   border-radius: var(--hm-radius);
   overflow: hidden;
-  backdrop-filter: blur(12px) saturate(115%);
-  -webkit-backdrop-filter: blur(12px) saturate(115%);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  box-shadow: 0 4px 20px rgba(15,23,42,0.06);
 }
 .matriz-scroll { overflow-x: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
 .matriz-scroll::-webkit-scrollbar { height: 8px; }
-.matriz-scroll::-webkit-scrollbar-thumb { background: #2a455f; border-radius: 99px; }
+.matriz-scroll::-webkit-scrollbar-thumb { background: var(--hm-borda); border-radius: 99px; }
 .matriz-tabela { width: 100%; border-collapse: separate; border-spacing: 3px; padding: 6px; }
 
 /* ranking */
 .matriz-th-rank {
   position: sticky; left: 0; z-index: 4;
-  background: var(--hm-card-3); color: #fff;
+  background: var(--hm-card-3); color: var(--hm-txt);
   font-size: 11px; font-weight: 700; text-align: center;
   padding: 12px 8px; border-radius: 8px; min-width: 46px;
 }
 .matriz-rank {
   position: sticky; left: 0; z-index: 3;
-  background: var(--hm-card-2); color: #6fb3e8;
+  background: var(--hm-card-2); color: var(--hm-azul);
   font-weight: 800; font-size: clamp(12px, 1.4vw, 15px);
   text-align: center; padding: 10px 8px; border-radius: 8px; min-width: 46px;
 }
@@ -259,7 +258,7 @@
 /* cabeçalhos */
 .matriz-th-loja {
   position: sticky; left: 0; z-index: 4;
-  background: var(--hm-card-3); color: #fff;
+  background: var(--hm-card-3); color: var(--hm-txt);
   font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
   text-align: left; padding: 12px 18px; border-radius: 8px;
   width: 1%; white-space: nowrap;
@@ -273,7 +272,7 @@
 .matriz-th-nome { display: block; }
 .matriz-th-uni {
   display: inline-block; margin-top: 3px; font-size: 9px; font-weight: 700;
-  opacity: 0.7; background: rgba(255,255,255,0.15); padding: 1px 6px; border-radius: 99px;
+  opacity: 0.85; background: rgba(47,111,224,0.12); padding: 1px 6px; border-radius: 99px;
 }
 
 /* primeira coluna loja — largura do MAIOR nome (sem cortar) */
@@ -284,7 +283,7 @@
 }
 /* sombra à direita das colunas fixas (separa do conteúdo que rola atrás) */
 .matriz-th-loja, .matriz-loja {
-  box-shadow: 8px 0 10px -6px rgba(0, 0, 0, 0.55);
+  box-shadow: 8px 0 10px -6px rgba(15, 23, 42, 0.12);
 }
 
 /* a coluna # e Loja da LINHA DE RESUMO também ficam fixas e por cima */
@@ -310,15 +309,15 @@
   white-space: nowrap;
 }
 .matriz-celula:hover { transform: scale(1.06); position: relative; z-index: 1; }
-.matriz-vazia { background: #1a2c3d !important; color: #5a7286 !important; font-weight: 500; }
+.matriz-vazia { background: var(--hm-card-2) !important; color: var(--hm-txt-2) !important; font-weight: 500; }
 .matriz-justificativa {
-  background: #2a2410 !important;
+  background: #fdf3d9 !important;
   vertical-align: middle;
   padding: 4px 6px !important;
 }
 .matriz-justif-txt {
   display: block;
-  color: #fbbf24;
+  color: #92650a;
   font-weight: 700;
   font-size: 10px;
   line-height: 1.2;
@@ -430,5 +429,5 @@
   min-height: 300px; font-size: 16px; color: var(--hm-txt-2); font-weight: 600;
   animation: hmPulse 1.5s ease-in-out infinite;
 }
-.loading-erro { color: #ff6b6b !important; animation: none !important; }
+.loading-erro { color: #d93636 !important; animation: none !important; }
 @keyframes hmPulse { 0%,100% { opacity: .7; } 50% { opacity: 1; } }

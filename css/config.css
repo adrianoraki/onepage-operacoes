@@ -1,27 +1,27 @@
 /* ==========================================================
-   ⚙️ CONFIGURAÇÕES — TEMA DARK
-   Paleta navy + accent azul (igual Análises).
+   ⚙️ CONFIGURAÇÕES — TEMA SOFT LIGHT
+   Paleta clara + accent azul (igual Análises).
    Cores de perfil: master(ouro) admin(azul) usuario(cinza).
    Cores de grupo de permissão:
      acesso(azul) edição(verde) administração(roxo) escopo(ciano)
 ========================================================== */
 :root {
   --cfg-page: transparent;
-  --cfg-card: rgba(18, 29, 51, 0.55);
-  --cfg-card2: rgba(14, 24, 48, 0.50);
-  --cfg-line: rgba(148, 163, 184, 0.16);
-  --cfg-txt: #f1f5f9;
-  --cfg-soft: #8e9cb3;
-  --cfg-accent: #3a82ff;
+  --cfg-card: var(--op-surface);
+  --cfg-card2: var(--op-surface-2);
+  --cfg-line: var(--op-border);
+  --cfg-txt: var(--op-ink);
+  --cfg-soft: var(--op-ink-muted);
+  --cfg-accent: var(--op-accent);
 
-  --cfg-master: #f5c451;
-  --cfg-admin: #3a82ff;
-  --cfg-user: #94a3b8;
+  --cfg-master: #9a7b1c;
+  --cfg-admin: var(--op-accent);
+  --cfg-user: #64748b;
 
-  --g-acesso: #3a82ff;
-  --g-edicao: #34d399;
-  --g-admin: #c084fc;
-  --g-escopo: #22d3ee;
+  --g-acesso: var(--op-accent);
+  --g-edicao: #15803d;
+  --g-admin: #9333ea;
+  --g-escopo: #0e7490;
 }
 
 /* ===== FULL-BLEED ESCURO (neutraliza o card branco padrão) ===== */
@@ -55,7 +55,7 @@
   padding: 13px 18px;
   border-radius: 12px;
   border: 1px solid var(--cfg-line);
-  background: linear-gradient(180deg, rgba(22,36,63,0.55), rgba(16,26,48,0.50));
+  background: linear-gradient(180deg, var(--op-surface-2), var(--op-surface));
   color: var(--cfg-txt);
   font-weight: 700;
   font-size: 13.5px;
@@ -136,7 +136,7 @@
   padding: 10px 16px;
   border-radius: 10px;
   border: 1px solid var(--cfg-line);
-  background: linear-gradient(180deg, #1b2c4d, #13203a);
+  background: linear-gradient(180deg, var(--op-surface-2), var(--op-surface));
   color: var(--cfg-txt);
   font-weight: 700;
   font-size: 13px;
@@ -300,12 +300,12 @@
   font-weight: 700;
   line-height: 1.3;
 }
-.perm-acesso { background: rgba(58, 130, 255, 0.12); color: #7eb0ff; border-color: rgba(58, 130, 255, 0.3); }
-.perm-edicao { background: rgba(52, 211, 153, 0.12); color: #5ee9b5; border-color: rgba(52, 211, 153, 0.3); }
-.perm-admin { background: rgba(192, 132, 252, 0.12); color: #d4b1ff; border-color: rgba(192, 132, 252, 0.3); }
-.perm-escopo { background: rgba(34, 211, 238, 0.12); color: #67e8f9; border-color: rgba(34, 211, 238, 0.3); }
+.perm-acesso { background: rgba(58, 130, 255, 0.12); color: #1d4ed8; border-color: rgba(58, 130, 255, 0.3); }
+.perm-edicao { background: rgba(52, 211, 153, 0.12); color: #15803d; border-color: rgba(52, 211, 153, 0.3); }
+.perm-admin { background: rgba(192, 132, 252, 0.12); color: #7e22ce; border-color: rgba(192, 132, 252, 0.3); }
+.perm-escopo { background: rgba(34, 211, 238, 0.12); color: #0e7490; border-color: rgba(34, 211, 238, 0.3); }
 .perm-master { background: rgba(245, 196, 81, 0.14); color: var(--cfg-master); border-color: rgba(245, 196, 81, 0.4); }
-.perm-total { background: rgba(52, 211, 153, 0.12); color: #5ee9b5; border-color: rgba(52, 211, 153, 0.3); }
+.perm-total { background: rgba(52, 211, 153, 0.12); color: #15803d; border-color: rgba(52, 211, 153, 0.3); }
 .perm-vazia { color: var(--cfg-soft); font-size: 12px; font-style: italic; }
 
 /* ===== AÇÃO ===== */
@@ -314,7 +314,7 @@
   width: 36px; height: 36px;
   border-radius: 10px;
   border: 1px solid var(--cfg-line);
-  background: linear-gradient(180deg, #1b2c4d, #13203a);
+  background: linear-gradient(180deg, var(--op-surface-2), var(--op-surface));
   color: var(--cfg-txt);
   cursor: pointer;
   font-size: 15px;
@@ -333,9 +333,9 @@
 
 .status-autosave { margin-bottom: 14px; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: 600; line-height: 1.3; }
 .status-autosave.neutro { background: var(--cfg-card2); color: var(--cfg-soft); border: 1px solid var(--cfg-line); }
-.status-autosave.info { background: rgba(58,130,255,0.1); color: #7eb0ff; border: 1px solid rgba(58,130,255,0.3); }
-.status-autosave.sucesso { background: rgba(52,211,153,0.1); color: #5ee9b5; border: 1px solid rgba(52,211,153,0.35); }
-.status-autosave.erro { background: rgba(251,113,133,0.1); color: #fb7185; border: 1px solid rgba(251,113,133,0.35); }
+.status-autosave.info { background: rgba(58,130,255,0.1); color: #1d4ed8; border: 1px solid rgba(58,130,255,0.3); }
+.status-autosave.sucesso { background: rgba(52,211,153,0.1); color: #15803d; border: 1px solid rgba(52,211,153,0.35); }
+.status-autosave.erro { background: rgba(251,113,133,0.1); color: #be123c; border: 1px solid rgba(251,113,133,0.35); }
 
 /* ===== LOGS ===== */
 .tabela-logs th, .tabela-logs td { font-size: 12px; padding: 10px 8px; vertical-align: middle; color: var(--cfg-txt); border-bottom: 1px solid var(--cfg-line); }
@@ -414,11 +414,11 @@
   padding: 0 12px;
 }
 .config-full input::placeholder { color: #5d6b82; }
-.config-full input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+.config-full input[type="date"]::-webkit-calendar-picker-indicator { filter: none; }
 
 /* tabs (Todos / Alterações / ...) */
 .config-full .btn-filtro-regional {
-  background: linear-gradient(180deg, rgba(22,36,63,0.55), rgba(16,26,48,0.50));
+  background: linear-gradient(180deg, var(--op-surface-2), var(--op-surface));
   border: 1px solid var(--cfg-line);
   color: var(--cfg-soft);
   border-radius: 9px;
@@ -428,7 +428,7 @@
 }
 .config-full .btn-filtro-regional:hover { border-color: var(--cfg-accent); color: var(--cfg-txt); }
 .config-full .btn-filtro-regional.ativo {
-  background: rgba(58, 130, 255, 0.2);
+  background: var(--cfg-accent);
   border-color: var(--cfg-accent);
   color: #fff;
 }
@@ -462,26 +462,26 @@
    👑 CONFIGURAÇÃO DENTRO DO PAINEL DE OURO — tema dourado
    ============================================================ */
 body.po-modo-ouro {
-  --cfg-card: rgba(40, 30, 8, 0.55);
-  --cfg-card2: rgba(28, 20, 5, 0.50);
-  --cfg-line: rgba(201, 162, 39, 0.22);
-  --cfg-txt: #f5e6b8;
-  --cfg-soft: #cbb87e;
-  --cfg-accent: #e8c84a;
+  --cfg-card: var(--op-gold-soft, #fdf0d2);
+  --cfg-card2: #fbf3de;
+  --cfg-line: rgba(201, 162, 39, 0.32);
+  --cfg-txt: var(--op-gold-deep, #8a6512);
+  --cfg-soft: #a9822f;
+  --cfg-accent: #c9962a;
 }
 body.po-modo-ouro .config-box {
-  box-shadow: 0 8px 24px rgba(120, 90, 20, 0.22);
+  box-shadow: 0 8px 20px rgba(120, 90, 20, 0.10);
 }
 body.po-modo-ouro .config-input,
 body.po-modo-ouro .config-box input,
 body.po-modo-ouro .config-box select {
-  background: linear-gradient(180deg, rgba(48,36,10,0.55), rgba(34,25,7,0.50)) !important;
-  border-color: rgba(201,162,39,0.25) !important;
-  color: #f5e6b8 !important;
+  background: linear-gradient(180deg, #fffaf0, #fdf3de) !important;
+  border-color: rgba(201,162,39,0.3) !important;
+  color: var(--op-gold-deep, #8a6512) !important;
 }
 body.po-modo-ouro .config-input:focus,
 body.po-modo-ouro .config-box input:focus,
 body.po-modo-ouro .config-box select:focus {
-  border-color: #e8c84a !important;
-  box-shadow: 0 0 0 2px rgba(201,162,39,0.25) !important;
+  border-color: #c9962a !important;
+  box-shadow: 0 0 0 2px rgba(201,162,39,0.22) !important;
 }

@@ -30,12 +30,11 @@
   width: 100%;
   max-width: 100%;
   background: var(--cor-fundo-card);
-  backdrop-filter: blur(8px);
   border-radius: var(--raio-card);
   padding: 16px;
-  box-shadow: var(--sombra-card);
+  box-shadow: var(--sombra-suave);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--cor-borda-suave);
 }
 
 /* ==========================
@@ -636,7 +635,7 @@ th.coluna-atual {
   margin: 4px 0 8px 12px;
   padding: 0 0 0 6px;
   list-style: none;
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 1px solid var(--op-border, #e3e7ee);
 }
 
 .sidebar_menu .submenu li,
@@ -648,7 +647,7 @@ th.coluna-atual {
   margin: 2px 0;
   padding: 7px 12px 7px 14px;
   border-radius: 8px;
-  color: #4CAF50;
+  color: #2e7d32;
   font-size: 13px;
   font-weight: 700;
   line-height: 1.35;
@@ -678,13 +677,13 @@ th.coluna-atual {
 .sidebar_menu .submenu li:hover,
 .submenu-item:hover {
   background: rgba(76, 175, 80, 0.12);
-  color: #81C784;
+  color: #1b5e20;
   transform: translateX(2px);
 }
 
 .sidebar_menu .submenu li:hover::before,
 .submenu-item:hover::before {
-  background: #81C784;
+  background: #2e7d32;
 }
 
 .sidebar_menu .submenu.ativo {
