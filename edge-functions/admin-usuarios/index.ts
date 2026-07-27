@@ -12,13 +12,16 @@
 //
 // Deploy:
 //   supabase functions deploy admin-usuarios
-//   supabase secrets set SERVICE_ROLE_KEY=... PROJECT_URL=...
+//
+// PROJECT_URL/SERVICE_ROLE_KEY/ANON_KEY vêm dos nomes que o Supabase já
+// injeta sozinho em toda Edge Function (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+// SUPABASE_ANON_KEY) — não precisa configurar segredo nenhum manualmente.
 // ============================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const PROJECT_URL = Deno.env.get("PROJECT_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY")!; // secret no servidor
-const ANON_KEY = Deno.env.get("ANON_KEY")!;
+const PROJECT_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!; // secret no servidor
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const cors = {
   "Access-Control-Allow-Origin": "*", // troque pelo seu domínio em produção
