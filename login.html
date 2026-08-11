@@ -76,8 +76,8 @@
 
               <button
                 type="button"
+                id="btnToggleSenha"
                 class="btn-toggle-senha"
-                onclick="toggleSenhaLogin()"
                 aria-label="Mostrar ou ocultar senha"
                 title="Mostrar / ocultar senha"
               >
@@ -125,23 +125,11 @@
       </div>
     </div>
 
-    <!-- Toggle da senha -->
-    <script>
-      function toggleSenhaLogin() {
-        const input = document.getElementById("senha");
-        const icon = document.getElementById("iconToggleSenha");
-
-        if (!input || !icon) return;
-
-        const visivel = input.type === "text";
-
-        input.type = visivel ? "password" : "text";
-        icon.textContent = visivel ? "👁️" : "🙈";
-      }
-    </script>
-
     <!-- 🪵 LOGGER CENTRAL (primeiro, síncrono) -->
     <script src="app/logger.js"></script>
+
+    <!-- Toggle da senha -->
+    <script src="app/toggle-senha-login.js" defer></script>
 
     <!-- Lottie Player -->
     <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
