@@ -12,7 +12,7 @@ console.log("✅ perfil-usuarios-ui.js carregado");
 // ============================================================
 const EDGE_ADMIN_URL =
   (window.EDGE_ADMIN_URL) ||
-  "https://fnsplftfxvmyiqbigobh.supabase.co/functions/v1/admin-usuarios";
+  "https://mezavvocebaqwhduplrd.supabase.co/functions/v1/admin-usuarios";
 
 // Envia a requisição autenticada com o token do PRÓPRIO usuário logado
 // (a Edge Function valida no servidor se ele tem permissão de admin).

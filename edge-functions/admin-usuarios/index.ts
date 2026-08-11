@@ -55,8 +55,11 @@ Deno.serve(async (req) => {
     const solicitanteAuthId = userData.user.id;
 
     // 2) Cliente admin (service_role) — só no servidor
+    // db.schema "onepage": as tabelas do OnePage vivem nesse schema no
+    // projeto Supabase unificado com o StockFlow (ver Fase 2 da integração).
     const admin = createClient(PROJECT_URL, SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
+      db: { schema: "onepage" },
     });
 
     // 3) Confirma que o solicitante é master/admin

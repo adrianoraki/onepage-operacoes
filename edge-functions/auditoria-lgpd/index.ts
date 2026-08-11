@@ -4,7 +4,7 @@
 // Roda no SERVIDOR (Deno). Audita a CONFIGURAÇÃO DO BANCO quanto
 // à LGPD: RLS ativo nas tabelas sensíveis, políticas existentes,
 // rotina de retenção, e exposição de dados. Grava o resultado em
-// public.lgpd_auditorias e, se houver problema, deixa o alerta
+// onepage.lgpd_auditorias e, se houver problema, deixa o alerta
 // pronto para o sino do Master.
 //
 // Por que no banco e não no código? Uma Edge Function não acessa
@@ -13,7 +13,10 @@
 //
 // Deploy:
 //   supabase functions deploy auditoria-lgpd
-//   supabase secrets set SERVICE_ROLE_KEY=... PROJECT_URL=...
+//
+// PROJECT_URL/SERVICE_ROLE_KEY vêm dos nomes que o Supabase já injeta
+// sozinho em toda Edge Function (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+// — não precisa configurar segredo nenhum manualmente.
 //
 // Agendamento (cron mensal — todo dia 1 às 03:00 UTC):
 //   No painel do Supabase → Edge Functions → auditoria-lgpd →
@@ -22,8 +25,8 @@
 // ============================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const PROJECT_URL = Deno.env.get("PROJECT_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY")!;
+const PROJECT_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -49,7 +52,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const db = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
+    // db.schema "onepage": as tabelas do OnePage vivem nesse schema no
+    // projeto Supabase unificado com o StockFlow (ver Fase 2 da integração).
+    const db = createClient(PROJECT_URL, SERVICE_ROLE_KEY, {
+      db: { schema: "onepage" },
+    });
     const checks: Array<{ item: string; nivel: string; status: string; detalhe: string }> = [];
     const add = (item: string, nivel: string, ok: boolean, detalhe: string) =>
       checks.push({ item, nivel, status: ok ? "ok" : "falha", detalhe });
@@ -60,7 +67,7 @@ Deno.serve(async (req) => {
     const { data: rlsRows, error: rlsErr } = await db
       .from("pg_tables")
       .select("tablename, rowsecurity")
-      .eq("schemaname", "public");
+      .eq("schemaname", "onepage");
 
     if (rlsErr) {
       // fallback: consulta via rpc se a leitura direta de pg_tables não for permitida
@@ -84,7 +91,7 @@ Deno.serve(async (req) => {
     const { data: pols } = await db
       .from("pg_policies")
       .select("tablename, policyname")
-      .eq("schemaname", "public");
+      .eq("schemaname", "onepage");
     for (const t of TABELAS_SENSIVEIS) {
       const qtd = (pols || []).filter((p: any) => p.tablename === t).length;
       add(`Políticas em ${t}`, "CRÍTICO", qtd > 0,

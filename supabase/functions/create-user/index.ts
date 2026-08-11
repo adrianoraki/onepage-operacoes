@@ -86,7 +86,11 @@ serve(async (req) => {
       );
     }
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    // db.schema "onepage": as tabelas do OnePage vivem nesse schema no
+    // projeto Supabase unificado com o StockFlow (ver Fase 2 da integração).
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      db: { schema: "onepage" },
+    });
 
     const authHeader =
       req.headers.get("Authorization") || req.headers.get("authorization");
