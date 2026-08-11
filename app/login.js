@@ -1,12 +1,16 @@
 // ==========================
 // 🔐 CONFIG SUPABASE LOGIN
 // ==========================
-const SUPABASE_URL = "https://fnsplftfxvmyiqbigobh.supabase.co";
+// Banco unificado com o StockFlow (schema "onepage") — ver Fase 2 da
+// integração dos dois sistemas. Projeto antigo (fnsplftfxvmyiqbigobh)
+// fica só como backup até a migração ser validada em produção.
+const SUPABASE_URL = "https://mezavvocebaqwhduplrd.supabase.co";
 const SUPABASE_KEY =
-  "sb_publishable_CbkVXGXd1IZO6iF4yRry2Q_UjBxjna7";
+  "sb_publishable_dfUOdKFkm8jRU6u6miREqg_KnBQ3m8e";
 
 const { createClient } = window.supabase;
 const supabaseLogin = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  db: { schema: "onepage" },
   auth: {
     // mesma configuração do app.js: sessão em sessionStorage (encerra ao fechar a aba)
     persistSession: true,
