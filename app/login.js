@@ -12,12 +12,12 @@ const { createClient } = window.supabase;
 const supabaseLogin = createClient(SUPABASE_URL, SUPABASE_KEY, {
   db: { schema: "onepage" },
   auth: {
-    // mesma configuração do app.js: sessão em sessionStorage (encerra ao fechar a aba)
+    // mesma chave/storage do StockFlow: sessão única compartilhada.
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    storage: window.sessionStorage,
-    storageKey: "metricaone-sessao",
+    storage: window.localStorage,
+    storageKey: "stockflow-auth",
   },
 });
 
@@ -319,40 +319,28 @@ function emailValido(email) {
 // ==========================
 // 🚀 INIT LOGIN
 // ==========================
+// ==========================
+// 🔗 SESSÃO ÚNICA COM O STOCKFLOW
+// login.html não mostra mais formulário — ele só existe como uma
+// rede de segurança: quem chega aqui já está autenticado (mesma
+// sessão do StockFlow), então segue direto pro index.html, que
+// resolve o perfil (inclusive o fallback espelhado do StockFlow).
+// Sem sessão, volta pro login do StockFlow.
+// ==========================
 window.addEventListener("DOMContentLoaded", async () => {
-  console.log("🚀 Tela de login pronta");
-
   try {
     const {
       data: { session },
-      error,
     } = await supabaseLogin.auth.getSession();
 
-    if (error) {
-      console.error("❌ Erro ao obter sessão:", error);
-      return;
-    }
-
     if (session?.user) {
-      console.log("✅ Sessão já existe, resolvendo perfil automaticamente...");
-
-      const perfil = await resolverPerfilUsuarioAutenticado(session.user);
-
-      if (perfil) {
-        limparStorageLogin();
-        salvarUsuarioLocal(perfil);
-        window.location.replace("index.html");
-        return;
-      }
-
-      console.warn(
-        "⚠️ Sessão existe, mas não foi possível resolver o perfil do app",
-      );
-      await supabaseLogin.auth.signOut();
-      limparStorageLogin();
+      window.location.replace("index.html");
+    } else {
+      window.location.replace("/login.html");
     }
   } catch (erro) {
-    console.error("❌ Erro ao iniciar login:", erro);
+    console.error("❌ Erro ao verificar sessão:", erro);
+    window.location.replace("/login.html");
   }
 });
 

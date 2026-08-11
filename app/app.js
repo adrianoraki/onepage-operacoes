@@ -348,26 +348,106 @@ function montarUsuarioLocalAPartirDoPerfil(data) {
 // ==========================
 // 🆘 PERFIL FALLBACK PELO AUTH (APP)
 // ==========================
-function montarPerfilFallbackApp(authUser) {
+// deriva a lista completa de classes/indicadores a partir do catálogo já
+// usado no menu (classesIndicadores é definida mais abaixo neste arquivo)
+function todasClassesUpperApp() {
+  return Object.keys(classesIndicadores).map((c) => c.toUpperCase());
+}
+function todosIndicadoresValoresApp() {
+  const todos = [];
+  Object.values(classesIndicadores).forEach((itens) => {
+    itens.forEach((item) => todos.push(item.valor));
+  });
+  return todos;
+}
+
+// ==========================
+// 🔗 PERFIL ESPELHADO DO STOCKFLOW
+// Usuário autenticado (sessão compartilhada) sem cadastro em
+// onepage.usuarios: deriva o nível de acesso a partir do nível dele
+// no StockFlow (public.perfis), em vez de um fallback mínimo fixo.
+// master/regional do StockFlow → acesso total no OnePage;
+// gerente/subgerente/operador → acesso básico, sem indicadores liberados.
+// ==========================
+async function montarPerfilFallbackApp(authUser) {
   const email = (authUser?.email || "").toString().trim().toLowerCase();
   const nomeBase = email.split("@")[0] || "usuario";
+
+  let nivelStockflow = null;
+  let nomeStockflow = null;
+
+  try {
+    const { data: perfilStockflow } = await supabaseClient
+      .schema("public")
+      .from("perfis")
+      .select("nivel, nome_exib, ativo")
+      .eq("id", authUser.id)
+      .maybeSingle();
+
+    if (perfilStockflow && perfilStockflow.ativo !== false) {
+      nivelStockflow = (perfilStockflow.nivel || "").toLowerCase();
+      nomeStockflow = perfilStockflow.nome_exib || null;
+    }
+  } catch (erro) {
+    appLogWarn("Não foi possível consultar o nível StockFlow para mesclar permissões", erro);
+  }
+
+  const acessoTotal = nivelStockflow === "master" || nivelStockflow === "regional";
+  const perfilOnepage =
+    nivelStockflow === "master" ? "master" : acessoTotal ? "admin" : "usuario";
+
+  const permissoes = acessoTotal
+    ? {
+        classes: todasClassesUpperApp(),
+        subclasses: [],
+        indicadores: todosIndicadoresValoresApp(),
+        acesso_total: true,
+        pode_ver_analises: true,
+        pode_ver_dashboard: true,
+        pode_aprovar_ajustes: true,
+        pode_atribuir_escopo: true,
+        pode_ver_painel_ouro: true,
+        pode_ver_comparativos: true,
+        ignorar_loja_vinculada: true,
+        permissao_visualizacao: "TODOS",
+        pode_gerenciar_funcoes: nivelStockflow === "master",
+        pode_gerenciar_usuarios: true,
+        pode_ver_justificativas: true,
+        pode_editar_semana_atual: true,
+        pode_editar_qualquer_semana: true,
+        pode_editar_semana_anterior: true,
+      }
+    : {
+        classes: [],
+        subclasses: [],
+        indicadores: [],
+        acesso_total: false,
+        pode_ver_analises: true,
+        pode_ver_dashboard: false,
+        pode_aprovar_ajustes: false,
+        pode_atribuir_escopo: false,
+        pode_ver_painel_ouro: false,
+        pode_ver_comparativos: true,
+        ignorar_loja_vinculada: false,
+        permissao_visualizacao: "NENHUMA",
+        pode_gerenciar_funcoes: false,
+        pode_gerenciar_usuarios: false,
+        pode_ver_justificativas: false,
+        pode_editar_semana_atual: false,
+        pode_editar_qualquer_semana: false,
+        pode_editar_semana_anterior: false,
+      };
 
   const perfilFallback = {
     id: null,
     auth_user_id: authUser?.id || null,
-    nome: nomeBase,
+    nome: nomeStockflow || nomeBase,
     sobrenome: "",
     email,
     matricula: "",
-    perfil: "usuario",
-    funcao: "Usuário",
-    permissoes: {
-      indicadores: [],
-      classes: [],
-      subclasses: [],
-      acesso_total: false,
-      permissao_visualizacao: "NENHUMA",
-    },
+    perfil: perfilOnepage,
+    funcao: "Usuário StockFlow",
+    permissoes,
 
     tipo_visao: "regional",
     loja_codigo: null,
@@ -378,8 +458,8 @@ function montarPerfilFallbackApp(authUser) {
   };
 
   appLogWarn(
-    "Perfil não encontrado em usuarios. Usando fallback local",
-    perfilFallback,
+    "Perfil não encontrado em onepage.usuarios. Espelhando nível do StockFlow",
+    { nivelStockflow, perfilOnepage, acessoTotal },
   );
 
   return perfilFallback;
@@ -405,14 +485,13 @@ function initSupabase() {
     supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
       db: { schema: "onepage" },
       auth: {
-        // Usa sessionStorage em vez de localStorage: a sessão é apagada
-        // ao fechar a aba/navegador, exigindo novo login ao reabrir.
-        // Isso protege os dados quando um gestor fecha a página sem deslogar.
+        // Mesma chave/storage do StockFlow (js/supabase-client.js): os dois
+        // sistemas compartilham uma única sessão — logar em um loga no outro.
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storage: window.sessionStorage,
-        storageKey: "metricaone-sessao",
+        storage: window.localStorage,
+        storageKey: "stockflow-auth",
       },
     });
 
@@ -434,7 +513,7 @@ async function verificarSessao() {
     if (!supabaseClient) {
       const ok = initSupabase();
       if (!ok) {
-        window.location.replace("login.html");
+        window.location.replace("/login.html");
         return false;
       }
     }
@@ -446,13 +525,13 @@ async function verificarSessao() {
 
     if (error) {
       appLogError("Erro ao verificar sessão", error);
-      window.location.replace("login.html");
+      window.location.replace("/login.html");
       return false;
     }
 
     if (!session?.user) {
       appLogWarn("Sessão não encontrada");
-      window.location.replace("login.html");
+      window.location.replace("/login.html");
       return false;
     }
 
@@ -464,7 +543,7 @@ async function verificarSessao() {
     return session.user;
   } catch (erro) {
     appLogError("Erro ao verificar sessão", erro);
-    window.location.replace("login.html");
+    window.location.replace("/login.html");
     return false;
   }
 }
@@ -616,7 +695,7 @@ async function garantirPerfilLocal(authUser) {
       if (!emailAuth) {
         appLogError("Usuário auth sem e-mail para fallback");
         limparSessaoLocal();
-        window.location.replace("login.html");
+        window.location.replace("/login.html");
         return null;
       }
 
@@ -627,7 +706,7 @@ async function garantirPerfilLocal(authUser) {
           "Perfil não encontrado por auth_user_id nem por e-mail. Entrando com fallback local.",
         );
 
-        const usuarioFallback = montarPerfilFallbackApp(authUser);
+        const usuarioFallback = await montarPerfilFallbackApp(authUser);
         setUsuarioLocal(usuarioFallback);
 
         return usuarioFallback;
@@ -639,7 +718,7 @@ async function garantirPerfilLocal(authUser) {
         if (!perfil) {
           appLogError("Falha ao vincular auth_user_id automaticamente");
           limparSessaoLocal();
-          window.location.replace("login.html");
+          window.location.replace("/login.html");
           return null;
         }
       } else {
@@ -654,7 +733,7 @@ async function garantirPerfilLocal(authUser) {
           );
 
           limparSessaoLocal();
-          window.location.replace("login.html");
+          window.location.replace("/login.html");
           return null;
         }
 
@@ -677,7 +756,7 @@ async function garantirPerfilLocal(authUser) {
   } catch (erro) {
     appLogError("Erro ao sincronizar perfil local", erro);
     limparSessaoLocal();
-    window.location.replace("login.html");
+    window.location.replace("/login.html");
     return null;
   }
 }
@@ -708,7 +787,7 @@ async function logout() {
       await supabaseClient.auth.signOut();
     }
 
-    window.location.replace("login.html");
+    window.location.replace("/login.html");
   } catch (erro) {
     appLogError("Erro no logout", erro);
   }
