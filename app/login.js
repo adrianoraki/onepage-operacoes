@@ -497,6 +497,18 @@ async function fazerLogin() {
 }
 
 // ==========================
+// 📨 SUBMIT DO FORMULÁRIO
+// ==========================
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("formLogin");
+  if (!form) return;
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    fazerLogin();
+  });
+});
+
+// ==========================
 // ⌨️ ENTER PARA LOGIN
 // ==========================
 document.addEventListener("keyup", function (e) {
