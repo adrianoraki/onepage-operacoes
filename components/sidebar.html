@@ -649,11 +649,7 @@
     <div class="logo">
       <a
         href="#"
-        onclick="
-          logMenu('logo');
-          mostrar('analises');
-          return false;
-        "
+        id="sidebarLogoLink"
       >
         <i class="fas fa-layer-group" style="color: #3f7bcc"></i>
         <span>OnePage Expert</span>
@@ -669,10 +665,6 @@
         <li
           class="menu-item"
           data-menu="analises"
-          onclick="
-            logMenu('analises');
-            mostrar('analises');
-          "
         >
           <i class="fas fa-trophy icon-analises"></i>
           <span>Análises</span>
@@ -682,10 +674,6 @@
         <li
           class="menu-item menu-painel-ouro"
           data-menu="painel-ouro"
-          onclick="
-            logMenu('painel-ouro');
-            entrarModoOuro();
-          "
         >
           <i class="fas fa-crown icon-painel-ouro"></i>
           <span>Painel de Ouro</span>
@@ -695,10 +683,6 @@
         <li
           class="menu-item"
           data-menu="comparativos"
-          onclick="
-            logMenu('comparativos');
-            mostrar('comparativos');
-          "
         >
           <i class="fas fa-chart-pie icon-comparativos"></i>
           <span>Comparativos</span>
@@ -723,7 +707,7 @@
               <button
                 type="button"
                 class="pop-btn"
-                onclick="document.getElementById('inputFotoPerfil').click()"
+                id="btnTrocarFoto"
               >
                 <i class="fas fa-camera"></i> Trocar foto
               </button>
@@ -731,7 +715,6 @@
                 type="button"
                 class="pop-btn pop-btn-ghost"
                 id="btnRemoverFoto"
-                onclick="removerFotoPerfil()"
                 hidden
               >
                 Remover
@@ -741,7 +724,6 @@
                 id="inputFotoPerfil"
                 accept="image/*"
                 hidden
-                onchange="trocarFotoPerfil(event)"
               >
             </div>
           </div>
@@ -759,15 +741,14 @@
           <button
             type="button"
             class="btn-config-icon"
+            id="btnConfigIcon"
             title="Configurações"
-            onclick="logMenu('configuracoes'); abrirConfiguracoesMenu();"
           >
             <i class="fas fa-gear"></i>
           </button>
           <button
             type="button"
             class="btn-logout"
-            onclick="logMenu('logout'); logout();"
           >
             <i class="fas fa-right-from-bracket"></i>
             <span>Sair</span>

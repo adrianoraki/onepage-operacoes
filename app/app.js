@@ -1128,21 +1128,84 @@ async function carregarSidebar() {
     preencherUsuario();
     montarMenuIndicadores();
     aplicarPermissoesMenuPrincipal();
-
-    const btnLogout = el.querySelector(".btn-logout");
-    if (
-      btnLogout &&
-      !btnLogout.dataset.bound &&
-      !btnLogout.getAttribute("onclick")
-    ) {
-      btnLogout.addEventListener("click", logout);
-      btnLogout.dataset.bound = "true";
-
-      appLogInfo("Botão de logout vinculado via addEventListener");
-    }
+    vincularAcoesSidebarEstaticas(el);
   } catch (erro) {
     appLogError("Erro ao carregar sidebar", erro);
     mostrarErro("Erro ao carregar menu");
+  }
+}
+
+// ==========================
+// 🔗 VINCULAR AÇÕES ESTÁTICAS DA SIDEBAR
+// substitui os onclick/onchange inline (bloqueados por CSP quando
+// a página é servida via proxy em /operacoes/) por addEventListener
+// ==========================
+function vincularAcoesSidebarEstaticas(el) {
+  const logo = el.querySelector("#sidebarLogoLink");
+  if (logo) {
+    logo.addEventListener("click", (e) => {
+      e.preventDefault();
+      logMenu("logo");
+      mostrar("analises");
+    });
+  }
+
+  const itemAnalises = el.querySelector('.menu-item[data-menu="analises"]');
+  if (itemAnalises) {
+    itemAnalises.addEventListener("click", () => {
+      logMenu("analises");
+      mostrar("analises");
+    });
+  }
+
+  const itemPainelOuro = el.querySelector('.menu-item[data-menu="painel-ouro"]');
+  if (itemPainelOuro) {
+    itemPainelOuro.addEventListener("click", () => {
+      logMenu("painel-ouro");
+      entrarModoOuro();
+    });
+  }
+
+  const itemComparativos = el.querySelector('.menu-item[data-menu="comparativos"]');
+  if (itemComparativos) {
+    itemComparativos.addEventListener("click", () => {
+      logMenu("comparativos");
+      mostrar("comparativos");
+    });
+  }
+
+  const btnTrocarFoto = el.querySelector("#btnTrocarFoto");
+  if (btnTrocarFoto) {
+    btnTrocarFoto.addEventListener("click", () => {
+      const input = document.getElementById("inputFotoPerfil");
+      if (input) input.click();
+    });
+  }
+
+  const btnRemoverFoto = el.querySelector("#btnRemoverFoto");
+  if (btnRemoverFoto) {
+    btnRemoverFoto.addEventListener("click", removerFotoPerfil);
+  }
+
+  const inputFotoPerfil = el.querySelector("#inputFotoPerfil");
+  if (inputFotoPerfil) {
+    inputFotoPerfil.addEventListener("change", trocarFotoPerfil);
+  }
+
+  const btnConfigIcon = el.querySelector("#btnConfigIcon");
+  if (btnConfigIcon) {
+    btnConfigIcon.addEventListener("click", () => {
+      logMenu("configuracoes");
+      abrirConfiguracoesMenu();
+    });
+  }
+
+  const btnLogout = el.querySelector(".btn-logout");
+  if (btnLogout) {
+    btnLogout.addEventListener("click", () => {
+      logMenu("logout");
+      logout();
+    });
   }
 }
 
