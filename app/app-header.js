@@ -70,17 +70,66 @@
         <div class="ah-saud">${saud}${u ? ", " + u.primeiro : ""} 👋</div>
       </div>
       <div class="ah-dir">
-        <button type="button" class="ah-perfil" title="Meu perfil"
-          onclick="if(window.abrirPerfilPopover) abrirPerfilPopover(event);">
-          ${avatarHtml}
-          <span class="ah-perfil-txt">
-            <span class="ah-nome">${u ? u.nome : "Usuário"}</span>
-            <span class="ah-funcao">${u ? u.funcao : ""}</span>
-          </span>
-        </button>
+        <div class="ah-perfil-wrap">
+          <button type="button" class="ah-perfil" id="ahPerfilBtn" title="Menu do usuário"
+            aria-haspopup="true" aria-expanded="false"
+            onclick="if(window.alternarMenuUsuarioHeader) alternarMenuUsuarioHeader(event);">
+            ${avatarHtml}
+            <span class="ah-perfil-txt">
+              <span class="ah-nome">${u ? u.nome : "Usuário"}</span>
+              <span class="ah-funcao">${u ? u.funcao : ""}</span>
+            </span>
+            <i class="fas fa-chevron-down ah-perfil-caret"></i>
+          </button>
+
+          <div class="ah-dropdown" id="ahPerfilDropdown" hidden>
+            <button type="button" class="ah-dropdown-item" onclick="if(window.abrirPerfilPopover) abrirPerfilPopover(event);">
+              <i class="fas fa-id-card"></i> Meu perfil
+            </button>
+            <button type="button" class="ah-dropdown-item" onclick="if(window.abrirConfiguracoesMenu) abrirConfiguracoesMenu();">
+              <i class="fas fa-gear"></i> Configurações
+            </button>
+            <div class="ah-dropdown-divisor"></div>
+            <button type="button" class="ah-dropdown-item ah-dropdown-sair" onclick="if(window.logout) logout();">
+              <i class="fas fa-right-from-bracket"></i> Sair
+            </button>
+          </div>
+        </div>
       </div>
     `;
   }
+
+  // Abre/fecha o menu do usuário (Meu perfil / Configurações / Sair).
+  function alternarMenuUsuarioHeader(event) {
+    if (event) event.stopPropagation();
+    const btn = document.getElementById("ahPerfilBtn");
+    const dropdown = document.getElementById("ahPerfilDropdown");
+    if (!btn || !dropdown) return;
+    const abrindo = dropdown.hidden;
+    dropdown.hidden = !abrindo;
+    btn.setAttribute("aria-expanded", abrindo ? "true" : "false");
+  }
+  window.alternarMenuUsuarioHeader = alternarMenuUsuarioHeader;
+
+  // Fecha o menu ao clicar fora ou apertar Escape — registrado uma única
+  // vez (o header é recriado via innerHTML a cada troca de tela, mas
+  // document.addEventListener aqui fica fora desse ciclo).
+  document.addEventListener("click", (e) => {
+    const dropdown = document.getElementById("ahPerfilDropdown");
+    const wrap = document.querySelector(".ah-perfil-wrap");
+    if (!dropdown || dropdown.hidden) return;
+    if (wrap && wrap.contains(e.target)) return;
+    dropdown.hidden = true;
+    document.getElementById("ahPerfilBtn")?.setAttribute("aria-expanded", "false");
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const dropdown = document.getElementById("ahPerfilDropdown");
+    if (dropdown && !dropdown.hidden) {
+      dropdown.hidden = true;
+      document.getElementById("ahPerfilBtn")?.setAttribute("aria-expanded", "false");
+    }
+  });
 
   // Atualiza o header quando troca de tela / usuário
   window.atualizarAppHeader = montar;

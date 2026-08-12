@@ -423,67 +423,6 @@
   .pop-linha b { color: var(--op-ink, #202a37); font-weight: 700; text-align: right; word-break: break-word; }
 
   /* ==========================
-     ⚙️🚪 AÇÕES (engrenagem + sair)
-  ========================== */
-  .footer-acoes {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .btn-config-icon {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    border-radius: 12px;
-    border: 1px solid var(--op-border, #e3e7ee);
-    background: var(--op-surface-2, #f5f7fa);
-    color: var(--op-ink-soft, #5b6472);
-    font-size: 16px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
-  }
-  .btn-config-icon:hover {
-    background: var(--op-accent-soft, #eaf0fe);
-    color: var(--op-accent, #2f6fe0);
-    transform: translateY(-1px);
-  }
-
-  /* ==========================
-     🚪 LOGOUT (menor)
-  ========================== */
-  .btn-logout {
-    flex: 1;
-    min-height: 44px;
-    border: none;
-    border-radius: 12px;
-    background: linear-gradient(90deg, #ff4d4d, #d93636);
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    transition:
-      background 0.15s ease,
-      filter 0.15s ease,
-      transform 0.16s ease;
-  }
-
-  .btn-logout:hover {
-    filter: brightness(1.05);
-    transform: translateY(-1px);
-  }
-
-  .btn-logout i {
-    font-size: 14px;
-  }
-
-  /* ==========================
      📱 RESPONSIVIDADE
   ========================== */
   @media (max-width: 1366px) {
@@ -696,10 +635,10 @@
          🔻 RODAPÉ
     =========================== -->
     <div class="bottom-area">
-      <!-- 👤 Perfil agora fica no HEADER do topo. Aqui mantemos só o popover
-           (acionado pelo header) e o botão Sair. -->
+      <!-- 👤 Perfil, Configurações e Sair ficam no menu do card de usuário
+           no HEADER do topo (ver app/app-header.js). Aqui mantemos só o
+           popover de dados pessoais/foto, acionado por esse menu. -->
       <div class="user-footer">
-        <!-- popover transparente com todos os dados (acionado pelo header) -->
         <div class="perfil-popover" id="perfilPopover" hidden>
           <div class="perfil-pop-top">
             <div class="avatar avatar-pop" id="avatarPop"></div>
@@ -734,25 +673,6 @@
             <div class="pop-linha"><span>Função</span><b id="popFuncao"></b></div>
             <div class="pop-linha"><span>E-mail</span><b id="popEmail"></b></div>
           </div>
-        </div>
-
-        <!-- ações: configurações + sair -->
-        <div class="footer-acoes">
-          <button
-            type="button"
-            class="btn-config-icon"
-            id="btnConfigIcon"
-            title="Configurações"
-          >
-            <i class="fas fa-gear"></i>
-          </button>
-          <button
-            type="button"
-            class="btn-logout"
-          >
-            <i class="fas fa-right-from-bracket"></i>
-            <span>Sair</span>
-          </button>
         </div>
       </div>
     </div>

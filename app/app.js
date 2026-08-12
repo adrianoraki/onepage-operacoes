@@ -1308,21 +1308,9 @@ function vincularAcoesSidebarEstaticas(el) {
     inputFotoPerfil.addEventListener("change", trocarFotoPerfil);
   }
 
-  const btnConfigIcon = el.querySelector("#btnConfigIcon");
-  if (btnConfigIcon) {
-    btnConfigIcon.addEventListener("click", () => {
-      logMenu("configuracoes");
-      abrirConfiguracoesMenu();
-    });
-  }
-
-  const btnLogout = el.querySelector(".btn-logout");
-  if (btnLogout) {
-    btnLogout.addEventListener("click", () => {
-      logMenu("logout");
-      logout();
-    });
-  }
+  // Configurações e Sair agora ficam no menu do card de usuário, no
+  // header do topo (ver app/app-header.js) — não existem mais como
+  // botões separados na sidebar.
 }
 
 // ==========================

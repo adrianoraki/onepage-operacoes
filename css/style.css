@@ -813,6 +813,58 @@ body.po-modo-ouro .rodape-fixo .link-autor {
 .app-header .ah-nome { font-size: 13px; font-weight: 700; color: var(--op-ink); white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
 .app-header .ah-funcao { font-size: 11px; color: var(--op-ink-muted); font-weight: 500; }
 
+/* Menu do usuário (Meu perfil / Configurações / Sair) — mesmo padrão do
+   header-user-dropdown do StockFlow, cores adaptadas ao tema do OnePage. */
+.app-header .ah-perfil-wrap { position: relative; }
+.app-header .ah-perfil-caret { font-size: 11px; color: var(--op-ink-muted); margin-left: 2px; transition: transform 0.15s ease; }
+.app-header .ah-perfil[aria-expanded="true"] .ah-perfil-caret { transform: rotate(180deg); }
+
+.app-header .ah-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  background: var(--op-surface, #fff);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(15,23,42,0.18);
+  border: 1px solid var(--op-border, #e3e7ee);
+  padding: 8px;
+  z-index: 1200;
+}
+.app-header .ah-dropdown[hidden] { display: none; }
+
+.app-header .ah-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 2px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--op-ink, #202a37);
+  text-align: left;
+  transition: background 0.12s ease;
+}
+.app-header .ah-dropdown-item i { font-size: 13px; width: 16px; text-align: center; color: var(--op-ink-muted); }
+.app-header .ah-dropdown-item:hover { background: var(--op-accent-soft); color: var(--op-accent); }
+.app-header .ah-dropdown-item:hover i { color: var(--op-accent); }
+
+.app-header .ah-dropdown-divisor { height: 1px; background: var(--op-border, #e3e7ee); margin: 4px 6px; }
+
+.app-header .ah-dropdown-sair { color: #ef4444; }
+.app-header .ah-dropdown-sair i { color: #ef4444; }
+.app-header .ah-dropdown-sair:hover { background: #fef2f2; color: #ef4444; }
+.app-header .ah-dropdown-sair:hover i { color: #ef4444; }
+
+body.po-modo-ouro .app-header .ah-dropdown-item:hover { background: rgba(201,162,39,0.14); color: var(--op-gold-deep); }
+body.po-modo-ouro .app-header .ah-dropdown-item:hover i { color: var(--op-gold-deep); }
+
 /* 👑 Tema Painel de Ouro: header dourado suave */
 body.po-modo-ouro .app-header {
   background: var(--op-gold-soft);

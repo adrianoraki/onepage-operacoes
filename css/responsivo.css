@@ -116,6 +116,7 @@
   /* sino e perfil menores */
   .lgpd-sino { width: 36px; height: 36px; font-size: 15px; }
   .app-header .ah-perfil-txt { display: none; } /* só o avatar no header */
+  .app-header .ah-perfil-caret { display: none; }
 
   /* popover do sino ocupa quase a tela toda */
   .lgpd-pop { width: calc(100vw - 12px) !important; }
