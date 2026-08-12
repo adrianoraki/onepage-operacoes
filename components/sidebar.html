@@ -133,6 +133,7 @@
   .brand-switcher-opt.ativo { background: var(--op-accent-soft, #eaf0fe); }
   .brand-switcher-opt i:first-child { width: 16px; text-align: center; color: var(--op-ink-muted, #8891a0); font-size: 14px; }
   .brand-switcher-opt.ativo i:first-child { color: var(--op-accent, #2f6fe0); }
+  .brand-switcher-opt-icon { width: 22px; height: 22px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
 
   .brand-switcher-opt-texto { display: flex; flex-direction: column; line-height: 1.25; }
   .brand-switcher-opt-texto strong { font-size: 12.5px; font-weight: 700; }
@@ -719,7 +720,7 @@
         <div class="brand-switcher-dropdown" id="brandSwitcherDropdown" hidden>
           <div class="brand-switcher-titulo">Trocar de sistema</div>
           <a href="/operacoes/" class="brand-switcher-opt ativo">
-            <i class="fas fa-clipboard-check"></i>
+            <img src="assets/fave.png" alt="" class="brand-switcher-opt-icon" />
             <span class="brand-switcher-opt-texto">
               <strong>OnePage</strong>
               <small>Indicadores Operacionais</small>
@@ -727,7 +728,7 @@
             <i class="fas fa-check brand-switcher-check"></i>
           </a>
           <a href="/index.html" class="brand-switcher-opt">
-            <i class="fas fa-boxes-stacked"></i>
+            <img src="assets/stockflow-favicon-32x32.png" alt="" class="brand-switcher-opt-icon" />
             <span class="brand-switcher-opt-texto">
               <strong>StockFlow</strong>
               <small>Gestão Inteligente de Estoque</small>
