@@ -11,7 +11,7 @@
 }
 
 :root {
-  --sidebar-w: clamp(228px, 18vw, 272px); /* mais estreita, mesma proporção responsiva */
+  --sidebar-w: clamp(206px, 15.5vw, 244px); /* mais estreita ainda */
   --footer-h: 34px;
 
   /* ---------- 🎨 Paleta soft light (compartilhada por todo o app) ---------- */

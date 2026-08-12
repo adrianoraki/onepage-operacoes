@@ -1233,7 +1233,10 @@ async function carregarSidebar() {
 
     appLogInfo("Carregando sidebar...");
 
-    const res = await fetch("components/sidebar.html");
+    // Sem query de versão nesse arquivo (diferente de app.js/style.css) —
+    // "no-cache" força o navegador a revalidar com o servidor a cada
+    // carga, pra uma mudança aqui aparecer sem depender de bump manual.
+    const res = await fetch("components/sidebar.html", { cache: "no-cache" });
     const html = await res.text();
 
     el.innerHTML = html;
@@ -1257,14 +1260,7 @@ async function carregarSidebar() {
 // a página é servida via proxy em /operacoes/) por addEventListener
 // ==========================
 function vincularAcoesSidebarEstaticas(el) {
-  const logo = el.querySelector("#sidebarLogoLink");
-  if (logo) {
-    logo.addEventListener("click", (e) => {
-      e.preventDefault();
-      logMenu("logo");
-      mostrar("analises");
-    });
-  }
+  vincularSeletorDeSistema(el);
 
   const itemAnalises = el.querySelector('.menu-item[data-menu="analises"]');
   if (itemAnalises) {
@@ -1311,6 +1307,40 @@ function vincularAcoesSidebarEstaticas(el) {
   // Configurações e Sair agora ficam no menu do card de usuário, no
   // header do topo (ver app/app-header.js) — não existem mais como
   // botões separados na sidebar.
+}
+
+// ==========================
+// 🔀 SELETOR DE SISTEMA (logo da sidebar -> voltar pro StockFlow)
+// vincularAcoesSidebarEstaticas só roda uma vez por carregamento de
+// página (ver carregarSidebar/dataset.loaded), então os listeners de
+// document abaixo não duplicam entre trocas de tela.
+// ==========================
+function vincularSeletorDeSistema(el) {
+  const btn = el.querySelector("#brandSwitcherBtn");
+  const dropdown = el.querySelector("#brandSwitcherDropdown");
+  if (!btn || !dropdown) return;
+
+  const fechar = () => {
+    dropdown.hidden = true;
+    btn.setAttribute("aria-expanded", "false");
+  };
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const abrindo = dropdown.hidden;
+    dropdown.hidden = !abrindo;
+    btn.setAttribute("aria-expanded", abrindo ? "true" : "false");
+  });
+
+  document.addEventListener("click", (e) => {
+    if (dropdown.hidden) return;
+    if (btn.contains(e.target) || dropdown.contains(e.target)) return;
+    fechar();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !dropdown.hidden) fechar();
+  });
 }
 
 // ==========================

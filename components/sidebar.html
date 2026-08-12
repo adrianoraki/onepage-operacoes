@@ -56,6 +56,91 @@
   }
 
   /* ==========================
+     🔀 SELETOR DE SISTEMA (na área do logo)
+     Mesmo padrão do app-brand-switcher do header do StockFlow.
+  ========================== */
+  .brand-switcher { position: relative; }
+
+  .brand-switcher-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+    color: var(--op-ink, #202a37);
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    font-family: inherit;
+  }
+
+  .brand-switcher-btn i:first-child { font-size: 17px; }
+
+  .brand-switcher-btn span {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .brand-switcher-caret {
+    font-size: 11px !important;
+    color: var(--op-ink-muted, #8891a0);
+    transition: transform 0.2s ease;
+  }
+  .brand-switcher-btn[aria-expanded="true"] .brand-switcher-caret { transform: rotate(180deg); }
+
+  .brand-switcher-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    right: -8px;
+    min-width: 240px;
+    background: var(--op-surface, #fff);
+    border-radius: 14px;
+    border: 1px solid var(--op-border, #e3e7ee);
+    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
+    padding: 8px;
+    z-index: 60;
+  }
+  .brand-switcher-dropdown[hidden] { display: none; }
+
+  .brand-switcher-titulo {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--op-ink-muted, #8891a0);
+    padding: 4px 8px 8px;
+  }
+
+  .brand-switcher-opt {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    margin-bottom: 2px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--op-ink, #202a37);
+    transition: background 0.12s ease;
+  }
+  .brand-switcher-opt:hover { background: var(--op-surface-2, #f5f7fa); }
+  .brand-switcher-opt.ativo { background: var(--op-accent-soft, #eaf0fe); }
+  .brand-switcher-opt i:first-child { width: 16px; text-align: center; color: var(--op-ink-muted, #8891a0); font-size: 14px; }
+  .brand-switcher-opt.ativo i:first-child { color: var(--op-accent, #2f6fe0); }
+
+  .brand-switcher-opt-texto { display: flex; flex-direction: column; line-height: 1.25; }
+  .brand-switcher-opt-texto strong { font-size: 12.5px; font-weight: 700; }
+  .brand-switcher-opt-texto small { font-size: 10.5px; color: var(--op-ink-muted, #8891a0); }
+
+  .brand-switcher-check { margin-left: auto; color: var(--op-accent, #2f6fe0); font-size: 12px !important; }
+
+  /* ==========================
      📋 MENU PRINCIPAL
   ========================== */
   .sidebar_menu .menu {
@@ -240,23 +325,25 @@
 
   /* ==========================
      🔸 INDICADORES (subgrupo, dentro de cada classe)
+     Recuo bem mais discreto que o do grupo acima — só o suficiente pra
+     ler como "dentro dele", sem empurrar o texto pra longe na sidebar
+     estreita.
   ========================== */
   .submenu {
     display: none;
-    margin: 2px 0 8px 0;
-    padding: 0;
+    margin: 2px 0 8px 8px;
+    padding-left: 8px;
     list-style: none;
     border-left: 2px solid var(--op-border, #e3e7ee);
-    margin-left: 20px;
-    padding-left: 8px;
   }
 
   .submenu .submenu-item,
   .submenu li {
-    position: relative;
     display: flex;
     align-items: center;
-    padding: 7px 10px 7px 22px;
+    justify-content: center;
+    text-align: center;
+    padding: 7px 8px;
     margin: 2px 0;
     border-radius: 9px;
     font-size: 12px;
@@ -266,31 +353,10 @@
     cursor: pointer;
   }
 
-  .submenu .submenu-item::before,
-  .submenu li::before {
-    content: "";
-    position: absolute;
-    left: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--op-ink-muted, #8891a0);
-    opacity: 0.7;
-    transition: background 0.2s ease, opacity 0.2s ease;
-  }
-
   .submenu .submenu-item:hover,
   .submenu li:hover {
     background: var(--op-accent-soft, #eaf0fe);
     color: var(--op-accent, #2f6fe0);
-  }
-
-  .submenu .submenu-item:hover::before,
-  .submenu li:hover::before {
-    background: var(--op-accent, #2f6fe0);
-    opacity: 1;
   }
 
   .submenu.ativo {
@@ -632,16 +698,43 @@
 
   <div class="sidebar_menu">
     <!-- ==========================
-         🔷 LOGO
+         🔷 LOGO / SELETOR DE SISTEMA
+         Mesmo padrão do app-brand-switcher do header do StockFlow —
+         clicar abre um dropdown pra voltar pro StockFlow.
     =========================== -->
     <div class="logo">
-      <a
-        href="#"
-        id="sidebarLogoLink"
-      >
-        <i class="fas fa-layer-group" style="color: #3f7bcc"></i>
-        <span>OnePage Expert</span>
-      </a>
+      <div class="brand-switcher">
+        <button
+          type="button"
+          class="brand-switcher-btn"
+          id="brandSwitcherBtn"
+          aria-haspopup="true"
+          aria-expanded="false"
+        >
+          <i class="fas fa-layer-group" style="color: #3f7bcc"></i>
+          <span>OnePage Expert</span>
+          <i class="fas fa-chevron-down brand-switcher-caret"></i>
+        </button>
+
+        <div class="brand-switcher-dropdown" id="brandSwitcherDropdown" hidden>
+          <div class="brand-switcher-titulo">Trocar de sistema</div>
+          <a href="/operacoes/" class="brand-switcher-opt ativo">
+            <i class="fas fa-clipboard-check"></i>
+            <span class="brand-switcher-opt-texto">
+              <strong>OnePage</strong>
+              <small>Indicadores Operacionais</small>
+            </span>
+            <i class="fas fa-check brand-switcher-check"></i>
+          </a>
+          <a href="/index.html" class="brand-switcher-opt">
+            <i class="fas fa-boxes-stacked"></i>
+            <span class="brand-switcher-opt-texto">
+              <strong>StockFlow</strong>
+              <small>Gestão Inteligente de Estoque</small>
+            </span>
+          </a>
+        </div>
+      </div>
     </div>
 
     <!-- ==========================
