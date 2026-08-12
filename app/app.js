@@ -699,10 +699,16 @@ async function garantirPerfilLocal(authUser) {
   try {
     const usuarioLocal = getUsuarioLocal();
 
+    // Não reaproveita um cache que ficou marcado como "pendente de
+    // configuração" (perfil fallback, sem registro real em
+    // onepage.usuarios na época) — sem isso, alguém que era pendente e
+    // foi configurado depois pelo Master continua preso no aviso pra
+    // sempre, porque esse cache não expira e nunca revalida sozinho.
     if (
       usuarioLocal &&
       usuarioLocal.auth_user_id &&
-      String(usuarioLocal.auth_user_id) === String(authUser.id)
+      String(usuarioLocal.auth_user_id) === String(authUser.id) &&
+      !usuarioLocal._pendenteConfiguracao
     ) {
       appLogInfo("Perfil local já sincronizado");
       return usuarioLocal;
