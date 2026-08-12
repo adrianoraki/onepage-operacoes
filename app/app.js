@@ -410,11 +410,14 @@ async function montarPerfilFallbackApp(authUser) {
     return null;
   }
 
-  const acessoTotal = nivelStockflow === "master" || nivelStockflow === "regional";
-  const perfilOnepage =
-    nivelStockflow === "master" ? "master" : acessoTotal ? "admin" : "usuario";
+  // Master do StockFlow tem autoridade total (mesma regra do próprio
+  // StockFlow — master acessa tudo). Os demais, mesmo liberados pelo
+  // checkbox "onepage", só veem alguma coisa depois que o Master
+  // configurar especificamente em Configurações > Permissões OnePage
+  // (onepage.usuarios ainda não existe pra essa pessoa nesse ponto).
+  const ehMasterStockflow = nivelStockflow === "master";
 
-  const permissoes = acessoTotal
+  const permissoes = ehMasterStockflow
     ? {
         classes: todasClassesUpperApp(),
         subclasses: [],
@@ -428,7 +431,7 @@ async function montarPerfilFallbackApp(authUser) {
         pode_ver_comparativos: true,
         ignorar_loja_vinculada: true,
         permissao_visualizacao: "TODOS",
-        pode_gerenciar_funcoes: nivelStockflow === "master",
+        pode_gerenciar_funcoes: true,
         pode_gerenciar_usuarios: true,
         pode_ver_justificativas: true,
         pode_editar_semana_atual: true,
@@ -440,12 +443,12 @@ async function montarPerfilFallbackApp(authUser) {
         subclasses: [],
         indicadores: [],
         acesso_total: false,
-        pode_ver_analises: true,
+        pode_ver_analises: false,
         pode_ver_dashboard: false,
         pode_aprovar_ajustes: false,
         pode_atribuir_escopo: false,
         pode_ver_painel_ouro: false,
-        pode_ver_comparativos: true,
+        pode_ver_comparativos: false,
         ignorar_loja_vinculada: false,
         permissao_visualizacao: "NENHUMA",
         pode_gerenciar_funcoes: false,
@@ -463,9 +466,11 @@ async function montarPerfilFallbackApp(authUser) {
     sobrenome: "",
     email,
     matricula: "",
-    perfil: perfilOnepage,
+    perfil: ehMasterStockflow ? "master" : "usuario",
     funcao: "Usuário StockFlow",
     permissoes,
+    // sinaliza pro app mostrar o aviso de "acesso ainda não configurado"
+    _pendenteConfiguracao: !ehMasterStockflow,
 
     tipo_visao: "regional",
     loja_codigo: null,
@@ -476,8 +481,8 @@ async function montarPerfilFallbackApp(authUser) {
   };
 
   appLogWarn(
-    "Perfil não encontrado em onepage.usuarios. Espelhando nível do StockFlow",
-    { nivelStockflow, perfilOnepage, acessoTotal },
+    "Perfil não encontrado em onepage.usuarios. Usando perfil do StockFlow",
+    { nivelStockflow, pendente: perfilFallback._pendenteConfiguracao },
   );
 
   return perfilFallback;
@@ -2194,6 +2199,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 3) garante perfil local
   const perfilLocal = await garantirPerfilLocal(authUser);
   if (!perfilLocal) return;
+
+  // 3b) avisa se o Master ainda não configurou as permissões dessa pessoa
+  const avisoPendente = document.getElementById("avisoAcessoPendente");
+  if (avisoPendente) {
+    avisoPendente.hidden = !perfilLocal._pendenteConfiguracao;
+  }
 
   // 4) valida bootstrap dos arquivos de perfil
   validarBootstrapPerfil();

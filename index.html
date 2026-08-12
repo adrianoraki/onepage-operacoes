@@ -28,6 +28,14 @@
   <!-- Mobile: overlay para fechar o menu -->
   <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
+  <!-- Aviso: acesso liberado pelo StockFlow mas ainda sem indicadores
+       configurados pelo Master (ver app.js: usuario._pendenteConfiguracao) -->
+  <div id="avisoAcessoPendente" class="aviso-acesso-pendente" hidden>
+    <i class="fas fa-triangle-exclamation"></i>
+    Seu acesso ao OnePage ainda não foi configurado. Peça ao Master pra liberar
+    seus indicadores em Configurações &gt; Permissões OnePage no StockFlow.
+  </div>
+
   <div class="main_box">
     <!-- ✅ SIDEBAR DINÂMICO -->
     <div id="sidebar"></div>
