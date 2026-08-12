@@ -1499,8 +1499,9 @@ function montarMenuIndicadores() {
   let index = 0;
   let totalClassesMontadas = 0;
   let totalIndicadoresMontados = 0;
+  let secaoIndicadoresInserida = false;
 
-  
+
 const classesMenuApp = window.classesIndicadores || classesIndicadores || {};
 
 for (const classe in classesMenuApp) {
@@ -1517,6 +1518,18 @@ for (const classe in classesMenuApp) {
       continue;
     }
 
+    // Rótulo "Indicadores" separando essas classes da navegação principal
+    // (Análises, Painel de Ouro, Comparativos) — inserido só uma vez, e só
+    // se houver pelo menos uma classe liberada pra esse usuário.
+    if (!secaoIndicadoresInserida) {
+      const secao = document.createElement("li");
+      secao.classList.add("menu-secao-titulo");
+      secao.dataset.menuDinamico = "true";
+      secao.textContent = "Indicadores";
+      menu.appendChild(secao);
+      secaoIndicadoresInserida = true;
+    }
+
     const id = "classe_" + index;
 
     const icon = iconesClasse[classe] || "fa-folder";
@@ -1525,10 +1538,12 @@ for (const classe in classesMenuApp) {
     const liClasse = document.createElement("li");
     liClasse.classList.add("menu-classe");
     liClasse.dataset.menuDinamico = "true";
+    liClasse.dataset.submenuId = id;
 
     liClasse.innerHTML = `
       <i class="fas ${icon}" style="color:${cor}"></i>
       <span>${classe}</span>
+      <i class="fas fa-chevron-right menu-classe-caret"></i>
     `;
 
     liClasse.onclick = () => {
@@ -1589,8 +1604,14 @@ function toggleClasse(id) {
   document.querySelectorAll(".submenu").forEach((el) => {
     el.style.display = "none";
   });
+  document.querySelectorAll(".menu-classe.ativo").forEach((el) => {
+    el.classList.remove("ativo");
+  });
 
   submenu.style.display = aberto ? "none" : "block";
+  if (!aberto) {
+    document.querySelector(`.menu-classe[data-submenu-id="${id}"]`)?.classList.add("ativo");
+  }
 
   appLogInfo("Toggle submenu executado", {
     submenuId: id,

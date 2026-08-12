@@ -11,7 +11,7 @@
 }
 
 :root {
-  --sidebar-w: clamp(270px, 22vw, 340px); /* mesma largura atual */
+  --sidebar-w: clamp(228px, 18vw, 272px); /* mais estreita, mesma proporção responsiva */
   --footer-h: 34px;
 
   /* ---------- 🎨 Paleta soft light (compartilhada por todo o app) ---------- */
@@ -902,15 +902,37 @@ body.po-modo-ouro .app-header .ah-funcao { color: #a9822f; }
    permissões OnePage definidas pelo Master) */
 .aviso-acesso-pendente {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #fff4e0;
-  color: #8a5a10;
-  border-bottom: 1px solid #f0c987;
-  padding: 10px 18px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 14px 18px 0;
+  padding: 14px 16px;
+  background: #fffaf0;
+  border: 1px solid #f0d191;
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(180, 130, 20, 0.08);
 }
-.aviso-acesso-pendente i {
-  color: #d98c1f;
+.aviso-acesso-pendente-icone {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #fbcf6c, #e8a838);
+  color: #4a3000;
+  font-size: 14px;
+  box-shadow: 0 4px 10px rgba(212, 155, 33, 0.25);
+}
+.aviso-acesso-pendente-texto {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #7a5310;
+}
+.aviso-acesso-pendente-texto strong {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #5c3d0b;
+  margin-bottom: 2px;
 }

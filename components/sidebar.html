@@ -193,20 +193,62 @@
   }
 
   /* ==========================
-     🔥 CLASSES DINÂMICAS
+     🏷️ RÓTULO DE SEÇÃO
+     Separa visualmente a navegação principal (Análises, Painel de Ouro,
+     Comparativos) do grupo de classes de indicadores logo abaixo.
+  ========================== */
+  .menu-secao-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 6px 6px;
+    padding-top: 12px;
+    border-top: 1px solid var(--op-border, #e3e7ee);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--op-ink-muted, #8891a0);
+  }
+
+  /* ==========================
+     🔥 CLASSES (grupos de indicadores)
   ========================== */
   .menu-classe {
     font-weight: 700;
+    border: 1px solid transparent;
   }
 
+  .menu-classe-caret {
+    margin-left: auto;
+    font-size: 11px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    color: var(--op-ink-muted, #8891a0);
+    transition: transform 0.2s ease;
+  }
+
+  .menu-classe.ativo {
+    background: var(--op-surface-2, #f5f7fa);
+    border-color: var(--op-border, #e3e7ee);
+  }
+
+  .menu-classe.ativo .menu-classe-caret {
+    transform: rotate(90deg);
+    color: var(--op-accent, #2f6fe0);
+  }
+
+  /* ==========================
+     🔸 INDICADORES (subgrupo, dentro de cada classe)
+  ========================== */
   .submenu {
     display: none;
     margin: 2px 0 8px 0;
     padding: 0;
     list-style: none;
-    border-left: 1px solid var(--op-border, #e3e7ee);
-    margin-left: 14px;
-    padding-left: 6px;
+    border-left: 2px solid var(--op-border, #e3e7ee);
+    margin-left: 20px;
+    padding-left: 8px;
   }
 
   .submenu .submenu-item,
@@ -214,7 +256,7 @@
     position: relative;
     display: flex;
     align-items: center;
-    padding: 6px 10px 6px 30px;
+    padding: 7px 10px 7px 22px;
     margin: 2px 0;
     border-radius: 9px;
     font-size: 12px;
@@ -228,20 +270,27 @@
   .submenu li::before {
     content: "";
     position: absolute;
-    left: 14px;
+    left: 8px;
     top: 50%;
     transform: translateY(-50%);
-    width: 7px;
-    height: 7px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
-    background: #4caf50;
-    opacity: 0.9;
+    background: var(--op-ink-muted, #8891a0);
+    opacity: 0.7;
+    transition: background 0.2s ease, opacity 0.2s ease;
   }
 
   .submenu .submenu-item:hover,
   .submenu li:hover {
-    background: var(--op-surface-2, #f5f7fa);
-    color: var(--op-ink, #202a37);
+    background: var(--op-accent-soft, #eaf0fe);
+    color: var(--op-accent, #2f6fe0);
+  }
+
+  .submenu .submenu-item:hover::before,
+  .submenu li:hover::before {
+    background: var(--op-accent, #2f6fe0);
+    opacity: 1;
   }
 
   .submenu.ativo {
