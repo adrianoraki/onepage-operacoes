@@ -375,21 +375,39 @@ async function montarPerfilFallbackApp(authUser) {
 
   let nivelStockflow = null;
   let nomeStockflow = null;
+  let paginasPermitidas = [];
 
   try {
     const { data: perfilStockflow } = await supabaseClient
       .schema("public")
       .from("perfis")
-      .select("nivel, nome_exib, ativo")
+      .select("nivel, nome_exib, ativo, paginas_permitidas")
       .eq("id", authUser.id)
       .maybeSingle();
 
     if (perfilStockflow && perfilStockflow.ativo !== false) {
       nivelStockflow = (perfilStockflow.nivel || "").toLowerCase();
       nomeStockflow = perfilStockflow.nome_exib || null;
+      paginasPermitidas = Array.isArray(perfilStockflow.paginas_permitidas)
+        ? perfilStockflow.paginas_permitidas
+        : [];
     }
   } catch (erro) {
     appLogWarn("Não foi possível consultar o nível StockFlow para mesclar permissões", erro);
+  }
+
+  // Só entra quem o Master liberou explicitamente (paginas_permitidas
+  // inclui "onepage") — master do StockFlow acessa tudo por padrão,
+  // igual ao comportamento do próprio StockFlow (ver js/permissoes.js).
+  const temAcessoLiberado =
+    nivelStockflow === "master" || paginasPermitidas.includes("onepage");
+
+  if (!nivelStockflow || !temAcessoLiberado) {
+    appLogWarn("Acesso ao OnePage negado: StockFlow não liberou esta página", {
+      nivelStockflow,
+      paginasPermitidas,
+    });
+    return null;
   }
 
   const acessoTotal = nivelStockflow === "master" || nivelStockflow === "regional";
@@ -707,6 +725,14 @@ async function garantirPerfilLocal(authUser) {
         );
 
         const usuarioFallback = await montarPerfilFallbackApp(authUser);
+
+        if (!usuarioFallback) {
+          appLogWarn("Acesso ao OnePage negado — voltando pro StockFlow");
+          limparSessaoLocal();
+          window.location.replace("/index.html");
+          return null;
+        }
+
         setUsuarioLocal(usuarioFallback);
 
         return usuarioFallback;
